@@ -29,6 +29,8 @@ fileAssociations:
 mac:
   target: dmg
   category: public.app-category.productivity
+  # electron-builder 按平台换扩展名解析图标资源（mac 要 .icns，win 要 .ico 并存）
+  icon: build/icon.icns
 linux:
   target: AppImage
   category: Utility

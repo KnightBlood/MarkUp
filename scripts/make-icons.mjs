@@ -216,6 +216,33 @@ function encodePng(image) {
   ])
 }
 
+/** 多尺寸 PNG 打包成 ICNS（现代 macOS 容器支持内嵌 PNG chunk） */
+function buildIcns(entries) {
+  // macOS 的 icon type 与像素尺寸的对应（按需取子集）
+  const TYPES = [
+    { size: 16, type: 'icp4' },
+    { size: 32, type: 'icp5' },
+    { size: 64, type: 'icp6' },
+    { size: 128, type: 'ic07' },
+    { size: 256, type: 'ic08' },
+    { size: 512, type: 'ic09' },
+  ]
+  const chunks = []
+  for (const { size, type } of TYPES) {
+    const png = entries.get(size)
+    if (!png) continue
+    const header = Buffer.alloc(8)
+    header.write(type, 0, 4, 'ascii')
+    header.writeUInt32BE(png.length + 8, 4)
+    chunks.push(Buffer.concat([header, png]))
+  }
+  const body = Buffer.concat(chunks)
+  const total = Buffer.alloc(8)
+  total.write('icns', 0, 4, 'ascii')
+  total.writeUInt32BE(body.length + 8, 4)
+  return Buffer.concat([total, body])
+}
+
 /** 多尺寸 PNG 打包成 ICO（Vista+ 直接内嵌 PNG） */
 function buildIco(entries) {
   const header = Buffer.alloc(6)
@@ -279,3 +306,8 @@ const ico = buildIco(
 const icoName = `${prefix.replace(/-$/, '')}.ico`
 writeFileSync(join(outDir, icoName), ico)
 console.log(`${icoName}  ${(ico.length / 1024).toFixed(1)} KB (${ICO_SIZES.join('/')})`)
+
+const icns = buildIcns(written)
+const icnsName = `${prefix.replace(/-$/, '')}.icns`
+writeFileSync(join(outDir, icnsName), icns)
+console.log(`${icnsName}  ${(icns.length / 1024).toFixed(1)} KB (icns: 16/32/64/128/256/512)`)

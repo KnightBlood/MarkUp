@@ -140,8 +140,9 @@
 
 ### 品牌标识（应用图标 / 关联文档图标）
 - **记号**：一枚「M↓」——M 的中间顶点向下延伸成箭头，既是 Markup 首字母、也是 Markdown 的经典意象；满幅蓝底（`#4f8ef7 → #1263d4 → #0a3a9c` 渐变）保证无 alpha 的渲染管线也正确，小尺寸仍立得住
-- **交付物**（`artifacts/brand/`）：`icon-full.svg`（满幅，PNG/ICO 直接用）/ `icon-rounded.svg`（圆角透明，macOS 等需要 alpha 的场合）/ `icon-doc.svg`（文档：纸样 + 折角 + 蓝记号 + 两行正文示意）；每套导出 `icon-{16..512}.png` + `icon.ico`、`doc-{16..512}.png` + `doc.ico`；另有三版候选 `logo-a/b/c.svg` 与对比图 `preview.png` / `preview-icons.png`
-- **生成链**（零依赖、离线）：`artifacts/brand/render.html`（`?s=` 指定边长）由浏览器把 SVG 光栅化成母版截图 → `scripts/make-icons.mjs <master.png> <outDir> [cropSide] [keyHex] [prefix]` 用 `node:zlib` 自写 PNG 解码/面积重采样/编码并合成多尺寸 ICO；文档图标走「洋红底 + 色键抠底还原 alpha」（截图管线无 alpha，故用 `80ff00ff` 键 + 边缘反混合）
+- **交付物**（`artifacts/brand/`）：`icon-full.svg`（满幅，PNG/ICO 直接用）/ `icon-rounded.svg`（圆角透明，macOS 等需要 alpha 的场合）/ `icon-doc.svg`（文档：纸样 + 折角 + 蓝记号 + 两行正文示意）；每套导出 `icon-{16..512}.png` + `icon.ico` + `icon.icns`、`doc-{16..512}.png` + `doc.ico` + `doc.icns`；另有三版候选 `logo-a/b/c.svg` 与对比图 `preview.png` / `preview-icons.png`
+- **生成链**（零依赖、离线）：`artifacts/brand/render.html`（`?s=` 指定边长）由浏览器把 SVG 光栅化成母版截图 → `scripts/make-icons.mjs <master.png> <outDir> [cropSide] [keyHex] [prefix]` 用 `node:zlib` 自写 PNG 解码/面积重采样/编码并合成多尺寸 **ICO 与 ICNS**（ICNS 用现代容器内嵌 PNG chunk：icp4/5/6 + ic07/08/09）；文档图标走「洋红底 + 色键抠底还原 alpha」（截图管线无 alpha，故用 `ff00ff` 键 + 边缘反混合）
+- **坑**：electron-builder 的 `fileAssociations[].icon` 只有**一个**路径，但会按平台**换扩展名**解析（mac 上把 `build/doc.ico` 解析成 `build/doc.icns`，缺失即硬失败 `cannot find specified resource "build/doc.icns"`）→ 必须 `.ico` 与 `.icns` **并存**（本轮 mac CI 就是这么红的）
 - **接线（本轮）**：Electron `electron-builder.yml` 加 `win.icon: build/icon.ico` + `fileAssociations`（`.md`/`.markdown` → `build/doc.ico`，NSIS 安装后资源管理器显示文档图标、双击用 Markup 打开）；Tauri `bundle.icon` 换成 `icons/{32x32,128x128,128x128@2x,icon}.png + icons/icon.ico`（由本套资产拷入）；Wails `//go:embed build/appicon.png` + `application.Options.Icon`（窗口/关于框图标；exe 资源图标需 wails 工具链，本轮未跑）；web「index.html」链 `/favicon.svg`（= `icon-rounded.svg`）。已验证：从打包后的 `Markup.exe` 提取关联图标即本标记（`artifacts/brand/packaged-electron-icon.png`）
 
 ### 命令/菜单单一源（菜单数据驱动）

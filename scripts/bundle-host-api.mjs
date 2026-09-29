@@ -4,34 +4,48 @@
 // plus `package.json` — pnpm workspace packages are not present at runtime.
 // Placing the bundle at `dist/main/node_modules/@markup/host-api/index.js`
 // lets Node's upward lookup resolve it from `dist/main/src/main/main.js`.
-import { spawnSync } from 'node:child_process'
+//
+// Uses esbuild's **JS API** (resolved from the electron package) instead of the
+// `esbuild` CLI on PATH: the CLI is only reachable when the invoking script's
+// node_modules/.bin is on PATH, which holds locally under pnpm but not in CI
+// (`/bin/sh: esbuild: not found` on GitHub runners).
+import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const repo = resolve(here, '..')
-const outDir = resolve(repo, 'apps/electron/dist/main/node_modules/@markup/host-api')
+const appDir = resolve(repo, 'apps/electron')
+const outDir = resolve(appDir, 'dist/main/node_modules/@markup/host-api')
 mkdirSync(outDir, { recursive: true })
 
 const outfile = resolve(outDir, 'index.js')
-const command = [
-  'esbuild',
-  resolve(repo, 'packages/host-api/src/index.ts'),
-  '--bundle',
-  '--format=cjs',
-  '--platform=node',
-  '--target=node20',
-  `--outfile=${outfile}`,
-  '--log-level=warning',
-]
-  .map((part) => (/\s/.test(part) ? `"${part}"` : part))
-  .join(' ')
-const result = spawnSync(command, { stdio: 'inherit', shell: true })
-if (result.status !== 0) {
-  console.error('[electron] host-api bundling failed')
-  process.exit(result.status ?? 1)
+
+// Resolve esbuild from the electron app (pnpm's strict node_modules layout).
+const require = createRequire(resolve(appDir, 'package.json'))
+let esbuild
+try {
+  esbuild = require('esbuild')
+} catch (error) {
+  console.error('[electron] esbuild could not be resolved from apps/electron:', error)
+  process.exit(1)
 }
+
+await esbuild
+  .build({
+    entryPoints: [resolve(repo, 'packages/host-api/src/index.ts')],
+    bundle: true,
+    format: 'cjs',
+    platform: 'node',
+    target: 'node20',
+    outfile,
+    logLevel: 'warning',
+  })
+  .catch((error) => {
+    console.error('[electron] host-api bundling failed:', error)
+    process.exit(1)
+  })
 
 writeFileSync(
   resolve(outDir, 'package.json'),

@@ -52,7 +52,12 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/electron build
-      - run: pnpm --filter @markup/electron exec electron-builder --publish never
+      # AppImage tooling pulls extra Linux deps; `--dir` still validates the
+      # packaging config (icon/asar/main bundle) on the runner.
+      - if: runner.os == 'Linux'
+        run: pnpm --filter @markup/electron exec electron-builder --dir --publish never
+      - if: runner.os != 'Linux'
+        run: pnpm --filter @markup/electron exec electron-builder --publish never
 
   tauri:
     strategy:
@@ -67,6 +72,11 @@ jobs:
         with:
           node-version: 24
       - uses: dtolnay/rust-toolchain@stable
+      # Tauri v2 on Linux links GTK3 / WebKit2GTK 4.1 (runner image has no dev pkg).
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
@@ -88,6 +98,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+          # go.sum lives in the Go app, not the repo root (the action's default
+          # lookup warned "Dependencies file is not found" and skipped the cache).
+          cache-dependency-path: apps/wails/go.sum
+      # Wails v3 on Linux links GTK4 / WebKitGTK 6.0.
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile

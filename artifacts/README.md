@@ -123,7 +123,8 @@
 - **关闭窗口（本轮修）**：此前脏文档时窗口**关不掉**——`beforeunload` 在 Electron 家族 webview 里不会弹确认框，只会**静默取消关闭**（web 才弹浏览器原生框）。现改为：`host.window.confirmClose` 存在的壳（Electron）由主进程拦截 `close` → 发 `close-request` 事件 → 渲染层弹应用内对话框（`保存并关闭 / 直接关闭 / 取消`，有未命名文档时退化为 `直接关闭 / 取消` 并在文案里点明）→ 用户决定后 `confirmClose()` 真正关窗；`beforeunload` 仅在没有原生窗口的 **web** 壳注册；`刷新`（重载）同样先确认。Tauri/Wails 暂未实现 `confirmClose`（见已知问题）
 - **会话恢复**：`AppConfig.activeTab/openTabs` + `appearance.restoreSession`（设置 → 通用，默认开）；`restoreTab` 不夺焦、不写 recents；`dropBlankTab` 批量清空白标签；`restoreSession === false` 时停写
 - **标签行平齐**：`tabbar` 移入 `.shell-main` 列（`shell-body = [sidebar, shell-main(tabbar, editor)]`），`--tabrow-height: 34px` 同时作用于 `.tabbar` 与 `.sidebar__tabs`——文档标签与侧栏标签同高、同一条 1px 分隔线
-- **冒烟**：core `pm-tabs.mts`（新建/关闭/循环/重排/恢复/保存/空白守卫）+ ui `pm-q-tabs.mts`（渲染/选中/关闭/右键/拖拽重排）+ `pm-d` 断言 `restoreSession`
+- **最近文件（本轮修）**：`recentDocuments` 曾有两个写入方 —— DocStore 在打开/保存时「读配置 → 前置新路径 → 写回」，而 shell 的会话保存（`persistSession`，几乎每次文档变更都触发）会拿**启动时那份内存配置**整体覆盖，把刚写进去的最近列表冲掉（启动快照为空时等于直接清空，于是「最近打开文件」恒为空）。现由 DocStore 独占写入，并经 `onRecentsChange` 把结果**镜像回 shell 的内存配置**（`shell.ts` 注册回调时顺便刷新侧栏），会话保存再也回写不了旧值；冒烟 `pm-tabs` 新增 recents 镜像/去重断言，needle 加 `onRecentsChange` / `recentsListener` 两条接线断言
+- **冒烟**：core `pm-tabs.mts`（新建/关闭/循环/重排/恢复/保存/空白守卫/最近文件镜像）+ ui `pm-q-tabs.mts`（渲染/选中/关闭/右键/拖拽重排）+ `pm-d` 断言 `restoreSession`
 
 ### 菜单栏与右键菜单（Typora 对齐）
 - **菜单栏**（`packages/ui/src/ui/menuBar.ts`）：应用内 **7 节「文件 / 编辑 / 段落 / 格式 / 插入 / 视图 / 帮助」** 直接由 `menu.json` 数据驱动（`MENU_TEMPLATE` + `menuCommandIds()`），让没有系统菜单的 web 壳也拿到完整命令面；四种条目全部入行——命令（标签 + registry 快捷键，用户改绑实时反映）/ 复选（`file.autoSave`，状态由 `isChecked` 提供，点击跑 on/off 命令）/ 宿主动作（quit/reload，缺 handler 即禁用）/ 分隔符；下拉复用 contextMenu 基元（flyout、Escape、视口钳制、240ms hover 宽限全免费）；已开菜单时 hover 其他节直接切换（`pointerdown` 先记 `pressed`，规避「菜单外部点击先关、click 再开」的竞态）

@@ -1,0 +1,56 @@
+.md-diagram {
+  margin: 8px 0;
+}
+
+.md-diagram-hidden {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  margin-block: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.md-diagram__source {
+  font-family: var(--mk-mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  background: var(--mk-code-bg, #f6f8fa);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.md-diagram[data-rendered] > .md-diagram__source {
+  display: none;
+}
+
+.md-diagram--error > .md-diagram__source {
+  border-color: var(--mk-bad, #d64545);
+}
+
+.md-diagram__canvas {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  min-height: 0;
+}
+
+.md-diagram__canvas:empty {
+  display: none;
+}
+
+.md-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}

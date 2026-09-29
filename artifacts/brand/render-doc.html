@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Markup 文档图标 render</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        /* 洋红底：截图无 alpha，用色键抠出来（scripts/make-icons.mjs --key ff00ff） */
+        background: #ff00ff;
+      }
+      img {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="icon-doc.svg" alt="Markup document" />
+    <script>
+      const size = Number(new URLSearchParams(location.search).get('s') || 1024)
+      const img = document.querySelector('img')
+      img.style.width = size + 'px'
+      img.style.height = size + 'px'
+      document.body.style.width = size + 'px'
+      document.body.style.height = size + 'px'
+    </script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "id": "toc",
+  "name": "目录生成",
+  "version": "1.0.0",
+  "description": "在文档中生成/更新/移除 TOC 目录块（<!-- toc --> 标记，GitHub 风格锚点）",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

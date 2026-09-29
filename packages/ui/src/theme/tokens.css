@@ -1,0 +1,78 @@
+:root {
+  color-scheme: light dark;
+
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-raise: #ffffff;
+  --fg: #24292f;
+  --fg-muted: #6e7781;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --accent-fg: #ffffff;
+  --ok: #1a7f37;
+  --bad: #cf222e;
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-editor: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --font-size: 14px;
+  --editor-line-width: 780px;
+
+  --mk-font-size: var(--font-size);
+  --mk-text: var(--fg);
+  --mk-text-dim: var(--fg-muted);
+  --mk-accent: var(--accent);
+  --mk-code-bg: var(--bg-soft);
+  --mk-border: var(--border);
+  --mk-mono: var(--font-editor);
+  --mk-bad: var(--bad);
+
+  --titlebar-height: 44px;
+  --statusbar-height: 26px;
+  --sidebar-width: 240px;
+  /* Sidebar tabs and document tabs share one row — one height, one rule. */
+  --tabrow-height: 34px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --bg-raise: #1c2128;
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --border: #30363d;
+    --accent: #4493f8;
+    --ok: #3fb950;
+    --bad: #f85149;
+  }
+}
+
+.theme-dark {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --bg-soft: #161b22;
+  --bg-raise: #1c2128;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --border: #30363d;
+  --accent: #4493f8;
+  --ok: #3fb950;
+  --bad: #f85149;
+}
+
+.theme-light {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-raise: #ffffff;
+  --fg: #24292f;
+  --fg-muted: #6e7781;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --ok: #1a7f37;
+  --bad: #cf222e;
+}
+
+.theme-custom {
+  color-scheme: light dark;
+}

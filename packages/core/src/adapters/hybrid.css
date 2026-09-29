@@ -1,0 +1,30 @@
+.adapter-hybrid {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.adapter-hybrid .cm-editor {
+  height: 100%;
+  font-size: var(--mk-font-size, 15px);
+}
+
+.adapter-hybrid .cm-scroller {
+  font-family: var(--mk-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  line-height: 1.6;
+  padding: 12px 16px;
+}
+
+.adapter-hybrid .cm-editor.cm-focused {
+  outline: none;
+}
+
+.adapter-hybrid .cm-conceal {
+  display: inline-block;
+  white-space: pre;
+  user-select: none;
+}
+
+.adapter-hybrid .cm-activeLine {
+  background: transparent;
+}

@@ -1,0 +1,8 @@
+{
+  "id": "text-toolbox",
+  "name": "文本工具箱",
+  "version": "1.0.0",
+  "description": "大小写/行空白/去重行/行排序/列表重编号/弯引号——有选区变换选区，无选区变换全文",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

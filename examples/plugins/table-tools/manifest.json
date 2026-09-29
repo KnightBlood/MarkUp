@@ -1,0 +1,8 @@
+{
+  "id": "table-tools",
+  "name": "表格工具",
+  "version": "1.0.0",
+  "description": "CSV ↔ Markdown 表格互转（对话框读写文件）+ 选区表格复制为富文本（text/html）",
+  "permissions": ["document", "fs", "dialog"],
+  "engines": { "hostApi": 1 }
+}

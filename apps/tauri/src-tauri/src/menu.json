@@ -1,0 +1,153 @@
+{
+  "menu": [
+    {
+      "label": "文件",
+      "items": [
+        { "kind": "command", "id": "file.open", "label": "打开文件…" },
+        { "kind": "command", "id": "file.openFolder", "label": "打开文件夹…" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "file.new", "label": "新建标签页" },
+        { "kind": "command", "id": "tab.close", "label": "关闭标签页" },
+        { "kind": "command", "id": "tab.closeOthers", "label": "关闭其他标签页" },
+        { "kind": "command", "id": "tab.closeAll", "label": "关闭所有标签页" },
+        { "kind": "command", "id": "tab.closeSaved", "label": "关闭已保存的标签页" },
+        { "kind": "command", "id": "tab.next", "label": "下一个标签页" },
+        { "kind": "command", "id": "tab.prev", "label": "上一个标签页" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "file.save", "label": "保存" },
+        { "kind": "command", "id": "file.saveAs", "label": "另存为…" },
+        { "kind": "command", "id": "file.quickOpen", "label": "快速打开" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "file.exportHtml", "label": "导出 HTML…" },
+        { "kind": "command", "id": "file.exportPdf", "label": "导出 PDF…" },
+        { "kind": "command", "id": "file.print", "label": "打印…" },
+        { "kind": "separator" },
+        {
+          "kind": "checkbox",
+          "id": "file.autoSave",
+          "label": "自动保存",
+          "on": "file.autoSaveOn",
+          "off": "file.autoSaveOff"
+        },
+        { "kind": "separator" },
+        { "kind": "command", "id": "settings.open", "label": "偏好设置…" },
+        { "kind": "action", "id": "quit", "label": "退出", "accelerator": "CmdOrCtrl+Q" }
+      ]
+    },
+    {
+      "label": "编辑",
+      "items": [
+        { "kind": "command", "id": "edit.find", "label": "查找" },
+        { "kind": "command", "id": "edit.replace", "label": "替换" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "edit.cut", "label": "剪切" },
+        { "kind": "command", "id": "edit.copy", "label": "复制" },
+        { "kind": "command", "id": "edit.paste", "label": "粘贴" },
+        { "kind": "command", "id": "edit.delete", "label": "删除" },
+        { "kind": "command", "id": "edit.selectAll", "label": "全选" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "edit.copyAsMarkdown", "label": "复制为 Markdown" },
+        { "kind": "command", "id": "edit.copyAsHtml", "label": "复制为 HTML 代码" },
+        { "kind": "command", "id": "edit.copyAsText", "label": "复制为纯文本" },
+        { "kind": "command", "id": "edit.pasteAsPlainText", "label": "粘贴为纯文本" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "palette.toggle", "label": "命令面板" },
+        { "kind": "command", "id": "search.global", "label": "全局搜索" }
+      ]
+    },
+    {
+      "label": "段落",
+      "items": [
+        { "kind": "command", "id": "format.h1", "label": "一级标题" },
+        { "kind": "command", "id": "format.h2", "label": "二级标题" },
+        { "kind": "command", "id": "format.h3", "label": "三级标题" },
+        { "kind": "command", "id": "format.h4", "label": "四级标题" },
+        { "kind": "command", "id": "format.h5", "label": "五级标题" },
+        { "kind": "command", "id": "format.h6", "label": "六级标题" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "format.plain", "label": "正文" },
+        { "kind": "command", "id": "format.quote", "label": "引用" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "format.ordered", "label": "有序列表" },
+        { "kind": "command", "id": "format.bullet", "label": "无序列表" },
+        { "kind": "command", "id": "format.task", "label": "任务列表" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "insert.table", "label": "表格" },
+        { "kind": "command", "id": "format.codeBlock", "label": "代码块" },
+        { "kind": "command", "id": "insert.formula", "label": "公式块" },
+        { "kind": "command", "id": "insert.formula.inline", "label": "行内公式" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "insert.hr", "label": "水平分割线" },
+        { "kind": "command", "id": "insert.footnote", "label": "脚注" }
+      ]
+    },
+    {
+      "label": "格式",
+      "items": [
+        { "kind": "command", "id": "format.bold", "label": "加粗" },
+        { "kind": "command", "id": "format.italic", "label": "斜体" },
+        { "kind": "command", "id": "format.inlineCode", "label": "行内代码" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "format.link", "label": "超链接…" }
+      ]
+    },
+    {
+      "label": "插入",
+      "items": [
+        { "kind": "command", "id": "insert.image", "label": "图片…" },
+        { "kind": "command", "id": "insert.diagram", "label": "流程图…" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "insert.model", "label": "3D 模型…" },
+        { "kind": "command", "id": "insert.video", "label": "视频…" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "insert.mindmap", "label": "脑图" },
+        { "kind": "command", "id": "insert.xmind", "label": "XMind 脑图…" },
+        { "kind": "command", "id": "insert.drawio", "label": "Draw.io 图表…" },
+        { "kind": "command", "id": "insert.plantuml", "label": "PlantUML 图" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "insert.file", "label": "文件预览…" }
+      ]
+    },
+    {
+      "label": "视图",
+      "items": [
+        { "kind": "command", "id": "view.wysiwyg", "label": "实时预览" },
+        { "kind": "command", "id": "view.source", "label": "分屏" },
+        { "kind": "command", "id": "view.hybrid", "label": "源码" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "view.sidebarOutline", "label": "大纲" },
+        { "kind": "command", "id": "view.sidebarFiles", "label": "文件" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "view.typewriter", "label": "切换打字机模式" },
+        { "kind": "command", "id": "view.focusMode", "label": "切换专注模式" },
+        { "kind": "command", "id": "view.lineNumbers", "label": "切换行号" },
+        { "kind": "command", "id": "view.showStats", "label": "切换字数统计" },
+        { "kind": "separator" },
+        { "kind": "command", "id": "settings.appearance", "label": "外观设置…" },
+        { "kind": "command", "id": "settings.keys", "label": "快捷键设置…" },
+        { "kind": "command", "id": "theme.toggle", "label": "切换主题" },
+        { "kind": "action", "id": "reload", "label": "重新加载", "accelerator": "CmdOrCtrl+R" }
+      ]
+    },
+    {
+      "label": "帮助",
+      "items": [
+        { "kind": "command", "id": "host.status", "label": "HostAPI 平台信息" },
+        { "kind": "separator" },
+        { "kind": "action", "id": "devtools", "label": "开发者工具", "accelerator": "CmdOrCtrl+Shift+I" }
+      ]
+    }
+  ],
+  "globalShortcuts": [
+    {
+      "commandId": "theme.toggle",
+      "accelerator": "CommandOrControl+Shift+T",
+      "wailsAccelerator": "CmdOrCtrl+Shift+T"
+    },
+    {
+      "commandId": "file.openFolder",
+      "accelerator": "CommandOrControl+Shift+O",
+      "wailsAccelerator": "CmdOrCtrl+Shift+O"
+    }
+  ]
+}

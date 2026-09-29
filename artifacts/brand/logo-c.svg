@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Markup">
+  <!--
+    Markup 标识 · 方案 C「M + 光标」
+    实心 M（中间的 V 收成尖角）+ 右侧文字光标：编辑器语义，对比度最高。
+  -->
+  <defs>
+    <linearGradient id="c-bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#3b82f6" />
+      <stop offset="0.55" stop-color="#1263d4" />
+      <stop offset="1" stop-color="#0b3fa8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="url(#c-bg)" />
+
+  <!-- 实心 M -->
+  <path
+    fill="#ffffff"
+    d="M104 376V146h70l82 118 82-118h70v230h-62V236l-90 128-90-128v140z"
+  />
+
+  <!-- 光标 -->
+  <rect x="404" y="170" width="28" height="172" rx="14" fill="#bfdbfe" />
+</svg>

@@ -1,0 +1,25 @@
+{
+  "name": "@markup/tauri-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 1420 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "tauri": "tauri",
+    "tauri:build": "node ../../../scripts/sync-menu.mjs && cd ../src-tauri && tauri build --no-bundle",
+    "tauri:dev": "cd ../src-tauri && tauri dev"
+  },
+  "dependencies": {
+    "@markup/host-api": "workspace:*",
+    "@markup/ui": "workspace:*",
+    "@tauri-apps/api": "2.11.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  }
+}

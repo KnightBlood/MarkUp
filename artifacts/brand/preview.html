@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Markup 标识候选</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font: 13px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 28px;
+        background: #10141c;
+        color: #cbd5e1;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      p.note {
+        margin: 0 0 22px;
+        color: #7c8899;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .card {
+        border: 1px solid #232a36;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #161b24;
+      }
+      .card h2 {
+        margin: 0;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 1px solid #232a36;
+        background: #1b212c;
+      }
+      .hero {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 16px;
+      }
+      .hero img {
+        width: 132px;
+        height: 132px;
+      }
+      .strip {
+        display: flex;
+        align-items: flex-end;
+        gap: 18px;
+        padding: 14px 16px;
+        border-top: 1px solid #232a36;
+      }
+      .strip figure {
+        margin: 0;
+        text-align: center;
+      }
+      .strip img {
+        display: block;
+        margin: 0 auto 4px;
+      }
+      .strip figcaption {
+        font-size: 11px;
+        color: #6b7686;
+      }
+      .ondark {
+        background: #0b0e14;
+      }
+      .onlight {
+        background: #f6f8fb;
+        color: #334155;
+      }
+      .onlight figcaption {
+        color: #7c8899;
+      }
+      .onlight {
+        padding: 14px 16px;
+        border-top: 1px solid #232a36;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Markup 标识 · 三版候选</h1>
+    <p class="note">
+      每版都给了 132 / 48 / 32 / 16 四档，看小尺寸是否还立得住；深色底为主，最后一行是浅色底。
+    </p>
+    <div class="grid">
+      <section class="card">
+        <h2>A · M↓（推荐）</h2>
+        <div class="hero ondark"><img src="logo-a.svg" alt="方案 A" /></div>
+        <div class="strip ondark">
+          <figure><img src="logo-a.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-a.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-a.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+        <div class="strip onlight">
+          <figure><img src="logo-a.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-a.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-a.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>B · 文档 + #</h2>
+        <div class="hero ondark"><img src="logo-b.svg" alt="方案 B" /></div>
+        <div class="strip ondark">
+          <figure><img src="logo-b.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-b.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-b.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+        <div class="strip onlight">
+          <figure><img src="logo-b.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-b.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-b.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>C · M + 光标</h2>
+        <div class="hero ondark"><img src="logo-c.svg" alt="方案 C" /></div>
+        <div class="strip ondark">
+          <figure><img src="logo-c.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-c.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-c.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+        <div class="strip onlight">
+          <figure><img src="logo-c.svg" width="48" height="48" /><figcaption>48</figcaption></figure>
+          <figure><img src="logo-c.svg" width="32" height="32" /><figcaption>32</figcaption></figure>
+          <figure><img src="logo-c.svg" width="16" height="16" /><figcaption>16</figcaption></figure>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,176 @@
+.md-embed {
+  margin: 8px 0;
+  position: relative;
+}
+
+.md-embed-hidden {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  margin-block: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.md-embed__source {
+  font-family: var(--mk-mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  background: var(--mk-code-bg, #f6f8fa);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.md-embed[data-rendered] > .md-embed__source {
+  display: none;
+}
+
+.md-embed--error > .md-embed__source {
+  border-color: var(--mk-bad, #d64545);
+}
+
+.md-embed--error > .md-embed__canvas {
+  display: none;
+}
+
+.md-embed__canvas {
+  min-height: 0;
+}
+
+.md-embed__canvas:empty {
+  display: none;
+}
+
+.md-embed__video {
+  display: block;
+  max-width: 100%;
+  max-height: 440px;
+  background: #000;
+  border-radius: 6px;
+}
+
+.md-embed model-viewer {
+  display: block;
+  width: 100%;
+  height: 360px;
+  background: var(--mk-code-bg, #f6f8fa);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+  --poster-color: transparent;
+}
+
+.md-embed[data-embed='mindmap'] .md-embed__canvas,
+.md-embed[data-embed='xmind'] .md-embed__canvas {
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.md-embed[data-embed='mindmap'] .md-embed__canvas {
+  height: 360px;
+}
+
+.md-embed__mindmap {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.md-embed__xmind-sheet {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 10px 2px;
+  color: var(--mk-fg-muted, #57606a);
+}
+
+.md-embed__xmind-sheet + .md-embed__mindmap {
+  height: 300px;
+}
+
+.md-embed__drawio {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  overflow: auto;
+  background: var(--mk-bg, #fff);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.md-embed__drawio > svg {
+  display: block;
+  max-width: none;
+}
+
+.md-embed__plantuml {
+  overflow: auto;
+  padding: 8px;
+  background: var(--mk-bg, #fff);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.md-embed__plantuml svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.md-embed[data-embed='file'] .md-embed__canvas {
+  height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+}
+
+.md-embed__file {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Widget hover toolbar: 放大 / 编辑 */
+.md-embed__bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.md-embed:hover > .md-embed__bar,
+.md-embed:focus-within > .md-embed__bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.md-embed__btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--mk-border, #d0d7de);
+  background: var(--mk-bg, #fff);
+  color: var(--mk-fg, #1f2328);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.md-embed__btn:hover {
+  background: var(--mk-code-bg, #f6f8fa);
+}

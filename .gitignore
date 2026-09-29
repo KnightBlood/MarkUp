@@ -1,0 +1,39 @@
+node_modules/
+dist/
+out/
+release/
+target/
+
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+.vite/
+coverage/
+
+apps/wails/frontend/dist/
+apps/tauri/frontend/dist/
+apps/tauri/src-tauri/target/
+apps/tauri/src-tauri/gen/
+
+*.exe
+*.dll
+*.pdb
+
+# ---- 打包产物 / 本地构建输出 ----
+# artifacts/ 是构建产物镜像（约 1.2GB）；只保留文档与图标资产
+artifacts/*
+!artifacts/README.md
+!artifacts/brand/
+
+# dev 期由 vite 插件拷贝的 file-viewer 全量资产（构建时重新生成）
+apps/web/public/file-viewer/
+apps/*/frontend/public/file-viewer/
+apps/electron/public/file-viewer/
+
+# 参考项目（第三方源码，仅本地对照）
+参考项目/
+
+# 构建/调试日志
+*-debug.log

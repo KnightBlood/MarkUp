@@ -1,0 +1,7 @@
+{
+  "id": "template-library",
+  "name": "模板库",
+  "version": "1.0.0",
+  "description": "常用 Markdown 模板：侧栏「模板」页浏览、点击复制到剪贴板，命令面板可直接调用",
+  "engines": { "hostApi": 1 }
+}

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Markup">
+  <!--
+    Markup 图标 · 满幅版（渐变铺满整个画布）
+    没有透明通道的导出（PNG/ICO 截图管线）也正确：角落不会有白底。
+    Windows 直接可用；需要圆角的平台用 icon-rounded.svg。
+  -->
+  <defs>
+    <linearGradient id="mk-bg-full" x1="0.1" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#4f8ef7" />
+      <stop offset="0.5" stop-color="#1263d4" />
+      <stop offset="1" stop-color="#0a3a9c" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#mk-bg-full)" />
+
+  <g
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="46"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M128 352V170l128 130 128-130v182" />
+    <path d="M256 296v92" />
+    <path d="M202 338l54 56 54-56" />
+  </g>
+</svg>

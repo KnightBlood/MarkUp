@@ -1,0 +1,8 @@
+{
+  "id": "daily-note",
+  "name": "日记",
+  "version": "1.0.0",
+  "description": "一键打开/创建当日日记（日记/YYYY-MM-DD.md），侧栏列出全部日记，设置页选文件夹与模板",
+  "permissions": ["document", "fs", "dialog"],
+  "engines": { "hostApi": 1 }
+}

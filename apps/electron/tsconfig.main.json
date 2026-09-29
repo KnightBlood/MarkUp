@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "noEmit": false,
+    "outDir": "dist/main",
+    "rootDir": ".",
+    "sourceMap": true
+  },
+  "include": ["src/main", "src/preload", "shared"]
+}

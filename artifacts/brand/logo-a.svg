@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Markup">
+  <!--
+    Markup 标识 · 方案 A「M↓」
+    M 的中间顶点向下延伸成箭头：既是 Markup 的首字母，也是 Markdown 的经典意象。
+    单一主体、笔画粗、圆角，16px 仍可辨认；圆角方块底 = 直接可用作应用图标。
+  -->
+  <defs>
+    <linearGradient id="a-bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#3b82f6" />
+      <stop offset="0.55" stop-color="#1263d4" />
+      <stop offset="1" stop-color="#0b3fa8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="url(#a-bg)" />
+
+  <g
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="46"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <!-- M -->
+    <path d="M132 358V172l124 128 124-128v186" />
+    <!-- 中顶点向下的箭头杆 -->
+    <path d="M256 300v92" />
+    <!-- 箭头 -->
+    <path d="M206 350l50 52 50-52" />
+  </g>
+</svg>

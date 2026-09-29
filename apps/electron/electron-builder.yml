@@ -1,0 +1,34 @@
+appId: dev.markup.editor
+productName: Markup
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+asar: true
+# Runtime deps are bundled into renderer/main; all package deps are devDependencies.
+npmRebuild: false
+nodeGypRebuild: false
+win:
+  target: nsis
+  executableName: Markup
+  # 应用图标（artifacts/brand/icon.ico 的来源见 README「品牌标识」）
+  icon: build/icon.ico
+# .md 关联：安装后双击 Markdown 用 Markup 打开，资源管理器里显示文档图标。
+fileAssociations:
+  - ext: md
+    name: Markdown
+    description: Markdown document
+    icon: build/doc.ico
+    role: Editor
+  - ext: markdown
+    name: Markdown
+    description: Markdown document
+    icon: build/doc.ico
+    role: Editor
+mac:
+  target: dmg
+  category: public.app-category.productivity
+linux:
+  target: AppImage
+  category: Utility

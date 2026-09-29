@@ -1,0 +1,8 @@
+{
+  "id": "link-checker",
+  "name": "链接检查",
+  "version": "1.0.0",
+  "description": "检查文档中的 http(s) 链接死活（HEAD→GET 降级、并发 4、超时 8s），结果通知 + 文档尾注释报告",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

@@ -1,0 +1,219 @@
+.md-math {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.md-math--error {
+  color: var(--mk-bad, #cf222e);
+  font-family: var(--mk-mono, monospace);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.md-math--widget {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background 0.12s ease;
+}
+
+.md-math--widget:hover {
+  background: color-mix(in srgb, var(--mk-accent, #4285f4) 12%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--mk-accent, #4285f4) 35%, transparent);
+}
+
+.md-math--inline-widget {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.md-math--inline-widget:hover {
+  background: color-mix(in srgb, var(--mk-accent, #4285f4) 14%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--mk-accent, #4285f4) 35%, transparent);
+}
+
+.adapter-wysiwyg .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.adapter-wysiwyg .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6em 0;
+  overflow: hidden;
+}
+
+.adapter-wysiwyg .ProseMirror th,
+.adapter-wysiwyg .ProseMirror td {
+  border: 1px solid var(--mk-border, #d0d7de);
+  padding: 6px 10px;
+  min-width: 3em;
+  position: relative;
+}
+
+.adapter-wysiwyg .ProseMirror th {
+  background: var(--mk-code-bg, #f6f8fa);
+  font-weight: 600;
+  text-align: left;
+}
+
+.adapter-wysiwyg .ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--mk-accent, #4285f4) 22%, transparent);
+  pointer-events: none;
+}
+
+.adapter-wysiwyg .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 20;
+  background: var(--mk-accent, #4285f4);
+  pointer-events: none;
+}
+
+.adapter-wysiwyg .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+.md-frontmatter {
+  background: var(--mk-code-bg, #f6f8fa);
+  border: 1px dashed var(--mk-border, #d0d7de);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: var(--mk-mono, monospace);
+  font-size: 0.85em;
+  color: var(--mk-text-dim, #57606a);
+  white-space: pre-wrap;
+  margin: 0.4em 0 0.8em;
+}
+
+.adapter-wysiwyg {
+  position: relative;
+}
+
+.table-toolbar {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--mk-surface, #fff);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.table-toolbar__btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mk-text, #24292f);
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.table-toolbar__btn:hover {
+  background: var(--mk-code-bg, #f6f8fa);
+  border-color: var(--mk-border, #d0d7de);
+}
+
+.table-toolbar__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.table-toolbar__btn:disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.table-toolbar__btn[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--mk-accent, #4285f4) 16%, transparent);
+  border-color: var(--mk-accent, #4285f4);
+}
+
+.table-toolbar__sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px;
+  background: var(--mk-border, #d0d7de);
+}
+
+.table-toolbar__picker,
+.table-toolbar__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  z-index: 31;
+  background: var(--mk-surface, #fff);
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 16%);
+}
+
+.table-toolbar__picker {
+  display: grid;
+  grid-template-columns: repeat(8, 18px);
+  gap: 3px;
+  padding: 6px;
+}
+
+.table-toolbar__cell {
+  appearance: none;
+  width: 18px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--mk-border, #d0d7de);
+  border-radius: 2px;
+  background: var(--mk-bg, #fff);
+  cursor: pointer;
+}
+
+.table-toolbar__cell:hover,
+.table-toolbar__cell.is-active {
+  background: color-mix(in srgb, var(--mk-accent, #4285f4) 35%, transparent);
+  border-color: var(--mk-accent, #4285f4);
+}
+
+.table-toolbar__menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 132px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.table-toolbar__menu-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--mk-text, #24292f);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.table-toolbar__menu-item:hover:not(:disabled) {
+  background: var(--mk-code-bg, #f6f8fa);
+}
+
+.table-toolbar__menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

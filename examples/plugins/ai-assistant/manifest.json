@@ -1,0 +1,8 @@
+{
+  "id": "ai-assistant",
+  "name": "AI 助手",
+  "version": "1.0.0",
+  "description": "调用 OpenAI 兼容接口润色/问答——设置 → AI 页配置 API Key、Base URL、模型（存 localStorage）",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

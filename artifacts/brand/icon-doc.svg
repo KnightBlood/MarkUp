@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Markup 文档">
+  <!--
+    Markup 关联文档图标（.md）
+    竖版纸样 + 折角 + 中央「M↓」标记 + 两行示意文字。
+    四周透明（导出用色键抠底还原 alpha）。
+  -->
+  <defs>
+    <linearGradient id="doc-sheet" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#eaf1ff" />
+    </linearGradient>
+    <linearGradient id="doc-mark" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3b82f6" />
+      <stop offset="0.6" stop-color="#1263d4" />
+      <stop offset="1" stop-color="#0b3fa8" />
+    </linearGradient>
+  </defs>
+
+  <!-- 纸 -->
+  <path
+    d="M138 56h170l96 96v274a30 30 0 0 1-30 30H138a30 30 0 0 1-30-30V86a30 30 0 0 1 30-30z"
+    fill="url(#doc-sheet)"
+    stroke="#c3d4f0"
+    stroke-width="8"
+    stroke-linejoin="round"
+  />
+  <!-- 折角 -->
+  <path d="M308 56l96 96h-96z" fill="#cfdffb" />
+
+  <!-- M↓ 标记 -->
+  <g
+    transform="translate(120.3 98.5) scale(0.53)"
+    fill="none"
+    stroke="url(#doc-mark)"
+    stroke-width="46"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M128 352V170l128 130 128-130v182" />
+    <path d="M256 296v92" />
+    <path d="M202 338l54 56 54-56" />
+  </g>
+
+  <!-- 正文示意 -->
+  <g fill="#cfdffb">
+    <rect x="160" y="366" width="192" height="18" rx="9" />
+    <rect x="160" y="402" width="132" height="18" rx="9" />
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/web
+  - apps/electron
+  - apps/tauri/frontend
+  - apps/wails/frontend
+
+onlyBuiltDependencies:
+  - esbuild
+  - electron

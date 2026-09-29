@@ -1,0 +1,20 @@
+.adapter-source {
+  height: 100%;
+  min-height: 0;
+}
+
+.adapter-source .overtype,
+.adapter-source .overtype-container {
+  height: 100%;
+}
+/* Image thumbnails stay inside one line box: the invisible-textarea overlay
+   aligns preview rows to raw source rows (one logical line = one row). */
+.adapter-source .overtype-preview .source-image {
+  height: 1.6em;
+  height: 1lh;
+  width: auto;
+  max-width: 30em;
+  object-fit: contain;
+  vertical-align: text-bottom;
+  border-radius: 3px;
+}

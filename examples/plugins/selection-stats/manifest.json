@@ -1,0 +1,8 @@
+{
+  "id": "selection-stats",
+  "name": "选区统计",
+  "version": "1.0.0",
+  "description": "状态栏显示当前选区的字符/词/行数（无选区时移除条目）",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Markup icon render</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #0a3a9c;
+      }
+      img {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="icon-full.svg" alt="Markup" />
+    <script>
+      // ?s=1024 → 以该边长光栅化（浏览器按矢量渲染，再截图当母版）
+      const size = Number(new URLSearchParams(location.search).get('s') || 1024)
+      const img = document.querySelector('img')
+      img.style.width = size + 'px'
+      img.style.height = size + 'px'
+      document.body.style.width = size + 'px'
+      document.body.style.height = size + 'px'
+    </script>
+  </body>
+</html>

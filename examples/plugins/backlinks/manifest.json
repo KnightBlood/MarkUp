@@ -1,0 +1,8 @@
+{
+  "id": "backlinks",
+  "name": "反向链接",
+  "version": "1.0.0",
+  "description": "侧栏显示当前文档的反向链接（[[双链]] 谁引用了它）与标签索引，扫描整个工作区",
+  "permissions": ["document", "fs"],
+  "engines": { "hostApi": 1 }
+}

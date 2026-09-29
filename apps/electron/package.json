@@ -1,0 +1,25 @@
+{
+  "name": "@markup/electron",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main/src/main/main.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "build:main": "node ../../scripts/sync-menu.mjs && tsc -p tsconfig.main.json && node ../../scripts/bundle-host-api.mjs",
+    "build": "corepack pnpm build:renderer && corepack pnpm build:main",
+    "start": "electron .",
+    "dev": "corepack pnpm build && electron .",
+    "dist": "corepack pnpm build && electron-builder --dir"
+  },
+  "devDependencies": {
+    "@markup/core": "workspace:*",
+    "@markup/host-api": "workspace:*",
+    "@markup/ui": "workspace:*",
+    "@types/node": "24.13.6",
+    "electron": "44.4.4",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "ai-tools",
+  "name": "AI 翻译摘要",
+  "version": "1.0.0",
+  "description": "选区翻译（中↔英）与摘要，复用 AI 助手插件的 API 配置（设置 → AI）",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

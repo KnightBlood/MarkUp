@@ -1,0 +1,85 @@
+.adapter-wysiwyg {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.adapter-wysiwyg .ProseMirror {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 20px 28px;
+  outline: none;
+  line-height: 1.7;
+  font-size: var(--mk-font-size, 16px);
+  color: var(--mk-text, #1f2328);
+  caret-color: var(--mk-accent, #4285f4);
+}
+
+.adapter-wysiwyg .ProseMirror > * + * {
+  margin-block-start: 0.6em;
+}
+
+.adapter-wysiwyg .ProseMirror pre {
+  background: var(--mk-code-bg, #f6f8fa);
+  border-radius: 6px;
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+
+.adapter-wysiwyg .ProseMirror blockquote {
+  border-left: 3px solid var(--mk-accent, #4285f4);
+  padding-left: 12px;
+  margin-inline: 0;
+  color: var(--mk-text-dim, #57606a);
+}
+
+/* GFM task list. Milkdown renders `li[data-item-type="task"]` with no widget
+   of its own (the checkbox is theme-supplied), so draw it here and let
+   `taskCheckboxPlugin` make the box clickable. */
+.adapter-wysiwyg .ProseMirror li[data-item-type='task'] {
+  list-style: none;
+  position: relative;
+  padding-inline-start: 26px;
+}
+
+.adapter-wysiwyg .ProseMirror li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.34em;
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--mk-border, #d0d7de);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.adapter-wysiwyg .ProseMirror li[data-item-type='task']:hover::before {
+  border-color: var(--mk-accent, #4285f4);
+}
+
+.adapter-wysiwyg .ProseMirror li[data-item-type='task'][data-checked='true']::before {
+  border-color: var(--mk-accent, #4285f4);
+  background: var(--mk-accent, #4285f4);
+}
+
+.adapter-wysiwyg .ProseMirror li[data-item-type='task'][data-checked='true']::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 5px;
+  top: 0.62em;
+  width: 6px;
+  height: 3px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+
+.adapter-wysiwyg .ProseMirror li[data-item-type='task'][data-checked='true'] > p {
+  color: var(--mk-text-dim, #57606a);
+  text-decoration: line-through;
+  text-decoration-color: var(--mk-border, #d0d7de);
+}

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Markup 图标预览</title>
+    <style>
+      :root {
+        font: 13px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        padding: 26px 28px 34px;
+        background: #0d1117;
+        color: #c9d1d9;
+      }
+      h1 {
+        margin: 0 0 2px;
+        font-size: 15px;
+      }
+      p.note {
+        margin: 0 0 20px;
+        color: #7d8590;
+      }
+      .row {
+        display: flex;
+        align-items: flex-end;
+        gap: 26px;
+        padding: 18px 20px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+      }
+      .dark {
+        background: #161b22;
+        border: 1px solid #22272e;
+      }
+      .light {
+        background: #f6f8fa;
+        border: 1px solid #d0d7de;
+        color: #334155;
+      }
+      figure {
+        margin: 0;
+        text-align: center;
+      }
+      figure img {
+        display: block;
+        margin: 0 auto 6px;
+      }
+      figcaption {
+        font-size: 11px;
+        color: #7d8590;
+      }
+      .light figcaption {
+        color: #6b7686;
+      }
+      .label {
+        width: 130px;
+        flex: none;
+        align-self: center;
+        font-weight: 600;
+      }
+      .usage {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-self: stretch;
+        justify-content: center;
+        font-size: 12.5px;
+      }
+      .bar,
+      .file {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #21262d;
+      }
+      .light .bar,
+      .light .file {
+        background: #ffffff;
+        border: 1px solid #d0d7de;
+      }
+      .bar img {
+        width: 18px;
+        height: 18px;
+      }
+      .file img {
+        width: 16px;
+        height: 16px;
+      }
+      .dim {
+        color: #7d8590;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Markup 图标 · 应用 + 关联文档</h1>
+    <p class="note">同一枚「M↓」记号：应用图标为满幅蓝底，文档图标为纸样 + 蓝记号。</p>
+
+    <div class="row dark">
+      <div class="label">应用图标</div>
+      <figure><img src="icon-rounded.svg" width="128" height="128" /><figcaption>128</figcaption></figure>
+      <figure><img src="icon-64.png" width="64" height="64" /><figcaption>64</figcaption></figure>
+      <figure><img src="icon-48.png" width="48" height="48" /><figcaption>48</figcaption></figure>
+      <figure><img src="icon-32.png" width="32" height="32" /><figcaption>32</figcaption></figure>
+      <figure><img src="icon-16.png" width="16" height="16" /><figcaption>16</figcaption></figure>
+      <div class="usage">
+        <div class="bar"><img src="icon-32.png" alt="" /> Markup <span class="dim">— 未命名文档</span></div>
+        <div class="dim">任务栏 / 标题栏用法</div>
+      </div>
+    </div>
+
+    <div class="row light">
+      <div class="label">应用图标（浅色）</div>
+      <figure><img src="icon-rounded.svg" width="128" height="128" /><figcaption>128</figcaption></figure>
+      <figure><img src="icon-64.png" width="64" height="64" /><figcaption>64</figcaption></figure>
+      <figure><img src="icon-48.png" width="48" height="48" /><figcaption>48</figcaption></figure>
+      <figure><img src="icon-32.png" width="32" height="32" /><figcaption>32</figcaption></figure>
+      <figure><img src="icon-16.png" width="16" height="16" /><figcaption>16</figcaption></figure>
+    </div>
+
+    <div class="row dark">
+      <div class="label">文档图标（.md）</div>
+      <figure><img src="doc-128.png" width="128" height="128" /><figcaption>128</figcaption></figure>
+      <figure><img src="doc-64.png" width="64" height="64" /><figcaption>64</figcaption></figure>
+      <figure><img src="doc-48.png" width="48" height="48" /><figcaption>48</figcaption></figure>
+      <figure><img src="doc-32.png" width="32" height="32" /><figcaption>32</figcaption></figure>
+      <figure><img src="doc-16.png" width="16" height="16" /><figcaption>16</figcaption></figure>
+      <div class="usage">
+        <div class="file"><img src="doc-16.png" alt="" /> README.md</div>
+        <div class="file"><img src="doc-16.png" alt="" /> 会议纪要.md</div>
+        <div class="dim">资源管理器 / 打开方式用法</div>
+      </div>
+    </div>
+
+    <div class="row light">
+      <div class="label">文档图标（浅色）</div>
+      <figure><img src="doc-128.png" width="128" height="128" /><figcaption>128</figcaption></figure>
+      <figure><img src="doc-64.png" width="64" height="64" /><figcaption>64</figcaption></figure>
+      <figure><img src="doc-48.png" width="48" height="48" /><figcaption>48</figcaption></figure>
+      <figure><img src="doc-32.png" width="32" height="32" /><figcaption>32</figcaption></figure>
+      <figure><img src="doc-16.png" width="16" height="16" /><figcaption>16</figcaption></figure>
+    </div>
+  </body>
+</html>

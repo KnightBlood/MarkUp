@@ -1,0 +1,8 @@
+{
+  "id": "dev-tools",
+  "name": "开发工具",
+  "version": "1.0.0",
+  "description": "插入日期/UUID、计算选中表达式、运行文档中的 JS 代码块——演示插件的 doc 文档访问面",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

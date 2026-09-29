@@ -1,0 +1,8 @@
+{
+  "id": "snippets",
+  "name": "片段库",
+  "version": "1.0.0",
+  "description": "可配置文本片段：右键/侧栏插入，${1:占位} 支持 next 命令逐个跳转（可绑快捷键）",
+  "permissions": ["document"],
+  "engines": { "hostApi": 1 }
+}

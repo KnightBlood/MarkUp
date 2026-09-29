@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Markup">
+  <!--
+    Markup 图标 · 圆角版（四周透明，交给各平台自己的遮罩/导出工具）
+    与 icon-full.svg 同图形；此版保持透明外边，适合需要 alpha 的导出。
+  -->
+  <defs>
+    <linearGradient id="mk-bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#3b82f6" />
+      <stop offset="0.55" stop-color="#1263d4" />
+      <stop offset="1" stop-color="#0b3fa8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="url(#mk-bg)" />
+
+  <g
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="46"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M128 352V170l128 130 128-130v182" />
+    <path d="M256 296v92" />
+    <path d="M202 338l54 56 54-56" />
+  </g>
+</svg>

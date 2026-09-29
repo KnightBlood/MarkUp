@@ -1,0 +1,24 @@
+{
+  "name": "markup",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "gen:menu": "node scripts/sync-menu.mjs",
+    "typecheck": "corepack pnpm -r typecheck",
+    "audit": "corepack pnpm audit --audit-level=high",
+    "dev:web": "corepack pnpm --filter @markup/web dev",
+    "build:web": "corepack pnpm --filter @markup/web build",
+    "build:ui": "corepack pnpm --filter @markup/ui build 2>nul || echo ui is source-only",
+    "build:electron": "corepack pnpm --filter @markup/electron run build:renderer && corepack pnpm --filter @markup/electron run build:main && corepack pnpm --filter @markup/electron exec electron-builder --dir",
+    "tauri:build": "corepack pnpm --filter @markup/tauri-frontend run tauri:build",
+    "wails:build": "corepack pnpm --filter @markup/wails-frontend run build && go build -C apps/wails -ldflags \"-H windowsgui\" -o markup-wails.exe ."
+  },
+  "devDependencies": {
+    "@file-viewer/vite-plugin": "^3.1.2",
+    "@file-viewer/web-full": "^3.1.2"
+  }
+}

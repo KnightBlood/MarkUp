@@ -132,10 +132,20 @@ fn embed_mime_for_path(path: &str) -> &'static str {
     match ext.as_str() {
         "glb" => "model/gltf-binary",
         "gltf" => "model/gltf+json",
-        "mp4" => "video/mp4",
+        "mp4" | "m4v" | "f4v" => "video/mp4",
         "webm" => "video/webm",
         "ogv" | "ogg" => "video/ogg",
-        "mov" => "video/quicktime",
+        "mov" | "qt" => "video/quicktime",
+        "mkv" => "video/x-matroska",
+        "avi" | "divx" | "xvid" => "video/x-msvideo",
+        "wmv" => "video/x-ms-wmv",
+        "asf" => "video/x-ms-asf",
+        "flv" => "video/x-flv",
+        "ts" | "mts" | "m2ts" => "video/mp2t",
+        "3gp" => "video/3gpp",
+        "3g2" => "video/3gpp2",
+        "rm" => "application/vnd.rn-realmedia",
+        "rmvb" => "application/vnd.rn-realmedia-vbr",
         _ => "application/octet-stream",
     }
 }

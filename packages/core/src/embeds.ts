@@ -20,6 +20,24 @@ const EMBED_ALIASES: Record<string, EmbedKind> = {
   ogv: 'video',
   ogg: 'video',
   mov: 'video',
+  // avbridge 时代的容器（浏览器原生放不了的都会走它的
+  // remux → hybrid → fallback 管线）。注意 `ts`/`mts` 故意不在此列 ——
+  // 那两个围栏名是 TypeScript（MPEG-TS 用 ```video + 路径，或 ```file）。
+  m4v: 'video',
+  mkv: 'video',
+  m2ts: 'video',
+  avi: 'video',
+  divx: 'video',
+  xvid: 'video',
+  wmv: 'video',
+  asf: 'video',
+  flv: 'video',
+  f4v: 'video',
+  '3gp': 'video',
+  '3g2': 'video',
+  rm: 'video',
+  rmvb: 'video',
+  qt: 'video',
   mindmap: 'mindmap',
   'mind-map': 'mindmap',
   xmind: 'xmind',
@@ -206,19 +224,203 @@ function markEmbedFailed(el: Element): void {
   el.classList.add('md-embed--error')
 }
 
-async function renderVideo(code: string, container: HTMLElement): Promise<void> {
-  const src = await resolveEmbedSrc(code)
-  const video = document.createElement('video')
-  video.className = 'md-embed__video'
-  video.controls = true
-  video.preload = 'metadata'
-  video.src = src
-  // Media errors surface asynchronously — flip back to the source block.
-  video.addEventListener('error', () => {
-    const wrap = video.closest('.md-embed')
+// ---------------------------------------------------------------------------
+// Video playback: native first, avbridge's <avbridge-player> for everything else
+// ---------------------------------------------------------------------------
+//
+// `<video>` only decodes a narrow container/codec set. When the source is
+// outside it (mkv/avi/wmv/flv/ts/rmvb… or a legacy codec inside a native
+// container) we mount avbridge's `<avbridge-player>` element instead: it
+// probes the bytes and walks native → remux (mediabunny/MSE) → hybrid (libav
+// demux + WebCodecs) → fallback (libav WASM software decode), escalating on
+// failure, and its built-in control bar (play/pause, seek, volume, speed,
+// fullscreen) drives the avbridge session. A bare `<video controls>` cannot:
+// the element carries no src of its own until a session plays, so its native
+// controls are dead — legacy embeds were unplayable without the element.
+//
+// The libav WASM engine (~9.4 MB, two variants) ships as static vendor files
+// at `<baseURI>/vendor/libav/**` (see scripts/libav-vendor-plugin.mjs) and is
+// only fetched when a strategy actually needs it — a native MP4 never touches
+// it. Offline by construction.
+
+/** Containers `<video>` reliably decodes — those try native before escalating. */
+const NATIVE_FIRST_EXT = new Set(['mp4', 'm4v', 'webm', 'ogv', 'ogg', 'mov'])
+/** Same rule for `data:` sources, where the MIME is the only clue. */
+const NATIVE_FIRST_DATA_MIME = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime',
+])
+
+/** Lazy `<avbridge-player>` registration — a side-effect import that defines the tag. */
+let avbridgePlayerModule: Promise<typeof import('avbridge/player')> | null = null
+
+/** Absolute engine base — the loader Range-probes it with fetch, then dynamic-imports from it. */
+function ensureLibavBase(): void {
+  const scope = globalThis as { AVBRIDGE_LIBAV_BASE?: unknown }
+  if (typeof scope.AVBRIDGE_LIBAV_BASE === 'string' && scope.AVBRIDGE_LIBAV_BASE) return
+  try {
+    const url = new URL('vendor/libav', document.baseURI)
+    url.search = ''
+    url.hash = ''
+    scope.AVBRIDGE_LIBAV_BASE = url.href.replace(/\/+$/, '')
+  } catch {
+    // No usable base (jsdom/about:blank) — keep avbridge's chunk-relative default.
+  }
+}
+
+function nativeFirstFor(code: string, src: string): boolean {
+  const dataMime = /^data:([^;,]+)/i.exec(src)?.[1]?.toLowerCase()
+  if (dataMime) return NATIVE_FIRST_DATA_MIME.has(dataMime)
+  const ext = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(code.trim())?.[1]?.toLowerCase()
+  if (!ext) return true // unknown → keep the pre-avbridge behaviour (native, escalate on error)
+  return NATIVE_FIRST_EXT.has(ext)
+}
+
+/**
+ * avbridge hands every session the *same* cached libav.js instance without a
+ * reentrancy guard: two concurrent `createPlayer` probes overlap inside
+ * `ff_init_demuxer_file` and corrupt its Asyncify state for the rest of the
+ * page's life (observed: indefinite hang, an opaque `[object Object]`
+ * rejection, or a wasm `memory access out of bounds` trap). Sequential
+ * creation — and probing while another session decodes — are safe (verified
+ * against avbridge 2.13.0). `<avbridge-player>` bootstraps its internal
+ * `createPlayer` when it receives a `src`, so src assignments queue: one
+ * bootstrap at a time, and the head advances only when the previous element
+ * really settles (`ready`/`error`) or leaves the document.
+ */
+let avbridgeBootstrapChain: Promise<void> = Promise.resolve()
+
+/** Fail one embed back to its source block instead of loading forever. */
+const AVBRIDGE_BOOTSTRAP_TIMEOUT_MS = 20_000
+
+type AvbridgePlayerHost = HTMLElement & { src: string }
+
+/**
+ * Assigns `src` and waits for the element's bootstrap to settle: `ready`
+ * (session created, probe done), `error` (bootstrap rejected — the element's
+ * own listener has already flipped the wrapper), or disconnection (the element
+ * tears itself down without an event; a wedged queue head would stall every
+ * later embed).
+ */
+function bootstrapAvbridgeElement(el: AvbridgePlayerHost, src: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const finish = (): void => {
+      el.removeEventListener('ready', finish)
+      el.removeEventListener('error', finish)
+      clearInterval(watch)
+      resolve()
+    }
+    el.addEventListener('ready', finish)
+    el.addEventListener('error', finish)
+    const watch = setInterval(() => {
+      if (!el.isConnected) finish()
+    }, 500)
+    el.src = src
+  })
+}
+
+/**
+ * Mounts `<avbridge-player>` in `container` and drives its bootstrap behind
+ * the page-wide queue. Resolves once the bootstrap settles; rejects (20s cap
+ * counted from this call, queue wait included) so the caller can fall back to
+ * the source block. The queue itself advances only on real settle — a
+ * timed-out caller must not let the next probe overlap a still-running one.
+ */
+async function startAvbridgePlayer(container: HTMLElement, src: string): Promise<void> {
+  ensureLibavBase()
+  if (!avbridgePlayerModule) {
+    avbridgePlayerModule = import('avbridge/player').catch((error: unknown) => {
+      // Don't cache a transient rejection (e.g. dev optimizer reload) — the
+      // next embed should get a fresh attempt.
+      avbridgePlayerModule = null
+      throw error
+    })
+  }
+  await avbridgePlayerModule
+  const el = document.createElement('avbridge-player') as AvbridgePlayerHost
+  // Without a custom-element registry (Node smoke) the tag never upgrades and
+  // would sit silent until the timeout — fail on the spot instead.
+  const registry =
+    typeof customElements !== 'undefined' ? customElements.get('avbridge-player') : undefined
+  if (!registry || !(el instanceof registry)) {
+    throw new Error('<avbridge-player> unavailable: custom elements not registered')
+  }
+  el.className = 'md-embed__video'
+  // A bootstrap that rejects (unsupported codec, engine unreachable…) surfaces
+  // as `error` — the same source-block fallback every media error gets.
+  el.addEventListener('error', () => {
+    const wrap = container.closest('.md-embed')
     if (wrap) markEmbedFailed(wrap)
   })
-  container.append(video)
+  container.append(el)
+
+  const run = avbridgeBootstrapChain.then(async () => {
+    // The widget may have been torn down while this bootstrap waited its turn.
+    if (!el.isConnected) return
+    await bootstrapAvbridgeElement(el, src)
+  })
+  avbridgeBootstrapChain = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  await new Promise<void>((resolve, reject) => {
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      reject(
+        new Error(`avbridge bootstrap timed out after ${AVBRIDGE_BOOTSTRAP_TIMEOUT_MS}ms`),
+      )
+    }, AVBRIDGE_BOOTSTRAP_TIMEOUT_MS)
+    run.then(
+      () => {
+        clearTimeout(timer)
+        if (!timedOut) resolve()
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        if (!timedOut) reject(error)
+      },
+    )
+  })
+}
+
+async function renderVideo(code: string, container: HTMLElement): Promise<void> {
+  const src = await resolveEmbedSrc(code)
+
+  const fail = (): void => {
+    const wrap = container.closest('.md-embed')
+    if (wrap) markEmbedFailed(wrap)
+  }
+  const startAvbridge = (): void => {
+    void startAvbridgePlayer(container, src).catch((error: unknown) => {
+      // warn, not error: hydrate's console.error is smoke-asserted and the
+      // fallback here is the same source block every media error gets.
+      console.warn('[markup] avbridge playback failed', error)
+      fail()
+    })
+  }
+
+  if (nativeFirstFor(code, src)) {
+    const video = document.createElement('video')
+    video.className = 'md-embed__video'
+    video.controls = true
+    video.preload = 'metadata'
+    const escalate = (): void => {
+      video.removeEventListener('error', escalate)
+      // The player element replaces the failed native attempt.
+      video.remove()
+      startAvbridge()
+    }
+    video.addEventListener('error', escalate)
+    video.src = src
+    container.append(video)
+    return
+  }
+
+  // Container the browser cannot open at all — skip the doomed native try.
+  startAvbridge()
 }
 
 async function renderModel(code: string, container: HTMLElement): Promise<void> {

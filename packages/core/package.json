@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/pm-cm.mjs && node scripts/pm-md.mjs && tsx scripts/pm-diag.mts && tsx scripts/pm-wy.mts && tsx scripts/pm-export.mts && tsx scripts/flowchart.mts && tsx scripts/pm-img.mts && tsx scripts/pm-embed.mts && tsx scripts/pm-tabs.mts && tsx scripts/pm-fmt.mts"
+    "smoke": "node scripts/pm-cm.mjs && node scripts/pm-md.mjs && tsx scripts/pm-diag.mts && tsx scripts/pm-wy.mts && tsx scripts/pm-export.mts && tsx scripts/flowchart.mts && tsx scripts/pm-img.mts && tsx scripts/pm-embed.mts && tsx scripts/pm-puml.mts && tsx scripts/pm-tabs.mts && tsx scripts/pm-fmt.mts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "6.5.2",
@@ -25,6 +25,7 @@
     "@milkdown/kit": "7.22.1",
     "@plantuml/core": "1.2026.7",
     "@types/katex": "^0.16.8",
+    "avbridge": "2.13.0",
     "codemirror": "6.0.2",
     "fflate": "0.8.3",
     "flowchart.js": "1.18.0",

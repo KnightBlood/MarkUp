@@ -40,7 +40,7 @@ if ($webAssets) {
   $joined = ($webAssets | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
   $tmp = [System.IO.Path]::GetTempFileName()
   [System.IO.File]::WriteAllText($tmp, $joined, [System.Text.Encoding]::UTF8)
-  foreach ($kw in @('insert.xmind', 'insert.drawio', 'insert.plantuml', 'insert.file', 'mxGraphModel', '@startuml', 'flyfish-file-viewer', 'msg-dialog__title', 'msg-dialog--prompt', 'settings__search', 'menubar__btn', 'context-menu__iconbtn', 'format.bold', 'edit.copyAsMarkdown', 'insert.hr', 'data-item-type')) {
+  foreach ($kw in @('insert.xmind', 'insert.drawio', 'insert.plantuml', 'insert.file', 'mxGraphModel', '@startuml', 'flyfish-file-viewer', 'msg-dialog__title', 'msg-dialog--prompt', 'settings__search', 'menubar__btn', 'context-menu__iconbtn', 'format.bold', 'edit.copyAsMarkdown', 'insert.hr', 'data-item-type', 'avbridge-player', 'plantuml.visualEdit', 'plantuml-editor__panel', 'SequenceDiagram')) {
     Check-Needle "web dist js :: $kw" $tmp $kw -Literal
   }
   Remove-Item $tmp -Force
@@ -54,7 +54,7 @@ if ($webCss) {
   $joinedCss = ($webCss | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
   $tmpCss = [System.IO.Path]::GetTempFileName()
   [System.IO.File]::WriteAllText($tmpCss, $joinedCss, [System.Text.Encoding]::UTF8)
-  foreach ($kw in @('.tabbar', '.shell-main', '.sidebar__tabs', '.settings__search', '.menubar__btn', '.context-menu__iconbtn', '.context-menu__row', '.msg-dialog__input', 'calc(100vh - 8px)')) {
+  foreach ($kw in @('.tabbar', '.shell-main', '.sidebar__tabs', '.settings__search', '.menubar__btn', '.context-menu__iconbtn', '.context-menu__row', '.msg-dialog__input', 'calc(100vh - 8px)', '.plantuml-editor__panel')) {
     Check-Needle "web dist css :: $kw" $tmpCss $kw -Literal
   }
   Remove-Item $tmpCss -Force
@@ -202,6 +202,7 @@ if (Test-Path $wailsExe) {
 foreach ($copy in @("$root\apps\electron\shared\menu.json", "$root\apps\tauri\src-tauri\src\menu.json", "$root\apps\wails\menu.json")) {
   Check-Needle "menu copy :: insert.plantuml ($copy)" $copy 'insert.plantuml' -Literal
   Check-Needle "menu copy :: insert.file ($copy)" $copy 'insert.file' -Literal
+  Check-Needle "menu copy :: plantuml.visualEdit ($copy)" $copy 'plantuml.visualEdit' -Literal
 }
 
 # --- brand assets (app icon / document icon) ---
@@ -215,6 +216,32 @@ Check-Needle 'brand :: electron md association' "$root\apps\electron\electron-bu
 Check-Needle 'brand :: tauri icon config' "$root\apps\tauri\src-tauri\tauri.conf.json" 'icons/icon.ico' -Literal
 Check-Needle 'brand :: wails window icon' "$root\apps\wails\main.go" 'Icon:        appIcon' -Literal
 Check-File 'brand :: web favicon' "$root\apps\web\public\favicon.svg"
+
+# --- avbridge video embeds (vendor libav + <avbridge-player> playback) ----
+Check-File 'avbridge :: libav vendor plugin' "$root\scripts\libav-vendor-plugin.mjs"
+Check-File 'avbridge :: libav vendor plugin types' "$root\scripts\libav-vendor-plugin.d.mts"
+foreach ($app in @('apps\web', 'apps\electron', 'apps\tauri\frontend', 'apps\wails\frontend')) {
+  Check-Needle "vite config :: libav vendor ($app)" "$root\$app\vite.config.ts" 'libavVendorPlugin' -Literal
+}
+Check-Needle 'core source :: avbridge player element mount' "$root\packages\core\src\embeds.ts" 'avbridge-player' -Literal
+Check-Needle 'core source :: avbridge bootstrap queue' "$root\packages\core\src\embeds.ts" 'avbridgeBootstrapChain' -Literal
+Check-Needle 'core source :: avbridge bootstrap timeout' "$root\packages\core\src\embeds.ts" 'AVBRIDGE_BOOTSTRAP_TIMEOUT_MS' -Literal
+Check-Needle 'core source :: widget keeps avbridge controls alive' "$root\packages\core\src\adapters\wysiwyg.ts" 'avbridge-player' -Literal
+
+# --- plantuml visual editing (beautiful-plantuml canvas + official preview) ---
+Check-File 'plantuml :: fence range helper' "$root\packages\core\src\fenceRange.ts"
+Check-File 'plantuml :: edit bridge (resolver registry)' "$root\packages\core\src\plantumlEditBridge.ts"
+Check-File 'plantuml :: lazy React dialog' "$root\packages\ui\src\ui\plantumlEditor.ts"
+Check-Needle 'plantuml :: dialog lazy-loads the visual editor' "$root\packages\ui\src\ui\plantumlEditor.ts" "import('beautiful-plantuml')" -Literal
+Check-Needle 'plantuml :: dialog official preview via renderEmbed' "$root\packages\ui\src\ui\plantumlEditor.ts" "renderEmbed('plantuml'" -Literal
+Check-Needle 'plantuml :: command registered in shell' "$root\packages\ui\src\shell.ts" 'plantuml.visualEdit' -Literal
+Check-Needle 'plantuml :: resolver wired (wysiwyg)' "$root\packages\core\src\adapters\wysiwyg.ts" 'setPlantumlResolver' -Literal
+Check-Needle 'plantuml :: resolver wired (source)' "$root\packages\core\src\adapters\source.ts" 'setPlantumlResolver' -Literal
+Check-Needle 'plantuml :: resolver wired (hybrid)' "$root\packages\core\src\adapters\hybrid.ts" 'setPlantumlResolver' -Literal
+Check-Needle 'plantuml :: command in menu source' "$root\packages\host-api\src\menu.json" 'plantuml.visualEdit' -Literal
+Check-Needle 'plantuml :: ui dependency' "$root\packages\ui\package.json" 'beautiful-plantuml' -Literal
+Check-Needle 'plantuml :: core smoke wired' "$root\packages\core\package.json" 'pm-puml.mts' -Literal
+Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s-plantuml.mts' -Literal
 
 Write-Output "---- needle: $hits HIT / $misses MISS ----"
 if ($misses -gt 0) { exit 1 }

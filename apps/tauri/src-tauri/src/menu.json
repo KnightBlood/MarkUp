@@ -104,6 +104,7 @@
         { "kind": "command", "id": "insert.xmind", "label": "XMind 脑图…" },
         { "kind": "command", "id": "insert.drawio", "label": "Draw.io 图表…" },
         { "kind": "command", "id": "insert.plantuml", "label": "PlantUML 图" },
+        { "kind": "command", "id": "plantuml.visualEdit", "label": "PlantUML 可视化编辑…" },
         { "kind": "separator" },
         { "kind": "command", "id": "insert.file", "label": "文件预览…" }
       ]

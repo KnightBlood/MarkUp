@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import { fileViewerRenderers } from '@file-viewer/vite-plugin'
+import { libavVendorPlugin } from '../../../scripts/libav-vendor-plugin.mjs'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
@@ -38,6 +39,8 @@ export default defineConfig({
     // Serves/copies the Full package's worker/WASM/font assets under
     // `file-viewer/` in both dev and build (```file embed previews).
     fileViewer,
+    // avbridge libav WASM engine → `dist/vendor/libav` (+ dev route).
+    libavVendorPlugin(),
   ],
   build: {
     outDir: 'dist',

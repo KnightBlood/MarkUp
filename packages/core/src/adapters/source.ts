@@ -1,5 +1,11 @@
 import OverType, { type Options, type OverTypeInstance } from 'overtype'
 import {
+  plantumlFenceTarget,
+  setPlantumlResolver,
+  type PlantumlAnchor,
+  type PlantumlTarget,
+} from '../plantumlEditBridge'
+import {
   imageAltText,
   isImageFile,
   type Anchor,
@@ -103,6 +109,71 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     }
   }
 
+  const lineAt = (clientX: number, clientY: number): LineAt | null => {
+    const textarea = instance?.textarea
+    if (!textarea) return null
+    const lines = value === '' ? [''] : value.split('\n')
+    let lineIndex = 0
+    let column = 0
+    const rect = textarea.getBoundingClientRect()
+    const inBounds =
+      rect.height > 0 && clientY >= rect.top - 4 && clientY <= rect.bottom + 4
+    if (inBounds) {
+      const style = window.getComputedStyle(textarea)
+      const lineHeight =
+        Number.parseFloat(style.lineHeight) ||
+        Number.parseFloat(style.fontSize) * 1.6 ||
+        24
+      const padTop = Number.parseFloat(style.paddingTop) || 0
+      const padLeft = Number.parseFloat(style.paddingLeft) || 0
+      const y = clientY - rect.top - padTop + textarea.scrollTop
+      lineIndex = Math.max(0, Math.floor(y / lineHeight))
+      const fontSize = Number.parseFloat(style.fontSize) || 14
+      const charWidth = fontSize * 0.6
+      const x = clientX - rect.left - padLeft
+      column = charWidth > 0 ? Math.max(0, Math.round(x / charWidth)) : 0
+    } else {
+      const pos = textarea.selectionStart ?? 0
+      const prefix = value.slice(0, pos)
+      lineIndex = prefix.length === 0 ? 0 : prefix.split('\n').length - 1
+      column = pos - (prefix.lastIndexOf('\n') + 1)
+    }
+    const idx = Math.min(Math.max(lineIndex, 0), lines.length - 1)
+    const text = lines[idx] ?? ''
+    let offset = 0
+    for (let i = 0; i < idx; i++) offset += (lines[i]?.length ?? 0) + 1
+    column = Math.min(Math.max(column, 0), text.length)
+    return { text, line: idx + 1, offset, column }
+  }
+
+  // PlantUML blocks are located through the fence scan and rewritten by
+  // splicing only the content span — mirrors insertMarkdown's value flow.
+  const resolvePlantuml = (anchor: PlantumlAnchor): PlantumlTarget | null => {
+    const textarea = instance?.textarea
+    if (!textarea) return null
+    let offset: number | null = null
+    if (anchor.target && anchor.clientX !== undefined && anchor.clientY !== undefined) {
+      offset = lineAt(anchor.clientX, anchor.clientY)?.offset ?? null
+    }
+    if (offset == null && anchor.caret) offset = textarea.selectionStart ?? 0
+    if (offset == null) return null
+    return plantumlFenceTarget(value, offset, (from, to, text) => {
+      const target = instance?.textarea
+      if (!target) return false
+      const next = value.slice(0, from) + text + value.slice(to)
+      value = next
+      instance?.setValue(next)
+      // Park the caret at the end of the content — not on the trailing
+      // newline, which would sit it on the closing fence line.
+      const body = text.endsWith('\n') ? text.slice(0, -1) : text
+      const caret = body.length > 0 ? from + body.length : Math.max(from - 1, 0)
+      target.focus()
+      target.setSelectionRange(caret, caret)
+      onChange?.(next)
+      return true
+    })
+  }
+
   return {
     kind: 'source',
 
@@ -142,9 +213,11 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       instance = editors[0] ?? null
       instance?.textarea?.addEventListener('scroll', syncGutterScroll, { passive: true })
       applyChrome()
+      setPlantumlResolver(resolvePlantuml)
     },
 
     unmount(): void {
+      setPlantumlResolver(null)
       instance?.textarea?.removeEventListener('scroll', syncGutterScroll)
       instance?.destroy()
       instance = null
@@ -287,41 +360,6 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       applyChrome()
     },
 
-    getLineAt(clientX: number, clientY: number): LineAt | null {
-      const textarea = instance?.textarea
-      if (!textarea) return null
-      const lines = value === '' ? [''] : value.split('\n')
-      let lineIndex = 0
-      let column = 0
-      const rect = textarea.getBoundingClientRect()
-      const inBounds =
-        rect.height > 0 && clientY >= rect.top - 4 && clientY <= rect.bottom + 4
-      if (inBounds) {
-        const style = window.getComputedStyle(textarea)
-        const lineHeight =
-          Number.parseFloat(style.lineHeight) ||
-          Number.parseFloat(style.fontSize) * 1.6 ||
-          24
-        const padTop = Number.parseFloat(style.paddingTop) || 0
-        const padLeft = Number.parseFloat(style.paddingLeft) || 0
-        const y = clientY - rect.top - padTop + textarea.scrollTop
-        lineIndex = Math.max(0, Math.floor(y / lineHeight))
-        const fontSize = Number.parseFloat(style.fontSize) || 14
-        const charWidth = fontSize * 0.6
-        const x = clientX - rect.left - padLeft
-        column = charWidth > 0 ? Math.max(0, Math.round(x / charWidth)) : 0
-      } else {
-        const pos = textarea.selectionStart ?? 0
-        const prefix = value.slice(0, pos)
-        lineIndex = prefix.length === 0 ? 0 : prefix.split('\n').length - 1
-        column = pos - (prefix.lastIndexOf('\n') + 1)
-      }
-      const idx = Math.min(Math.max(lineIndex, 0), lines.length - 1)
-      const text = lines[idx] ?? ''
-      let offset = 0
-      for (let i = 0; i < idx; i++) offset += (lines[i]?.length ?? 0) + 1
-      column = Math.min(Math.max(column, 0), text.length)
-      return { text, line: idx + 1, offset, column }
-    },
+    getLineAt: lineAt,
   }
 }

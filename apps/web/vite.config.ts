@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import { fileViewerRenderers } from '@file-viewer/vite-plugin'
+import { libavVendorPlugin } from '../../scripts/libav-vendor-plugin.mjs'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 
@@ -62,6 +63,9 @@ export default defineConfig({
     // `file-viewer/` in both dev and build (```file embed previews).
     fileViewer,
     copyPublicSandboxSafe(),
+    // Serves/copies avbridge's libav WASM engine under `/vendor/libav`
+    // (offline playback for containers/codecs <video> can't decode).
+    libavVendorPlugin(),
   ],
   build: {
     copyPublicDir: false,

@@ -7,11 +7,13 @@ import {
   exportHtmlDocument,
   inlineFormatEdit,
   linkEdit,
+  resolvePlantumlTarget,
   setDiagramEditHandler,
   setMathEditHandler,
   type BlockFormatId,
   type InlineFormatId,
   type OpenDoc,
+  type PlantumlTarget,
   type TableCommandId,
   type TextEdit,
 } from '@markup/core'
@@ -33,6 +35,7 @@ import { createMenuBar } from './ui/menuBar'
 import { createFormulaEditor, type FormulaEditorApi, type FormulaMode } from './ui/formulaEditor'
 import { createDiagramEditor, type DiagramEditorApi } from './ui/diagramEditor'
 import { createEmbedViewer, type EmbedViewerApi } from './ui/embedViewer'
+import { createPlantumlEditor, type PlantumlEditorApi } from './ui/plantumlEditor'
 import {
   MINDMAP_TEMPLATE,
   PLANTUML_TEMPLATE,
@@ -203,6 +206,7 @@ export function renderShell(): ShellHandle {
   let formulaEditor!: FormulaEditorApi
   let diagramEditor!: DiagramEditorApi
   let embedViewer!: EmbedViewerApi
+  let plantumlEditor!: PlantumlEditorApi
   let palette!: PaletteApi
   let shellEl: HTMLElement | null = null
   const contextItemProviders: ContextItemProvider[] = []
@@ -276,6 +280,20 @@ export function renderShell(): ShellHandle {
       onCancel: () => done(null),
     })
   })
+
+  plantumlEditor = createPlantumlEditor()
+  // Visual editing: the context-menu row and the plantuml.visualEdit command
+  // share this outlet — open the code-split React dialog, then splice the
+  // confirmed source back through the range captured at resolve time.
+  const openPlantumlVisualEdit = (target: PlantumlTarget): void => {
+    plantumlEditor.open({
+      code: target.code,
+      title: 'PlantUML 可视化编辑',
+      onConfirm: (next) => {
+        if (!target.writeBack(next)) toastHost.show('写入代码块失败', { level: 'error' })
+      },
+    })
+  }
 
   embedViewer = createEmbedViewer()
   setEmbedEnlargeHandler((request) => {
@@ -1080,6 +1098,17 @@ export function renderShell(): ShellHandle {
         { separator: true },
       )
     }
+    const plantuml = resolvePlantumlTarget({
+      target: node,
+      clientX: context.clientX,
+      clientY: context.clientY,
+    })
+    if (plantuml) {
+      items.unshift(
+        { label: '可视化编辑 PlantUML…', run: () => openPlantumlVisualEdit(plantuml) },
+        { separator: true },
+      )
+    }
     for (const provider of contextItemProviders) {
       items.push(...provider(event, context))
     }
@@ -1463,7 +1492,34 @@ export function renderShell(): ShellHandle {
     label: '插入视频…',
     run: () =>
       void pickAndInsertEmbed('video', [
-        { name: '视频', extensions: ['mp4', 'webm', 'ogv', 'ogg', 'mov'] },
+        {
+          name: '视频',
+          // 原生可播 + avbridge 兜底的容器（mkv/avi/wmv/flv/ts/rmvb…）。
+          extensions: [
+            'mp4',
+            'm4v',
+            'mov',
+            'qt',
+            'webm',
+            'ogv',
+            'ogg',
+            'mkv',
+            'avi',
+            'divx',
+            'xvid',
+            'wmv',
+            'asf',
+            'flv',
+            'f4v',
+            'ts',
+            'mts',
+            'm2ts',
+            '3gp',
+            '3g2',
+            'rm',
+            'rmvb',
+          ],
+        },
       ]),
   })
   registry.register({
@@ -1489,6 +1545,18 @@ export function renderShell(): ShellHandle {
     id: 'insert.plantuml',
     label: '插入 PlantUML 图',
     run: () => editor.insertMarkdown(`\n\n\`\`\`plantuml\n${PLANTUML_TEMPLATE}\`\`\`\n\n`),
+  })
+  registry.register({
+    id: 'plantuml.visualEdit',
+    label: 'PlantUML 可视化编辑…',
+    run: () => {
+      const target = resolvePlantumlTarget({ caret: true })
+      if (!target) {
+        toastHost.show('请先将光标置于 PlantUML 代码块内', { level: 'warn' })
+        return
+      }
+      openPlantumlVisualEdit(target)
+    },
   })
   registry.register({
     id: 'insert.file',
@@ -1786,6 +1854,7 @@ export function renderShell(): ShellHandle {
     formulaEditor.el,
     diagramEditor.el,
     embedViewer.el,
+    plantumlEditor.el,
   )
 
   palette = registerCommandPalette(root, () => registry.list())

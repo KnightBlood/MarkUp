@@ -10,6 +10,12 @@ import {
   type ViewUpdate,
 } from '@codemirror/view'
 import {
+  plantumlFenceTarget,
+  setPlantumlResolver,
+  type PlantumlAnchor,
+  type PlantumlTarget,
+} from '../plantumlEditBridge'
+import {
   imageAltText,
   isImageFile,
   type Anchor,
@@ -146,6 +152,30 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
     if (view) view.contentDOM.spellcheck = spellcheck
   }
 
+  // PlantUML blocks: pointer → CM doc offset, caret as fallback; write-back
+  // splices only the fence content span through a CM transaction (the
+  // updateListener then propagates value + onChange like any other edit).
+  const resolvePlantuml = (anchor: PlantumlAnchor): PlantumlTarget | null => {
+    const active = view
+    if (!active) return null
+    let offset: number | null = null
+    if (anchor.target && anchor.clientX !== undefined && anchor.clientY !== undefined) {
+      offset = active.posAtCoords({ x: anchor.clientX, y: anchor.clientY })
+    }
+    if (offset == null && anchor.caret) offset = active.state.selection.main.head
+    if (offset == null) return null
+    return plantumlFenceTarget(value, offset, (from, to, text) => {
+      if (!view) return false
+      view.dispatch({ changes: { from, to, insert: text } })
+      // Park the caret at the end of the content — not on the trailing
+      // newline, which would sit it on the closing fence line.
+      const body = text.endsWith('\n') ? text.slice(0, -1) : text
+      const caret = body.length > 0 ? from + body.length : Math.max(from - 1, 0)
+      view.dispatch({ selection: EditorSelection.cursor(caret) })
+      return true
+    })
+  }
+
   return {
     kind: 'hybrid',
 
@@ -174,9 +204,11 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
         }),
       })
       applyChrome()
+      setPlantumlResolver(resolvePlantuml)
     },
 
     unmount(): void {
+      setPlantumlResolver(null)
       view?.destroy()
       view = null
       rootEl?.remove()

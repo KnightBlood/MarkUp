@@ -107,6 +107,18 @@ assert(normalizeEmbedLang('video') === 'video', 'video')
 assert(normalizeEmbedLang('mp4') === 'video', 'mp4 alias')
 assert(normalizeEmbedLang('webm') === 'video', 'webm alias')
 assert(normalizeEmbedLang('ogg') === 'video', 'ogg alias')
+// avbridge-era containers (see EMBED_ALIASES)
+assert(normalizeEmbedLang('mkv') === 'video', 'mkv alias')
+assert(normalizeEmbedLang('MKV') === 'video', 'mkv alias upper')
+assert(normalizeEmbedLang('avi') === 'video', 'avi alias')
+assert(normalizeEmbedLang('wmv') === 'video', 'wmv alias')
+assert(normalizeEmbedLang('flv') === 'video', 'flv alias')
+assert(normalizeEmbedLang('rmvb') === 'video', 'rmvb alias')
+assert(normalizeEmbedLang('3gp') === 'video', '3gp alias')
+assert(normalizeEmbedLang('qt') === 'video', 'qt alias')
+// `ts`/`mts` are TypeScript — MPEG-TS goes through ```video + path or ```file.
+assert(normalizeEmbedLang('ts') === null, 'ts stays TypeScript')
+assert(normalizeEmbedLang('mts') === null, 'mts stays TypeScript')
 assert(normalizeEmbedLang('mindmap') === 'mindmap', 'mindmap')
 assert(normalizeEmbedLang('MIND-MAP') === 'mindmap', 'mind-map alias')
 assert(normalizeEmbedLang('xmind') === 'xmind', 'xmind')
@@ -347,6 +359,35 @@ const host = window.document.getElementById('root') as HTMLElement
   const rerun = await hydrateEmbeds(host)
   assert(rerun.rendered === 0 && rerun.failed === 0, 'rerender skipped')
   assert(host.querySelectorAll('video').length === 1, 'no duplicate video')
+}
+
+// ---- hydrate: non-native container escalates to avbridge → deterministic fallback ----
+{
+  host.innerHTML = `<div class="md-embed" data-embed="mkv"><pre class="md-embed__source"><code>/tmp/clip.mkv</code></pre></div>`
+  const wrap = host.querySelector('.md-embed') as HTMLElement
+  // Pin the libav base to a scheme fetch rejects on the spot: no network, no
+  // engine in Node — createPlayer must reject fast and the embed must land on
+  // the same source-block fallback every media error gets. (Real shells load
+  // the engine from <baseURI>/vendor/libav — see scripts/libav-vendor-plugin.mjs.)
+  const scope = globalThis as { AVBRIDGE_LIBAV_BASE?: unknown }
+  scope.AVBRIDGE_LIBAV_BASE = 'nope://libav.invalid'
+  setEmbedSourceResolver(async (path) =>
+    path === '/tmp/clip.mkv' ? 'data:video/x-matroska;base64,QUJD' : null,
+  )
+  try {
+    const result = await hydrateEmbeds(host)
+    // renderVideo settles before the async escalation runs; avbridge then
+    // rejects and flips the wrapper to the error state.
+    assert(result.rendered === 1 && result.failed === 0, `mkv hydrate: ${JSON.stringify(result)}`)
+    assert(wrap.dataset.rendered === '1', 'mkv wrapper rendered before escalation settles')
+    await waitFor(() => wrap.dataset.error === '1', 'mkv avbridge escalation error')
+    assert(wrap.classList.contains('md-embed--error'), 'mkv error class')
+    assert(!wrap.dataset.rendered, 'rendered flag cleared on escalation failure')
+    assert(wrap.querySelector('.md-embed__source'), 'mkv keeps source block')
+  } finally {
+    setEmbedSourceResolver(null)
+    delete scope.AVBRIDGE_LIBAV_BASE
+  }
 }
 
 // ---- hydrate: local path without resolver → error state, source kept ----
@@ -628,8 +669,12 @@ const host = window.document.getElementById('root') as HTMLElement
 console.error = originalError
 // hydrate keeps the source block on failure and logs '[markup] 嵌入渲染失败';
 // the no-resolver / model / mindmap cases above exercise exactly that path.
-const unexpected = errors.filter((entry) => !entry.includes('嵌入渲染失败'))
+// avbridge logs its own diagnostics through console.error ('[avbridge]…'),
+// and the mkv escalation case expects exactly that failure chain.
+const unexpected = errors.filter(
+  (entry) => !entry.includes('嵌入渲染失败') && !entry.includes('[avbridge'),
+)
 assert(unexpected.length === 0, `unexpected console.error output:\n${unexpected.join('\n')}`)
 console.log(
-  'SMOKE CORE EMBED OK: aliases(mindmap/xmind/drawio/puml) + pipeline placeholders + resolve branches + parseEmbedContent + resolveEmbedText + normalizeDrawioXml + hydrate video/error/drawio/plantuml/xmind/file (drawio+xmind now mount the file viewer) + widget bar + export video/model/plantuml/file-skip',
+  'SMOKE CORE EMBED OK: aliases(mindmap/xmind/drawio/puml/avbridge-containers, ts/mts stay TS) + pipeline placeholders + resolve branches + parseEmbedContent + resolveEmbedText + normalizeDrawioXml + hydrate video/error/mkv→avbridge escalation/drawio/plantuml/xmind/file (drawio+xmind now mount the file viewer) + widget bar + export video/model/plantuml/file-skip',
 )

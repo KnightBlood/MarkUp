@@ -85,12 +85,15 @@ CI 见 [`.github/workflows/build.yml`](.github/workflows/build.yml)（typecheck 
 
 ## 第三方许可
 
-本项目 MIT，但打包产物内含以下组件（均为宽松许可，无 GPL-only 依赖）：
+本项目 MIT，但打包产物内含以下组件（无 GPL-only 依赖；LGPL 组件仅以预编译二进制随包分发，且加载路径运行时可替换）：
 
-- **MIT**：Milkdown、ProseMirror、CodeMirror、OverType、remark/rehype/unified、KaTeX、MathLive、Mermaid、markmap、flowchart.js、AntV X6、Visimer、`@plantuml/core`（TeaVM 离线引擎）、`@ljheee/xmind-parser`、fflate、jszip（双许可，取 MIT）、`@wailsio/runtime`
+- **MIT**：Milkdown、ProseMirror、CodeMirror、OverType、remark/rehype/unified、KaTeX、MathLive、Mermaid、markmap、flowchart.js、AntV X6、Visimer、React / React DOM、`beautiful-plantuml`、`avbridge`（视频扩展播放桥）、`@plantuml/core`（TeaVM 离线引擎）、`@ljheee/xmind-parser`、fflate、jszip（双许可，取 MIT）、`@wailsio/runtime`
 - **Apache-2.0**：`@file-viewer/web-full` / `vite-plugin`（内含 pdf.js、draw.io viewer-static 等 Apache-2.0 资产）、`@google/model-viewer`、`@tauri-apps/api`（双许可）
 - **EPL-2.0**（双许可，取 EPL-2.0）：elkjs
-- 字体/资源：KaTeX 字体、MathLive 字体、pdf.js cmaps 等随包分发
+- **MPL-2.0**：mediabunny（`avbridge` 的容器封装与复用依赖）
+- **ISC**：`libavjs-webcodecs-bridge`（avbridge 的 WebCodecs 桥）
+- **LGPL-2.1-or-later**：libav.js（FFmpeg 的浏览器构建）。`avbridge` 仅在 `vendor/libav/` 下随包分发其预编译二进制（`webcodecs` 变体 + 自定义 `avbridge` 变体）；`packages/core` 播放前将其注入为 `globalThis.AVBRIDGE_LIBAV_BASE`，任何使用者都可改为自建的 libav 构建而不被锁定。许可文本与来源见 `node_modules/avbridge/NOTICE.md` / `THIRD_PARTY_LICENSES.md`
+- 字体/资源：KaTeX 字体、MathLive 字体、pdf.js cmaps、libav.js WASM 等随包分发
 
 各组件版权归其作者所有，许可证文本见 `node_modules/<pkg>/LICENSE`。
 

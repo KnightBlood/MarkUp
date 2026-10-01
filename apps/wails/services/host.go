@@ -169,14 +169,34 @@ func embedMimeForPath(path string) string {
 		return "model/gltf-binary"
 	case ".gltf":
 		return "model/gltf+json"
-	case ".mp4":
+	case ".mp4", ".m4v", ".f4v":
 		return "video/mp4"
 	case ".webm":
 		return "video/webm"
 	case ".ogv", ".ogg":
 		return "video/ogg"
-	case ".mov":
+	case ".mov", ".qt":
 		return "video/quicktime"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".avi", ".divx", ".xvid":
+		return "video/x-msvideo"
+	case ".wmv":
+		return "video/x-ms-wmv"
+	case ".asf":
+		return "video/x-ms-asf"
+	case ".flv":
+		return "video/x-flv"
+	case ".ts", ".mts", ".m2ts":
+		return "video/mp2t"
+	case ".3gp":
+		return "video/3gpp"
+	case ".3g2":
+		return "video/3gpp2"
+	case ".rm":
+		return "application/vnd.rn-realmedia"
+	case ".rmvb":
+		return "application/vnd.rn-realmedia-vbr"
 	default:
 		return "application/octet-stream"
 	}

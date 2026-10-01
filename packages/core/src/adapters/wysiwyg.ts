@@ -61,6 +61,11 @@ import { hydrateEmbeds, normalizeEmbedLang, requestEmbedEnlarge, type EmbedKind 
 import { requestDiagramEdit } from '../diagramEditBridge'
 import { joinFrontmatter, splitFrontmatter } from '../frontmatter'
 import { mathWidgetFactory, normalizeMathLang, replaceCodeBlockContent } from '../math'
+import {
+  setPlantumlResolver,
+  type PlantumlAnchor,
+  type PlantumlTarget,
+} from '../plantumlEditBridge'
 import type { BlockFormatId } from '../textFormat'
 import {
   TABLE_COMMAND_LABELS,
@@ -360,9 +365,14 @@ function embedWidgetFactory(
         event.stopPropagation()
         return
       }
-      if (target?.closest('video, model-viewer, svg, .md-embed__file, flyfish-file-viewer')) {
-        // Native controls / camera gestures / file-viewer interactions keep
-        // their default behavior (text selection inside the viewer etc.).
+      if (
+        target?.closest(
+          'video, avbridge-player, model-viewer, svg, .md-embed__file, flyfish-file-viewer',
+        )
+      ) {
+        // Native controls / the avbridge control bar / camera gestures /
+        // file-viewer interactions keep their default behavior (text
+        // selection inside the viewer etc.).
         event.stopPropagation()
         return
       }
@@ -1087,6 +1097,65 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     })
   }
 
+  // PlantUML block lookup. Pointer: posAtDOM on the clicked DOM — the widget
+  // is a decoration at the code block's own pos, so a boundary lands beside
+  // the block (neighbour check follows) and a raw-block click resolves as an
+  // ancestor. Caret: the selection only — a boundary neighbour would false
+  // positive when the caret merely sits next to a block.
+  const resolvePlantuml = (anchor: PlantumlAnchor): PlantumlTarget | null => {
+    if (!editor || !ready) return null
+    return editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      const doc = view.state.doc
+      let pos: number | null = null
+      if (anchor.target) {
+        let dom: Element | null = anchor.target
+        while (dom) {
+          try {
+            pos = view.posAtDOM(dom, 0)
+            break
+          } catch {
+            dom = dom.parentElement
+          }
+        }
+      } else if (anchor.caret) {
+        pos = view.state.selection.from
+      }
+      if (pos == null) return null
+      const probe = Math.min(Math.max(pos, 0), doc.content.size)
+      const $ = doc.resolve(probe)
+      let block: Node | null = null
+      let blockPos = -1
+      for (let depth = $.depth; depth > 0; depth--) {
+        const node = $.node(depth)
+        if (node.type.name === 'code_block') {
+          block = node
+          blockPos = $.before(depth)
+          break
+        }
+      }
+      if (!block && anchor.target) {
+        const after = $.nodeAfter
+        const before = $.nodeBefore
+        if (after?.type.name === 'code_block') {
+          block = after
+          blockPos = probe
+        } else if (before?.type.name === 'code_block') {
+          block = before
+          blockPos = probe - before.nodeSize
+        }
+      }
+      if (!block || normalizeEmbedLang(String(block.attrs.language ?? '')) !== 'plantuml') {
+        return null
+      }
+      const target: PlantumlTarget = {
+        code: block.textContent,
+        writeBack: (next) => replaceCodeBlockContent(view, blockPos, next),
+      }
+      return target
+    })
+  }
+
   return {
     kind: 'wysiwyg',
 
@@ -1100,6 +1169,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       host.className = 'adapter-wysiwyg'
       container.replaceChildren(host)
       rootEl = host
+      setPlantumlResolver(resolvePlantuml)
 
       const instance = Editor.make()
         .config((ctx) => {
@@ -1162,6 +1232,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     },
 
     unmount(): void {
+      setPlantumlResolver(null)
       ready = false
       if (!editor) {
         rootEl?.remove()

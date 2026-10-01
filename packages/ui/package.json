@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/pm-a1.mts && tsx scripts/pm-a2.mts && tsx scripts/pm-d.mts && tsx scripts/pm-e.mts && tsx scripts/pm-f-sidebar.mts && tsx scripts/pm-g-md-links.mts && tsx scripts/pm-h-host-events.mts && tsx scripts/pm-i-titlebar.mts && tsx scripts/pm-j-formula.mts && tsx scripts/pm-k-diagram.mts && tsx scripts/pm-l-menu.mts && tsx scripts/pm-n-plugins.mts && tsx scripts/pm-o-embed.mts && tsx scripts/pm-p-dialog.mts && tsx scripts/pm-q-tabs.mts && tsx scripts/pm-r-menubar.mts"
+    "smoke": "tsx scripts/pm-a1.mts && tsx scripts/pm-a2.mts && tsx scripts/pm-d.mts && tsx scripts/pm-e.mts && tsx scripts/pm-f-sidebar.mts && tsx scripts/pm-g-md-links.mts && tsx scripts/pm-h-host-events.mts && tsx scripts/pm-i-titlebar.mts && tsx scripts/pm-j-formula.mts && tsx scripts/pm-k-diagram.mts && tsx scripts/pm-l-menu.mts && tsx scripts/pm-n-plugins.mts && tsx scripts/pm-o-embed.mts && tsx scripts/pm-p-dialog.mts && tsx scripts/pm-q-tabs.mts && tsx scripts/pm-r-menubar.mts && tsx scripts/pm-s-plantuml.mts"
   },
   "dependencies": {
     "@antv/x6": "3.1.8",
@@ -17,11 +17,16 @@
     "@markup/host-api": "workspace:*",
     "@visimer/core": "1.1.2",
     "@visimer/dom": "1.1.2",
+    "beautiful-plantuml": "0.5.0",
     "elkjs": "^0.12.0",
     "mathlive": "^0.110.0",
-    "mermaid": "12.0.0"
+    "mermaid": "12.0.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "jsdom": "30.1.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2"

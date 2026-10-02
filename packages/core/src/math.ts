@@ -1,6 +1,7 @@
 import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
-import { requestMathEdit } from './mathEditorBridge'
+import { buildWidgetLangSelect } from './codeLangs'
+import { requestMathEdit, requestMathEnlarge } from './mathEditorBridge'
 import { renderMath } from './mathRender'
 
 export * from './mathRender'
@@ -37,6 +38,9 @@ function findTextRange(view: EditorView, needle: string): { from: number; to: nu
 
 export function mathWidgetFactory(
   code: string,
+  /** Fence language for the top-left dropdown; `null` = no dropdown (the
+   *  visible source pre hosts one instead, when the caret is inside). */
+  language: string | null = null,
 ): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
   return (view, getPos) => {
     const wrap = document.createElement('div')
@@ -48,23 +52,12 @@ export function mathWidgetFactory(
     source.className = 'md-math__source'
     source.textContent = code
     source.hidden = true
-    wrap.append(source)
-    try {
-      const out = document.createElement('div')
-      out.className = 'md-math__output'
-      renderMath(code, out, true)
-      wrap.append(out)
-    } catch {
-      wrap.classList.add('md-math--error')
-      wrap.append(document.createTextNode(code))
+    const focusSource = (): void => {
+      const pos = getPos()
+      if (pos === undefined) return
+      focusInsideBlock(view, pos)
     }
-    wrap.addEventListener('mousedown', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
-    })
-    wrap.addEventListener('click', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
+    const editNow = (): void => {
       const handled = requestMathEdit({ latex: code, display: true }, (result) => {
         if (!result) return
         const pos = getPos()
@@ -82,10 +75,53 @@ export function mathWidgetFactory(
         }
       })
       if (handled) return
-      const pos = getPos()
-      if (pos === undefined) return
-      focusInsideBlock(view, pos)
+      focusSource()
+    }
+    const bar = document.createElement('div')
+    bar.className = 'md-embed__bar'
+    const enlargeBtn = document.createElement('button')
+    enlargeBtn.type = 'button'
+    enlargeBtn.className = 'md-embed__btn'
+    enlargeBtn.textContent = '放大'
+    enlargeBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      // Without a viewer wired the enlarge falls back to the source block.
+      if (!requestMathEnlarge({ latex: code, display: true })) focusSource()
     })
+    const editBtn = document.createElement('button')
+    editBtn.type = 'button'
+    editBtn.className = 'md-embed__btn'
+    editBtn.textContent = '编辑'
+    editBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      editNow()
+    })
+    bar.append(enlargeBtn, editBtn)
+    if (language !== null) wrap.append(buildWidgetLangSelect(view, getPos, language))
+    wrap.append(bar, source)
+    try {
+      const out = document.createElement('div')
+      out.className = 'md-math__output'
+      renderMath(code, out, true)
+      wrap.append(out)
+    } catch {
+      wrap.classList.add('md-math--error')
+      wrap.append(document.createTextNode(code))
+    }
+    wrap.addEventListener('mousedown', (event) => {
+      const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('.md-embed__lang')) {
+        // The language dropdown keeps native behavior (opening it would be
+        // cancelled by preventDefault below).
+        event.stopPropagation()
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    })
+    // Body click is deliberately inert — the 放大/编辑 bar is the sole entry.
     return wrap
   }
 }

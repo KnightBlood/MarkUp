@@ -22,3 +22,23 @@ export function requestMathEdit(request: MathEditRequest, done: MathEditDone): b
   handler(request, done)
   return true
 }
+
+export interface MathEnlargeRequest {
+  latex: string
+  display: boolean
+}
+
+export type MathEnlargeHandler = (request: MathEnlargeRequest) => void
+
+let enlargeHandler: MathEnlargeHandler | null = null
+
+export function setMathEnlargeHandler(next: MathEnlargeHandler | null): void {
+  enlargeHandler = next
+}
+
+/** Returns false when no enlarge viewer is wired (caller falls back to source). */
+export function requestMathEnlarge(request: MathEnlargeRequest): boolean {
+  if (!enlargeHandler) return false
+  enlargeHandler(request)
+  return true
+}

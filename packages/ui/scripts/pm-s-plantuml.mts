@@ -111,6 +111,17 @@ const button = (root: Element, label: string): HTMLButtonElement | undefined =>
   const ok = button(editor.el, '写入')
   assert(ok, 'confirm button exists')
   assert(ok.disabled, 'degraded: confirm disabled')
+  // Degraded lands on the source tab and stays fully editable.
+  const degradedPanes = Array.from(left.querySelectorAll('.plantuml-editor__pane'))
+  assert(
+    degradedPanes.length === 2 && degradedPanes[0].hidden && !degradedPanes[1].hidden,
+    'degraded defaults to the source tab',
+  )
+  const degradedSource = left.querySelector('.plantuml-editor__source') as HTMLTextAreaElement | null
+  assert(degradedSource, 'source textarea exists in degraded mode')
+  degradedSource.value = 'hello world, edited'
+  degradedSource.dispatchEvent(new window.Event('input', { bubbles: true }))
+  assert(!ok.disabled, 'degraded source edit enables confirm')
   editor.close()
   assert(!editor.isOpen(), 'degraded dialog closed')
   assert(cancelled === 1, 'close routes to onCancel')
@@ -203,6 +214,61 @@ const button = (root: Element, label: string): HTMLButtonElement | undefined =>
   editor.el.remove()
 }
 
+// ---- source tab: [可视化|源码] switch, live edit → preview refresh → 写入 ----
+{
+  const editor = openEditor()
+  let confirmed: string | null = null
+  editor.open({
+    code: '@startuml\nAlice -> Bob: hi\n@enduml',
+    onConfirm: (code) => {
+      confirmed = code
+    },
+    onCancel: () => {},
+  })
+  const left = editor.el.querySelector('.plantuml-editor__left')
+  const right = editor.el.querySelector('.plantuml-editor__right')
+  assert(left && right, 'both panes exist')
+  const tabs = Array.from(left.querySelectorAll<HTMLButtonElement>('.plantuml-editor__tab'))
+  assert(
+    tabs.length === 2 && tabs[0].textContent === '可视化' && tabs[1].textContent === '源码',
+    `tabs are [可视化|源码], got: ${tabs.map((t) => t.textContent).join('/')}`,
+  )
+  const panes = Array.from(left.querySelectorAll<HTMLElement>('.plantuml-editor__pane'))
+  assert(panes.length === 2, 'two left panes')
+  const [visualPane, sourcePane] = panes
+  assert(!visualPane.hidden && sourcePane.hidden, 'sequence opens on the visual tab')
+  const textarea = left.querySelector('.plantuml-editor__source') as HTMLTextAreaElement
+  assert(textarea, 'source textarea exists')
+
+  tabs[1].click()
+  assert(sourcePane.hidden === false && visualPane.hidden, 'source tab activates')
+  const edited = '@startuml\nAlice -> Bob: hi\nAlice -> Carol: yo\n@enduml'
+  textarea.value = edited
+  textarea.dispatchEvent(new window.Event('input', { bubbles: true }))
+  const ok = button(editor.el, '写入')
+  assert(ok && !ok.disabled, 'source edit enables confirm')
+
+  // Debounced preview restarts, then settles with the edited diagram. The
+  // open()'s initial timer is cancelled by this input, so right starts empty —
+  // an svg here proves the source edit drove a fresh render. (Don't probe the
+  // transient hint: a warm engine resolves within one poll interval.)
+  assert(
+    !right.querySelector('svg'),
+    'preview pane empty before the debounced refresh',
+  )
+  await waitFor(
+    () => right.querySelector('.md-embed__plantuml svg, .plantuml-editor__hint--bad'),
+    'preview settles after source edit',
+  )
+
+  tabs[0].click()
+  assert(visualPane.hidden === false && sourcePane.hidden, 'visual tab activates again')
+  ok.click()
+  assert(!editor.isOpen(), 'dialog closes after 写入')
+  assert(confirmed === edited, `write carries the source edit, got: ${confirmed}`)
+  editor.el.remove()
+}
+
 console.log(
-  'SMOKE UI PLANTUML OK: degraded parse gate + seq React mount + preview settle + confirm gating + cancel/backdrop + session invalidation',
+  'SMOKE UI PLANTUML OK: degraded parse gate + seq React mount + preview settle + confirm gating + cancel/backdrop + session invalidation + source tab edit/refresh/write',
 )

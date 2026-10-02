@@ -73,22 +73,21 @@ while (Date.now() < hydrateDeadline) {
 }
 assert(hydrated, 'hydrate never ran on widget root (self-match regression)')
 
+// Body click is inert — the 放大/编辑 bar is the sole entry into editing
+// (no accidental editor popups when pointing/selecting the widget).
 widget.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
 await new Promise((r) => setTimeout(r, 50))
-assert(!root.querySelector('.md-diagram--widget'), 'widget still present after click')
-assert(!root.querySelector('.md-diagram-hidden'), 'source still hidden after click')
-
-adapter.restoreAnchor({ offset: 0, line: 1 })
-await new Promise((r) => setTimeout(r, 80))
-assert(root.querySelector('.md-diagram--widget'), 'widget not restored after cursor leaves')
-assert(root.querySelector('.md-diagram--hidden, .md-diagram-hidden'), 'hide not restored')
+assert(root.querySelector('.md-diagram--widget'), 'body click must not open edit/source')
+assert(root.querySelector('.md-diagram-hidden'), 'source still hidden after body click')
 
 const value = adapter.getValue()
 assert(value.includes('```mermaid'), 'markdown lost mermaid fence')
 
-// Graphical editor bridge: registered handler receives mermaid edit requests
+// Graphical editor bridge: the 编辑 button forwards mermaid edit requests
 // and its `done(code)` replaces the fence content in place.
-const { setDiagramEditHandler } = await import('../src/diagramEditBridge')
+const { setDiagramEditHandler, setDiagramEnlargeHandler } = await import(
+  '../src/diagramEditBridge'
+)
 let diagramRequest: { lang: string; code: string } | null = null
 let diagramDoneCount = 0
 setDiagramEditHandler((request, done) => {
@@ -98,7 +97,11 @@ setDiagramEditHandler((request, done) => {
 })
 const editWidget = root.querySelector('.md-diagram--widget')
 assert(editWidget, 'widget missing before bridge click')
-editWidget.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
+const editBtn = Array.from(editWidget.querySelectorAll<HTMLButtonElement>('.md-embed__btn')).find(
+  (b) => b.textContent === '编辑',
+)
+assert(editBtn, 'diagram 编辑 button missing')
+editBtn.click()
 // markdownUpdated is debounced (200ms); wait for the listener flush before reading.
 await new Promise((r) => setTimeout(r, 300))
 assert(diagramDoneCount === 1, `bridge handler should fire once, got ${diagramDoneCount}`)
@@ -119,10 +122,55 @@ setDiagramEditHandler((request, done) => {
 const cancelWidget = root.querySelector('.md-diagram--widget')
 assert(cancelWidget, 'widget missing before cancel click')
 const beforeCancel = adapter.getValue()
-cancelWidget.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
+Array.from(cancelWidget.querySelectorAll<HTMLButtonElement>('.md-embed__btn'))
+  .find((b) => b.textContent === '编辑')
+  ?.click()
 await new Promise((r) => setTimeout(r, 300))
 assert(adapter.getValue() === beforeCancel, 'done(null) must not modify the document')
 setDiagramEditHandler(null)
+
+// ---- diagram widget 放大/编辑 bar (uniform button strip) ----
+{
+  const barWidget = root.querySelector('.md-diagram--widget')
+  assert(barWidget, 'widget missing for bar test')
+  const buttons = Array.from(barWidget.querySelectorAll<HTMLButtonElement>('.md-embed__btn'))
+  const enlarge = buttons.find((b) => b.textContent === '放大')
+  const edit = buttons.find((b) => b.textContent === '编辑')
+  assert(enlarge && edit, 'diagram bar has 放大 and 编辑')
+
+  // 编辑 forwards to the graphical editor (the sole entry now).
+  let edited = 0
+  setDiagramEditHandler((request, done) => {
+    void request
+    edited += 1
+    done(null)
+  })
+  edit.click()
+  await new Promise((r) => setTimeout(r, 80))
+  assert(edited === 1, `diagram 编辑 button must open the editor, got ${edited}`)
+  setDiagramEditHandler(null)
+
+  let enlarged: { lang: string; code: string } | null = null
+  setDiagramEnlargeHandler((request) => {
+    enlarged = request
+  })
+  enlarge.click()
+  assert(enlarged !== null && enlarged.lang === 'mermaid', '放大 invokes enlarge handler with lang')
+  assert(String(enlarged?.code).includes('flowchart TD'), 'enlarge payload carries the code')
+  setDiagramEnlargeHandler(null)
+
+  // No viewer wired → 放大 falls back to revealing the source fence.
+  enlarge.click()
+  await new Promise((r) => setTimeout(r, 50))
+  assert(!root.querySelector('.md-diagram--widget'), '放大 without viewer falls back to source')
+  assert(!root.querySelector('.md-diagram-hidden'), 'fence visible once the widget is gone')
+
+  // Cursor leaving the fence restores widget + hide decoration.
+  adapter.restoreAnchor({ offset: 0, line: 1 })
+  await new Promise((r) => setTimeout(r, 80))
+  assert(root.querySelector('.md-diagram--widget'), 'widget not restored after cursor leaves')
+  assert(root.querySelector('.md-diagram-hidden'), 'hide decoration not restored')
+}
 
 // Non-mermaid diagram languages must not open the graphical editor.
 const flowMd = ['```flow', 'st=>start: Start', 'e=>end: End', 'st->e', '```', '', 'after flow', ''].join('\n')
@@ -145,9 +193,18 @@ let flowBridgeCount = 0
 setDiagramEditHandler(() => {
   flowBridgeCount += 1
 })
+// Body click stays inert…
 flowWidget.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
 await new Promise((r) => setTimeout(r, 60))
+assert(flowBridgeCount === 0, `body click must not reach the bridge, got ${flowBridgeCount} calls`)
+assert(root.querySelector('.md-diagram--widget'), 'flow widget stays after body click')
+// …while the 编辑 button skips the mermaid bridge and reveals the source fence.
+Array.from(flowWidget.querySelectorAll<HTMLButtonElement>('.md-embed__btn'))
+  .find((b) => b.textContent === '编辑')
+  ?.click()
+await new Promise((r) => setTimeout(r, 60))
 assert(flowBridgeCount === 0, `flow lang must skip diagram bridge, got ${flowBridgeCount} calls`)
+assert(!root.querySelector('.md-diagram--widget'), 'flow 编辑 falls back to source')
 setDiagramEditHandler(null)
 
 const taskMd = [
@@ -211,7 +268,7 @@ while (Date.now() < mathDeadline) {
 assert(mathWidget, 'math widget not drawn for ```math fence')
 assert((mathWidget as HTMLElement).querySelector('.katex'), 'math widget missing katex output')
 
-const { setMathEditHandler } = await import('../src/mathEditorBridge')
+const { setMathEditHandler, setMathEnlargeHandler } = await import('../src/mathEditorBridge')
 let mathEditRequest: { latex: string; display: boolean } | null = null
 let mathEditDoneCount = 0
 setMathEditHandler((request, done) => {
@@ -219,6 +276,7 @@ setMathEditHandler((request, done) => {
   mathEditDoneCount += 1
   void done
 })
+// Body click is inert — the 放大/编辑 bar is the sole entry into editing.
 ;(mathWidget as HTMLElement).dispatchEvent(
   new window.MouseEvent('mousedown', { bubbles: true, cancelable: true }),
 )
@@ -226,7 +284,17 @@ setMathEditHandler((request, done) => {
   new window.MouseEvent('click', { bubbles: true, cancelable: true }),
 )
 await new Promise((r) => setTimeout(r, 50))
-assert(mathEditDoneCount === 1, `math widget click should open edit bridge once, got ${mathEditDoneCount}`)
+assert(
+  mathEditDoneCount === 0,
+  `math body click must not open the editor, got ${mathEditDoneCount}`,
+)
+const mathEditBtn = Array.from(
+  (mathWidget as HTMLElement).querySelectorAll<HTMLButtonElement>('.md-embed__btn'),
+).find((b) => b.textContent === '编辑')
+assert(mathEditBtn, 'math 编辑 button missing')
+mathEditBtn.click()
+await new Promise((r) => setTimeout(r, 50))
+assert(mathEditDoneCount === 1, `math 编辑 button should open edit bridge once, got ${mathEditDoneCount}`)
 assert(mathEditRequest?.latex === 'a^2 + b^2 = c^2', `math edit latex: ${mathEditRequest?.latex}`)
 assert(mathEditRequest?.display === true, 'math edit display mode')
 assert(
@@ -247,6 +315,40 @@ assert(
   'math source must stay visible while caret inside (live source+preview)',
 )
 
+// ---- math widget 放大/编辑 bar (uniform button strip) ----
+{
+  const mathButtons = Array.from(
+    (liveMath as HTMLElement).querySelectorAll<HTMLButtonElement>('.md-embed__btn'),
+  )
+  const enlarge = mathButtons.find((b) => b.textContent === '放大')
+  const edit = mathButtons.find((b) => b.textContent === '编辑')
+  assert(enlarge && edit, 'math bar has 放大 and 编辑')
+
+  let enlarged: { latex: string; display: boolean } | null = null
+  setMathEnlargeHandler((request) => {
+    enlarged = request
+  })
+  enlarge.click()
+  assert(
+    enlarged !== null && enlarged.latex === 'a^2 + b^2 = c^2',
+    `math 放大 invokes enlarge handler, got: ${enlarged?.latex}`,
+  )
+  assert(enlarged.display === true, 'math enlarge display mode')
+  setMathEnlargeHandler(null)
+
+  // 编辑 forwards to the formula editor (the sole entry now).
+  let edited = 0
+  setMathEditHandler((request, done) => {
+    void request
+    edited += 1
+    done(null)
+  })
+  edit.click()
+  await new Promise((r) => setTimeout(r, 50))
+  assert(edited === 1, `math 编辑 button must open the formula editor, got ${edited}`)
+  setMathEditHandler(null)
+}
+
 adapter.restoreAnchor({ offset: fmMd.indexOf('body paragraph'), line: 7 })
 await new Promise((r) => setTimeout(r, 60))
 adapter.insertTable?.(3, 3)
@@ -262,6 +364,26 @@ await new Promise((r) => setTimeout(r, 60))
 adapter.insertMarkdown?.({ markdown: '\n\nfootnote test[^1]\n\n[^1]: note body\n' })
 await new Promise((r) => setTimeout(r, 200))
 assert(adapter.getValue().includes('[^1]'), `footnote reference missing: ${JSON.stringify(adapter.getValue().slice(-300))}`)
+
+// Regression: inserting a fence while the caret sits inside a NON-empty
+// paragraph must keep the fence as a standalone block. Slice.maxOpen used to
+// walk into code_block (content: text*, not a leaf), handing replaceRange an
+// open slice whose raw text spliced into the paragraph and made the ```
+// markers disappear.
+adapter.setValue('111111\n')
+await new Promise((r) => setTimeout(r, 80))
+adapter.restoreAnchor({ offset: 0, line: 1 })
+await new Promise((r) => setTimeout(r, 60))
+adapter.insertMarkdown?.({
+  markdown: '\n\n```plantuml\n@startuml\nAlice -> Bob : Hello\n@enduml\n```\n\n',
+})
+await new Promise((r) => setTimeout(r, 200))
+const fenceBesideText = adapter.getValue()
+assert(
+  fenceBesideText.includes('```plantuml\n@startuml') &&
+    fenceBesideText.includes('@enduml\n```\n\n111111'),
+  `fence must stay a block beside existing text: ${JSON.stringify(fenceBesideText)}`,
+)
 
 type TableCmd = Parameters<NonNullable<typeof adapter.runTableCommand>>[0]
 const runTable = (id: TableCmd): boolean => adapter.runTableCommand?.(id) ?? false
@@ -486,6 +608,6 @@ assert(taskLine(true, 'todo one'), 'text clicks leave the box alone')
 adapter.unmount()
 
 console.log(
-  'SMOKE WYSIWYG DIAGRAM OK: widget draw/click-to-source/cursor-leave/serialize + math widget click-to-edit + live math while caret inside + task-list/outline anchors + selection range round-trip + native block formats + table toolbar/guards/align/move/delete',
+  'SMOKE WYSIWYG DIAGRAM OK: widget draw/body-click-inert/bar edit+enlarge/cursor-leave/serialize + math widget bar-to-edit + live math while caret inside + task-list/outline anchors + selection range round-trip + native block formats + table toolbar/guards/align/move/delete',
 )
 process.exit(0)

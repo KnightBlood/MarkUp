@@ -65,10 +65,23 @@ export function showPrompt(options: PromptOptions): Promise<string | null> {
       }),
     )
 
+    const head = el(
+      'div',
+      { class: 'msg-dialog__head' },
+      el('h2', { class: 'msg-dialog__title', text: options.title }),
+      el('button', {
+        type: 'button',
+        class: 'msg-dialog__close',
+        'aria-label': '关闭',
+        text: '×',
+        onclick: () => settle(null),
+      }),
+    )
+
     const dialog = el(
       'dialog',
       { class: 'msg-dialog msg-dialog--prompt', 'aria-label': options.title },
-      el('h2', { class: 'msg-dialog__title', text: options.title }),
+      head,
       options.message
         ? el('div', { class: 'msg-dialog__body', text: options.message })
         : null,

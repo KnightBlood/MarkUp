@@ -930,7 +930,8 @@ body {
   z-index: 110;
 }
 
-/* HostAPI message dialog — in-app modal replacing native message boxes. */
+/* HostAPI message dialog — in-app modal styled like the settings /
+   embed-viewer panels (header row + separator, bordered footer). */
 .msg-dialog {
   width: min(440px, calc(100vw - 32px));
   max-width: none;
@@ -948,15 +949,37 @@ body {
   background: rgb(0 0 0 / 35%);
 }
 
+.msg-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
 .msg-dialog__title {
   margin: 0;
-  padding: 14px 16px 0;
   font-size: 15px;
   font-weight: 600;
 }
 
+.msg-dialog__close {
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.msg-dialog__close:hover {
+  color: var(--fg);
+}
+
 .msg-dialog__body {
-  padding: 10px 16px 16px;
+  padding: 12px 16px 16px;
   color: var(--fg-muted);
   font-size: 13.5px;
   line-height: 1.6;
@@ -991,7 +1014,8 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 16px 14px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
 }
 
 .msg-dialog__btn {
@@ -1852,7 +1876,10 @@ body > .ML__keyboard {
   font-size: 12px;
 }
 
-/* 放大预览对话框（3D 模型 / 视频 / 脑图） */
+/* 放大预览对话框：尺寸规则由 embedViewer.fitStage() 驱动 ——
+   内容低于上限 → 弹窗缩到贴合内容（面板 inline 宽高）；
+   内容达到上限 → 弹窗钉在 max 上、内容 scale 适配窗口。
+   下面的宽高即「上限」以及无布局环境（jsdom）的回退值。 */
 .embed-viewer__panel {
   display: flex;
   flex-direction: column;
@@ -1863,6 +1890,45 @@ body > .ML__keyboard {
 
 .embed-viewer__panel:focus {
   outline: none;
+}
+
+/* 缩放工具条：fit 基线之上的用户缩放（−/%/+/适应），滚轮同效 */
+.embed-viewer__zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.embed-viewer__zoom[hidden] {
+  display: none;
+}
+
+.embed-viewer__zoom-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.embed-viewer__zoom-btn:hover {
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.embed-viewer__zoom-label {
+  min-width: 48px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .embed-viewer__body {
@@ -1876,8 +1942,25 @@ body > .ML__keyboard {
 .embed-viewer__stage {
   display: flex;
   flex: 1;
-  min-height: min(60vh, 520px);
+  min-height: 0;
   flex-direction: column;
+  /* let the canvas keep its natural width — fitStage measures it */
+  align-items: flex-start;
+}
+
+/* Zoomed: oversized canvas is clipped to the stage and dragged around;
+   fitStage() clamps the translate so content never gets stranded. */
+.embed-viewer__stage--clip {
+  overflow: hidden;
+}
+
+.embed-viewer__stage--zoomed {
+  cursor: grab;
+  user-select: none;
+}
+
+.embed-viewer__stage--dragging {
+  cursor: grabbing;
 }
 
 .embed-viewer__hint {
@@ -1912,7 +1995,22 @@ body > .ML__keyboard {
 }
 
 .embed-viewer__render {
-  height: min(60vh, 520px);
+  /* natural (max-content) sizing: fitStage measures this box */
+  width: max-content;
+}
+
+/* Viewer-app content has no intrinsic size — give it a default frame that
+   the fit rule then scales down when the viewport is smaller. */
+.embed-viewer__render[data-render='file'],
+.embed-viewer__render[data-render='drawio'],
+.embed-viewer__render[data-render='xmind'] {
+  width: 800px;
+  height: 600px;
+}
+
+.embed-viewer__render[data-render='model'] {
+  width: 640px;
+  height: 480px;
 }
 
 .embed-viewer__render video {
@@ -1933,8 +2031,10 @@ body > .ML__keyboard {
 
 .embed-viewer__render svg {
   display: block;
-  width: 100%;
-  height: 100%;
+}
+
+.embed-viewer__render .katex-display {
+  margin: 0;
 }
 
 /* PlantUML 可视化编辑对话框（左：beautiful-plantuml 交互画布 / 右：官方预览） */
@@ -1965,22 +2065,102 @@ body > .ML__keyboard {
 .plantuml-editor__right {
   min-width: 0;
   min-height: 0;
-  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-soft);
 }
 
+/* 左栏：[可视化|源码] 标签页 + 当前 pane 独立滚动 */
 .plantuml-editor__left {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.plantuml-editor__tabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.plantuml-editor__tab {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.plantuml-editor__tab--active {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+.plantuml-editor__pane {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.plantuml-editor__pane[hidden] {
+  display: none;
+}
+
+.plantuml-editor__source {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px;
+  border: none;
+  resize: none;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
 }
 
 .plantuml-editor__canvas {
   min-height: 100%;
 }
 
+/* 右栏：常驻预览 = 提示 + 画布；画布有最小大小（内容更小则放大填满，
+   更大则等比缩进），svg 双向 fill 实现等比适配。 */
+.plantuml-editor__right {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
 .plantuml-editor__render {
+  display: flex;
+  flex: 1;
+  min-width: 360px;
+  min-height: 260px;
   padding: 12px;
+}
+
+.plantuml-editor__render > .md-embed__plantuml {
+  flex: 1;
+  min-width: 0;
+}
+
+.plantuml-editor__render .md-embed__plantuml svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .plantuml-editor__hint {

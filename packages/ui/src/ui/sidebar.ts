@@ -82,16 +82,18 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
   const tabSearchBtn = el('button', { class: 'sidebar__tab', type: 'button', text: '搜索' })
 
   const fileList = el('ul', { class: 'file-tree' })
-  const openBtn = el('button', { class: 'btn', type: 'button', text: '打开文件…' })
-  const openFolderBtn = el('button', { class: 'btn', type: 'button', text: '打开文件夹…' })
   const workspaceLabel = el('div', { class: 'sidebar__workspace', hidden: true })
-  const filePanel = el(
-    'div',
-    { class: 'sidebar__panel' },
-    el('div', { class: 'sidebar__tools' }, openBtn, openFolderBtn),
-    workspaceLabel,
-    fileList,
-  )
+  // 打开入口收敛到菜单栏（文件▸）与面板空白区右键，顶部不再放两个按钮。
+  const openFileWithPicker = (): void => {
+    void (async () => {
+      const picked = await pickMarkdownFile()
+      if (picked) handlers.onOpen(picked.path, picked.content)
+    })()
+  }
+  const openFolderWithPicker = (): void => {
+    void handlers.onOpenFolder()
+  }
+  const filePanel = el('div', { class: 'sidebar__panel' }, workspaceLabel, fileList)
 
   const outlineList = el('ul', { class: 'outline' })
   const outlinePanel = el('div', { class: 'sidebar__panel', hidden: true }, outlineList)
@@ -149,17 +151,6 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
   tabSearchBtn.addEventListener('click', () => {
     showTab('search')
     searchInput.focus()
-  })
-
-  openBtn.addEventListener('click', () => {
-    void (async () => {
-      const picked = await pickMarkdownFile()
-      if (picked) handlers.onOpen(picked.path, picked.content)
-    })()
-  })
-
-  openFolderBtn.addEventListener('click', () => {
-    void handlers.onOpenFolder()
   })
 
   const openWorkspaceFile = (path: string): void => {
@@ -463,8 +454,8 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
     event.preventDefault()
     const workspace = handlers.getWorkspace()
     handlers.showContextMenu(event.clientX, event.clientY, [
-      { label: '打开文件…', run: () => openBtn.click() },
-      { label: '打开文件夹…', run: () => openFolderBtn.click() },
+      { label: '打开文件…', run: openFileWithPicker },
+      { label: '打开文件夹…', run: openFolderWithPicker },
       ...(workspace.root
         ? [
             { separator: true } as ContextMenuItem,

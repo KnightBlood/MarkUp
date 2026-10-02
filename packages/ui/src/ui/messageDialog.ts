@@ -29,6 +29,19 @@ export function showHostMessage(options: MessageOptions): Promise<MessageResult>
       resolve({ button })
     }
 
+    const head = el(
+      'div',
+      { class: 'msg-dialog__head' },
+      el('h2', { class: 'msg-dialog__title', text: title }),
+      el('button', {
+        type: 'button',
+        class: 'msg-dialog__close',
+        'aria-label': '关闭',
+        text: '×',
+        onclick: () => settle(''),
+      }),
+    )
+
     const foot = el(
       'div',
       { class: 'msg-dialog__foot' },
@@ -48,7 +61,7 @@ export function showHostMessage(options: MessageOptions): Promise<MessageResult>
     const dialog = el(
       'dialog',
       { class: 'msg-dialog', 'aria-label': title },
-      el('h2', { class: 'msg-dialog__title', text: title }),
+      head,
       el('div', { class: 'msg-dialog__body', text: options.message }),
       foot,
     )

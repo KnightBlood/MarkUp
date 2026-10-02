@@ -1,5 +1,7 @@
 .md-diagram {
   margin: 8px 0;
+  /* anchors the absolute 放大/编辑 bar */
+  position: relative;
 }
 
 .md-diagram-hidden {

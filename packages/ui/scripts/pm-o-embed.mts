@@ -243,7 +243,78 @@ if (viewer.el.querySelector('.md-embed__file')) {
 setEmbedSourceResolver(null)
 viewer.close()
 
+// ── diagram open: mermaid svg OR graceful 无法预览; title mapped ──────
+viewer.open({ diagram: { lang: 'mermaid', code: 'flowchart TD\n  A[开始] --> B[结束]' } })
+assert(viewer.isOpen(), 'diagram variant opens')
+const diagramTitle = viewer.el.querySelector('.settings__title')
+assert(diagramTitle?.textContent === '图表预览', `diagram title: ${diagramTitle?.textContent}`)
+await waitFor(
+  () => viewer.el.querySelector('svg') || viewer.el.querySelector('.embed-viewer__error'),
+  'diagram settles',
+  60000,
+)
+assert(
+  viewer.el.querySelector('svg') || viewer.el.querySelector('.embed-viewer__error'),
+  'diagram renders svg or reports 无法预览',
+)
+viewer.close()
+
+// ── diagram open: unknown lang → 无法预览 keeps the raw source ───────
+viewer.open({ diagram: { lang: 'unknownlang', code: 'x = 1' } })
+await waitFor(() => viewer.el.querySelector('.embed-viewer__error'), 'unknown diagram error')
+const unknownSrc = viewer.el.querySelector('.embed-viewer__source')
+assert(unknownSrc?.textContent === 'x = 1', `diagram error keeps raw source: ${unknownSrc?.textContent}`)
+viewer.close()
+
+// ── math open: katex renders (throwOnError:false), title mapped ──────
+viewer.open({ math: { latex: 'a^2 + b^2 = c^2' } })
+await waitFor(() => viewer.el.querySelector('.katex'), 'math katex rendered')
+const mathTitle = viewer.el.querySelector('.settings__title')
+assert(mathTitle?.textContent === '公式预览', `math title: ${mathTitle?.textContent}`)
+assert(!viewer.el.querySelector('.embed-viewer__error'), 'math renders without error')
+assert(
+  viewer.el.querySelector('.embed-viewer__render[data-render="math"]'),
+  'math canvas carries data-render (drives the sizing rules)',
+)
+viewer.close()
+
+// ── zoom toolbar: +/−/适应 + wheel recompute the label; drag arms only zoomed
+viewer.open({ math: { latex: 'a^2 + b^2 = c^2' } })
+await waitFor(() => viewer.el.querySelector('.katex'), 'math katex for zoom')
+const zoomBar = viewer.el.querySelector<HTMLElement>('.embed-viewer__zoom')
+assert(zoomBar && !zoomBar.hidden, 'zoom toolbar visible after render')
+const zoomLabel = viewer.el.querySelector<HTMLElement>('.embed-viewer__zoom-label')
+const zoomBtn = (glyph: string): HTMLButtonElement | undefined =>
+  Array.from(zoomBar.querySelectorAll('button')).find((b) => b.textContent === glyph)
+assert(zoomLabel?.textContent === '100%', `baseline label: ${zoomLabel?.textContent}`)
+zoomBtn('+')?.click()
+assert(zoomLabel?.textContent === '125%', `zoom in: ${zoomLabel?.textContent}`)
+zoomBtn('+')?.click()
+zoomBtn('−')?.click()
+assert(zoomLabel?.textContent === '125%', `zoom out: ${zoomLabel?.textContent}`)
+const stageEl = viewer.el.querySelector('.embed-viewer__stage')
+assert(
+  stageEl?.classList.contains('embed-viewer__stage--zoomed'),
+  'stage arms zoom cursor while zoomed',
+)
+stageEl?.dispatchEvent(
+  new dom.window.WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true }),
+)
+assert(zoomLabel?.textContent !== '125%', `wheel zoom changes scale: ${zoomLabel?.textContent}`)
+zoomBtn('适应')?.click()
+assert(zoomLabel?.textContent === '100%', `fit resets: ${zoomLabel?.textContent}`)
+assert(
+  !stageEl?.classList.contains('embed-viewer__stage--zoomed'),
+  'fit disarms zoom styling',
+)
+// error fallback hides the toolbar (nothing to scale)
+viewer.open({ diagram: { lang: 'unknownlang', code: 'x = 1' } })
+await waitFor(() => viewer.el.querySelector('.embed-viewer__error'), 'zoom error state')
+assert(zoomBar.hidden, 'zoom toolbar hidden on error fallback')
+viewer.close()
+assert(zoomBar.hidden, 'zoom toolbar hidden after close')
+
 console.log(
-  'SMOKE UI EMBED OK: viewer open/video render + escape/backdrop close + resolver error copy + model/mindmap tolerance + xmind/drawio/plantuml/file titles',
+  'SMOKE UI EMBED OK: viewer open/video render + escape/backdrop close + resolver error copy + model/mindmap tolerance + xmind/drawio/plantuml/file titles + diagram/math variants + zoom toolbar',
 )
 process.exit(0)

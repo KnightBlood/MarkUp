@@ -202,7 +202,6 @@ if (Test-Path $wailsExe) {
 foreach ($copy in @("$root\apps\electron\shared\menu.json", "$root\apps\tauri\src-tauri\src\menu.json", "$root\apps\wails\menu.json")) {
   Check-Needle "menu copy :: insert.plantuml ($copy)" $copy 'insert.plantuml' -Literal
   Check-Needle "menu copy :: insert.file ($copy)" $copy 'insert.file' -Literal
-  Check-Needle "menu copy :: plantuml.visualEdit ($copy)" $copy 'plantuml.visualEdit' -Literal
 }
 
 # --- brand assets (app icon / document icon) ---
@@ -238,7 +237,6 @@ Check-Needle 'plantuml :: command registered in shell' "$root\packages\ui\src\sh
 Check-Needle 'plantuml :: resolver wired (wysiwyg)' "$root\packages\core\src\adapters\wysiwyg.ts" 'setPlantumlResolver' -Literal
 Check-Needle 'plantuml :: resolver wired (source)' "$root\packages\core\src\adapters\source.ts" 'setPlantumlResolver' -Literal
 Check-Needle 'plantuml :: resolver wired (hybrid)' "$root\packages\core\src\adapters\hybrid.ts" 'setPlantumlResolver' -Literal
-Check-Needle 'plantuml :: command in menu source' "$root\packages\host-api\src\menu.json" 'plantuml.visualEdit' -Literal
 Check-Needle 'plantuml :: ui dependency' "$root\packages\ui\package.json" 'beautiful-plantuml' -Literal
 Check-Needle 'plantuml :: core smoke wired' "$root\packages\core\package.json" 'pm-puml.mts' -Literal
 Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s-plantuml.mts' -Literal

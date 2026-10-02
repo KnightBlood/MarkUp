@@ -87,6 +87,8 @@ const { renderMarkdownHtml, hydrateExportDiagrams, buildStandaloneHtml } = await
   '../src/exportHtml'
 )
 const { createWysiwygAdapter } = await import('../src/adapters/wysiwyg')
+const { resolvePlantumlTarget, setPlantumlVisualEditHandler, requestPlantumlVisualEdit } =
+  await import('../src/plantumlEditBridge')
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 const waitFor = async (probe: () => unknown, label: string): Promise<void> => {
@@ -618,6 +620,36 @@ const host = window.document.getElementById('root') as HTMLElement
   assert(enlarged?.kind === 'video' && enlarged?.code === VIDEO_URL, 'enlarge payload')
   setEmbedEnlargeHandler(null)
   await waitFor(() => widget.querySelector('video'), 'widget video rendered')
+  wy.unmount()
+}
+
+// ---- plantuml widget: 编辑 hands off to the visual-edit dialog ----
+{
+  assert(requestPlantumlVisualEdit() === false, 'no visual handler → false (fallback to source)')
+  const updates: string[] = []
+  const wy = createWysiwygAdapter({ onChange: (md) => updates.push(md) })
+  wy.setValue(`# t\n\n\`\`\`plantuml\n${PLANTUML_TEMPLATE}\`\`\`\n`)
+  wy.mount(host)
+  await waitFor(() => host.querySelector('.md-embed--widget'), 'plantuml widget')
+  const widget = host.querySelector('.md-embed--widget') as HTMLElement
+  assert(widget.dataset.embed === 'plantuml', 'plantuml widget kind')
+  const edit = Array.from(widget.querySelectorAll<HTMLButtonElement>('.md-embed__btn')).find(
+    (b) => b.textContent === '编辑',
+  )
+  assert(edit, 'plantuml bar has 编辑')
+
+  let opened = 0
+  let resolved: unknown = null
+  setPlantumlVisualEditHandler(() => {
+    opened += 1
+    // The ui owner resolves the caret's fence itself — same contract as the
+    // plantuml.visualEdit command the button forwards to.
+    resolved = resolvePlantumlTarget({ caret: true })
+  })
+  edit?.click()
+  assert(opened === 1, '编辑 invokes the visual-edit handler')
+  assert(resolved !== null, 'caret resolver finds the fence after the button moved the caret in')
+  setPlantumlVisualEditHandler(null)
   wy.unmount()
 }
 

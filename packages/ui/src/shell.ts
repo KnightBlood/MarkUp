@@ -9,7 +9,10 @@ import {
   linkEdit,
   resolvePlantumlTarget,
   setDiagramEditHandler,
+  setDiagramEnlargeHandler,
   setMathEditHandler,
+  setMathEnlargeHandler,
+  setPlantumlVisualEditHandler,
   type BlockFormatId,
   type InlineFormatId,
   type OpenDoc,
@@ -282,9 +285,10 @@ export function renderShell(): ShellHandle {
   })
 
   plantumlEditor = createPlantumlEditor()
-  // Visual editing: the context-menu row and the plantuml.visualEdit command
-  // share this outlet — open the code-split React dialog, then splice the
-  // confirmed source back through the range captured at resolve time.
+  // Visual editing: the widget 编辑 button forwards the caret command into
+  // this outlet — open the code-split React dialog, then splice the confirmed
+  // source back through the range captured at resolve time. (Menu/context-menu
+  // entries were removed once the uniform 放大/编辑 bar became the sole entry.)
   const openPlantumlVisualEdit = (target: PlantumlTarget): void => {
     plantumlEditor.open({
       code: target.code,
@@ -299,6 +303,15 @@ export function renderShell(): ShellHandle {
   setEmbedEnlargeHandler((request) => {
     embedViewer.open({ kind: request.kind, code: request.code })
   })
+  setDiagramEnlargeHandler((request) => {
+    embedViewer.open({ diagram: { lang: request.lang, code: request.code } })
+  })
+  setMathEnlargeHandler((request) => {
+    embedViewer.open({ math: { latex: request.latex } })
+  })
+  // Widget 编辑按钮 → the same resolve-and-open path as the caret command
+  // (the button reveals the fence first, so the caret resolver sees it).
+  setPlantumlVisualEditHandler(() => registry.run('plantuml.visualEdit'))
   setEmbedSourceResolver(async (path) => {
     try {
       return await host.fs.readBase64(path)
@@ -1098,17 +1111,6 @@ export function renderShell(): ShellHandle {
         { separator: true },
       )
     }
-    const plantuml = resolvePlantumlTarget({
-      target: node,
-      clientX: context.clientX,
-      clientY: context.clientY,
-    })
-    if (plantuml) {
-      items.unshift(
-        { label: '可视化编辑 PlantUML…', run: () => openPlantumlVisualEdit(plantuml) },
-        { separator: true },
-      )
-    }
     for (const provider of contextItemProviders) {
       items.push(...provider(event, context))
     }
@@ -1605,8 +1607,15 @@ export function renderShell(): ShellHandle {
     id: 'code.language',
     label: '设置代码块语言…',
     run: () => {
-      const lang = window.prompt('代码块语言（如 js / ts / python / math）', 'js')
-      if (lang) editor.setCodeLanguage(lang.trim())
+      void showPrompt({
+        title: '设置代码块语言',
+        message: '代码块语言（如 js / ts / python / math）',
+        value: 'js',
+        placeholder: 'js',
+        confirmText: '设置',
+      }).then((lang) => {
+        if (lang && lang.trim()) editor.setCodeLanguage(lang.trim())
+      })
     },
   })
   registry.register({ id: 'theme.toggle', label: '切换主题（浅色/深色/跟随系统/自定义）', run: cycleTheme })
@@ -1686,7 +1695,14 @@ export function renderShell(): ShellHandle {
   registry.register({
     id: 'host.status',
     label: 'HostAPI 平台信息',
-    run: () => void window.alert(`platform=${host.platform}`),
+    run: () =>
+      void host.dialog
+        .message({
+          title: 'HostAPI 平台信息',
+          message: `platform=${host.platform}`,
+          buttons: ['确定'],
+        })
+        .catch(() => undefined),
   })
 
   attachKeydown(registry)

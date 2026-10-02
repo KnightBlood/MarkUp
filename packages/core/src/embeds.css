@@ -140,7 +140,8 @@
   height: 100%;
 }
 
-/* Widget hover toolbar: 放大 / 编辑 */
+/* Widget hover toolbar: 放大 / 编辑 — shared by the embed, diagram and math
+   widgets (all three wrappers host the same bar markup). */
 .md-embed__bar {
   position: absolute;
   top: 6px;
@@ -154,7 +155,11 @@
 }
 
 .md-embed:hover > .md-embed__bar,
-.md-embed:focus-within > .md-embed__bar {
+.md-embed:focus-within > .md-embed__bar,
+.md-diagram:hover > .md-embed__bar,
+.md-diagram:focus-within > .md-embed__bar,
+.md-math:hover > .md-embed__bar,
+.md-math:focus-within > .md-embed__bar {
   opacity: 1;
   pointer-events: auto;
 }
@@ -173,4 +178,36 @@
 
 .md-embed__btn:hover {
   background: var(--mk-code-bg, #f6f8fa);
+}
+
+/* Language dropdown at the widget's top-left corner — mirrors the bar's
+   hover/focus reveal so 放大/编辑/语言 behave as one toolbar. */
+.md-embed__lang {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  max-width: calc(100% - 12px);
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--mk-border, #d0d7de);
+  background: var(--mk-bg, #fff);
+  color: var(--mk-fg, #1f2328);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.md-embed:hover > .md-embed__lang,
+.md-embed:focus-within > .md-embed__lang,
+.md-diagram:hover > .md-embed__lang,
+.md-diagram:focus-within > .md-embed__lang,
+.md-math:hover > .md-embed__lang,
+.md-math:focus-within > .md-embed__lang {
+  opacity: 1;
+  pointer-events: auto;
 }

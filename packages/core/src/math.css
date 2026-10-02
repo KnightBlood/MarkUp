@@ -2,6 +2,8 @@
   margin: 0.6em 0;
   overflow-x: auto;
   text-align: center;
+  /* anchors the absolute 放大/编辑 bar on the block widget */
+  position: relative;
 }
 
 .md-math--error {

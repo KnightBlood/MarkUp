@@ -56,12 +56,14 @@ import {
   isInTable,
   selectedRect,
 } from '@milkdown/kit/prose/tables'
+import { buildWidgetLangSelect } from '../codeLangs'
 import { hydrateDiagrams, normalizeDiagramLang, type DiagramLang } from '../diagrams'
 import { hydrateEmbeds, normalizeEmbedLang, requestEmbedEnlarge, type EmbedKind } from '../embeds'
-import { requestDiagramEdit } from '../diagramEditBridge'
+import { requestDiagramEdit, requestDiagramEnlarge } from '../diagramEditBridge'
 import { joinFrontmatter, splitFrontmatter } from '../frontmatter'
 import { mathWidgetFactory, normalizeMathLang, replaceCodeBlockContent } from '../math'
 import {
+  requestPlantumlVisualEdit,
   setPlantumlResolver,
   type PlantumlAnchor,
   type PlantumlTarget,
@@ -265,13 +267,28 @@ function stopWidgetPointerEvents(event: Event): boolean {
     event.type === 'mouseup' ||
     event.type === 'pointerdown' ||
     event.type === 'pointerup' ||
-    event.type === 'contextmenu'
+    event.type === 'contextmenu' ||
+    event.type === 'keydown' ||
+    event.type === 'keyup'
   )
+}
+
+/** In-pre language select: widget decoration placed at the start of the
+ *  code_block content, absolutely positioned at the pre's top-left corner. */
+function langSelectWidgetFactory(
+  language: string,
+): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
+  return (view, getPos) => {
+    const select = buildWidgetLangSelect(view, getPos, language)
+    select.dataset.langWidget = 'pre'
+    return select
+  }
 }
 
 function diagramWidgetFactory(
   lang: DiagramLang,
   code: string,
+  language: string,
 ): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
   return (view, getPos) => {
     const wrap = document.createElement('div')
@@ -281,18 +298,19 @@ function diagramWidgetFactory(
     const source = document.createElement('pre')
     source.className = 'md-diagram__source'
     source.textContent = code
-    wrap.append(source)
-    wrap.addEventListener('mousedown', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
-    })
-    wrap.addEventListener('click', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
+    const moveToSource = (): void => {
+      const pos = getPos()
+      if (pos === undefined) return
+      const doc = view.state.doc
+      const $target = doc.resolve(Math.min(pos + 1, doc.content.size))
+      view.dispatch(view.state.tr.setSelection(TextSelection.near($target)))
+      view.focus()
+    }
+    const editNow = (): void => {
       const pos = getPos()
       if (pos === undefined) return
       // Graphical editor bridge first (mermaid only); without a handler the
-      // click falls back to moving the caret into the fence (source editing).
+      // edit falls back to moving the caret into the fence (source editing).
       if (lang === 'mermaid') {
         const handled = requestDiagramEdit({ lang, code }, (next) => {
           if (next === null) return
@@ -301,11 +319,45 @@ function diagramWidgetFactory(
         })
         if (handled) return
       }
-      const doc = view.state.doc
-      const $target = doc.resolve(Math.min(pos + 1, doc.content.size))
-      view.dispatch(view.state.tr.setSelection(TextSelection.near($target)))
-      view.focus()
+      moveToSource()
+    }
+    const bar = document.createElement('div')
+    bar.className = 'md-embed__bar'
+    const enlargeBtn = document.createElement('button')
+    enlargeBtn.type = 'button'
+    enlargeBtn.className = 'md-embed__btn'
+    enlargeBtn.textContent = '放大'
+    enlargeBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      // Without a viewer wired the enlarge falls back to editing the fence.
+      if (!requestDiagramEnlarge({ lang, code })) moveToSource()
     })
+    const editBtn = document.createElement('button')
+    editBtn.type = 'button'
+    editBtn.className = 'md-embed__btn'
+    editBtn.textContent = '编辑'
+    editBtn.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      editNow()
+    })
+    bar.append(enlargeBtn, editBtn)
+    const langSelect = buildWidgetLangSelect(view, getPos, language)
+    wrap.append(langSelect, bar, source)
+    wrap.addEventListener('mousedown', (event) => {
+      const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('.md-embed__lang')) {
+        // The language dropdown keeps native behavior (opening it would be
+        // cancelled by preventDefault below).
+        event.stopPropagation()
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    })
+    // Body click is deliberately inert — the 放大/编辑 bar is the sole entry
+    // (avoids accidental editor popups when selecting/pointing at the widget).
     void hydrateDiagrams(wrap)
     return wrap
   }
@@ -314,6 +366,7 @@ function diagramWidgetFactory(
 function embedWidgetFactory(
   kind: EmbedKind,
   code: string,
+  language: string,
 ): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
   return (view, getPos) => {
     const wrap = document.createElement('div')
@@ -349,17 +402,29 @@ function embedWidgetFactory(
     editBtn.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
+      // Reveal the fence first — that also puts the caret inside this block,
+      // which is exactly what the caret resolver needs. plantuml then hands
+      // off to the visual dialog; without a dialog owner wired the button
+      // stays in source editing (the pre-visual-edit behavior).
       moveToSource()
+      if (kind === 'plantuml') requestPlantumlVisualEdit()
     })
     bar.append(enlargeBtn, editBtn)
 
     const source = document.createElement('pre')
     source.className = 'md-embed__source'
     source.textContent = code
-    wrap.append(bar, source)
+    const langSelect = buildWidgetLangSelect(view, getPos, language)
+    wrap.append(langSelect, bar, source)
 
     wrap.addEventListener('mousedown', (event) => {
       const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('.md-embed__lang')) {
+        // The language dropdown keeps native behavior (opening it would be
+        // cancelled by preventDefault below).
+        event.stopPropagation()
+        return
+      }
       if (target?.closest('button')) {
         event.preventDefault()
         event.stopPropagation()
@@ -394,41 +459,61 @@ function widgetDecorations(state: EditorState): DecorationSet {
     const to = pos + node.nodeSize
     const inside = selection.ranges.some((range) => range.$from.pos < to && range.$to.pos > from)
     const code = node.textContent
-    if (!code.trim()) return
-    const diagramLang = normalizeDiagramLang(language)
-    if (diagramLang && !inside) {
-      decorations.push(Decoration.node(from, to, { class: 'md-diagram-hidden' }))
-      decorations.push(
-        Decoration.widget(from, diagramWidgetFactory(diagramLang, code), {
-          key: `md-diagram:${diagramLang}:${code}`,
-          stopEvent: stopWidgetPointerEvents,
-        }),
-      )
-      return
-    }
-    const embedKind = normalizeEmbedLang(language)
-    if (embedKind && !inside) {
-      decorations.push(Decoration.node(from, to, { class: 'md-embed-hidden' }))
-      decorations.push(
-        Decoration.widget(from, embedWidgetFactory(embedKind, code), {
-          key: `md-embed:${embedKind}:${code.length}:${code.slice(0, 40)}`,
-          stopEvent: stopWidgetPointerEvents,
-        }),
-      )
-      return
-    }
-    const mathLang = normalizeMathLang(language)
-    if (mathLang) {
-      if (!inside) {
+    if (code.trim()) {
+      const diagramLang = normalizeDiagramLang(language)
+      if (diagramLang && !inside) {
         decorations.push(Decoration.node(from, to, { class: 'md-diagram-hidden' }))
+        decorations.push(
+          Decoration.widget(from, diagramWidgetFactory(diagramLang, code, language), {
+            key: `md-diagram:${language}:${diagramLang}:${code}`,
+            stopEvent: stopWidgetPointerEvents,
+          }),
+        )
+        return
       }
-      decorations.push(
-        Decoration.widget(from, mathWidgetFactory(code), {
-          key: `md-math:${inside ? 'live:' : ''}${code}`,
-          stopEvent: stopWidgetPointerEvents,
-        }),
-      )
+      const embedKind = normalizeEmbedLang(language)
+      if (embedKind && !inside) {
+        decorations.push(Decoration.node(from, to, { class: 'md-embed-hidden' }))
+        decorations.push(
+          Decoration.widget(from, embedWidgetFactory(embedKind, code, language), {
+            key: `md-embed:${language}:${embedKind}:${code.length}:${code.slice(0, 40)}`,
+            stopEvent: stopWidgetPointerEvents,
+          }),
+        )
+        return
+      }
+      const mathLang = normalizeMathLang(language)
+      if (mathLang) {
+        if (!inside) {
+          // Pre hidden — the wrapper owns the language select.
+          decorations.push(Decoration.node(from, to, { class: 'md-diagram-hidden' }))
+          decorations.push(
+            Decoration.widget(from, mathWidgetFactory(code, language), {
+              key: `md-math:${language}:${code}`,
+              stopEvent: stopWidgetPointerEvents,
+            }),
+          )
+          return
+        }
+        // Caret inside: live preview above the still-visible source. The
+        // language select lives in the pre below (added after this branch),
+        // so the wrapper deliberately gets none — one dropdown per block.
+        decorations.push(
+          Decoration.widget(from, mathWidgetFactory(code, null), {
+            key: `md-math:live:${code}`,
+            stopEvent: stopWidgetPointerEvents,
+          }),
+        )
+      }
     }
+    // Visible pre (plain block, preview block with the caret inside, or an
+    // empty fence) — language dropdown at its top-left corner.
+    decorations.push(
+      Decoration.widget(from + 1, langSelectWidgetFactory(language), {
+        key: `md-lang:${from}:${language}`,
+        stopEvent: () => true,
+      }),
+    )
   })
   return DecorationSet.create(doc, decorations)
 }
@@ -968,6 +1053,22 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     }
   }
 
+  // Like `Slice.maxOpen`, but never descends into code blocks: Milkdown's
+  // `code_block` has `content: text*` (not a leaf), so plain `maxOpen` would
+  // hand `replaceRange` an *open* slice (openStart=1) exposing the fence's raw
+  // text — when the caret sits inside a non-empty paragraph that text splices
+  // straight into it and the ``` markers disappear. Stopping at code blocks
+  // keeps fences (plantuml/mermaid/math/mindmap…) as closed, standalone
+  // blocks, while pure inline payloads (bold links, footnote markers…) still
+  // open into the current paragraph as before.
+  function insertableSlice(fragment: Fragment): Slice {
+    let openStart = 0
+    for (let n = fragment.firstChild; n && !n.isLeaf && !n.type.spec.code; n = n.firstChild) openStart++
+    let openEnd = 0
+    for (let n = fragment.lastChild; n && !n.isLeaf && !n.type.spec.code; n = n.lastChild) openEnd++
+    return new Slice(fragment, openStart, openEnd)
+  }
+
   function insertMarkdownAtCursor(markdown: string, caretOffset?: number): void {
     if (!editor || !ready) return
     editor.action((ctx) => {
@@ -976,11 +1077,39 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       const parser = ctx.get(parserCtx)
       const { from, to } = view.state.selection
       const doc = parser(markdown)
-      // `maxOpen` lets inline content (bold text, links, images, inline math…)
-      // be spliced *into* the current paragraph instead of becoming a new
-      // block, while block content (tables, fences) still inserts as a block.
-      const slice = Slice.maxOpen(doc.content)
-      const tr = view.state.tr.replaceRange(from, to, slice)
+      // Inline content (bold text, links, images, inline math…) opens into the
+      // current paragraph instead of becoming a new block; see insertableSlice
+      // for why fences must stay closed.
+      const slice = insertableSlice(doc.content)
+      const wasLeadingCode = view.state.doc.firstChild?.type.spec.code === true
+      const wasTrailingCode = view.state.doc.lastChild?.type.spec.code === true
+      let tr = view.state.tr.replaceRange(from, to, slice)
+      // The insert must leave a textblock on BOTH sides of a fence: ProseMirror
+      // cannot put a caret at a bare document edge next to a code block, so a
+      // leading/trailing fence created here gets an empty paragraph to type in.
+      const paragraphType = view.state.schema.nodes.paragraph
+      if (paragraphType) {
+        if (!wasLeadingCode && tr.doc.firstChild?.type.spec.code) {
+          tr = tr.insert(0, paragraphType.create())
+        }
+        if (!wasTrailingCode && tr.doc.lastChild?.type.spec.code) {
+          tr = tr.insert(tr.doc.content.size, paragraphType.create())
+        }
+      }
+      // Previewable widgets (diagram/plantuml/math/embed) only render while the
+      // caret sits OUTSIDE the fence — park it in the textblock right after the
+      // inserted code block so the preview shows immediately instead of only
+      // after the cursor leaves the block.
+      if (caretOffset === undefined) {
+        const $cur = tr.doc.resolve(tr.selection.from)
+        for (let d = $cur.depth; d >= 1; d--) {
+          if ($cur.node(d).type.spec.code) {
+            const after = Math.min($cur.after(d), tr.doc.content.size)
+            tr = tr.setSelection(TextSelection.near(tr.doc.resolve(after)))
+            break
+          }
+        }
+      }
       const caret =
         caretOffset === undefined
           ? tr.selection.from

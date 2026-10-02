@@ -49,10 +49,11 @@ setHost({
   },
 } as never)
 
-let lastMenu: Array<{ label?: string; separator?: boolean }> | null = null
+let lastMenu: Array<{ label?: string; separator?: boolean; run?: () => void }> | null = null
 const opened: string[] = []
 const copied: string[] = []
 const removed: string[] = []
+let folderOpens = 0
 
 const sidebar = renderSidebar({
   onOpen: (path) => opened.push(path),
@@ -63,7 +64,9 @@ const sidebar = renderSidebar({
   getMarkdown: () => '# 标题一\n\n段落\n\n## 标题二',
   gotoAnchor: () => undefined,
   getWorkspace: () => ({ root: null, files: [] }),
-  onOpenFolder: async () => undefined,
+  onOpenFolder: async () => {
+    folderOpens += 1
+  },
   getRecents: async () => ['/tmp/a.md', '/tmp/b.md'],
   showContextMenu: (_x, _y, items) => {
     lastMenu = items
@@ -114,6 +117,17 @@ blank.dispatchEvent(
   new dom.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
 )
 assert(lastMenu && lastMenu.some((i) => i.label === '打开文件…'), 'blank open file')
+
+// 面板顶部两个按钮已移除，空白区菜单改为直接动作（不再 click 按钮）
+const blankFolder = lastMenu.find((i) => i.label === '打开文件夹…')
+assert(blankFolder && blankFolder.run, 'blank menu folder item runnable')
+blankFolder.run()
+assert(folderOpens === 1, 'folder menu item calls onOpenFolder')
+const blankFile = lastMenu.find((i) => i.label === '打开文件…')
+assert(blankFile && blankFile.run, 'blank menu file item runnable')
+const opensBefore = opened.length
+blankFile.run() // dialog.open mock 未选文件 → 直接返回，不得抛错
+assert(opened.length === opensBefore, 'file picker without selection opens nothing')
 
 // registration surface: registerTab appends button + panel, unsubscribe removes both
 const pluginTab = sidebar.registerTab({

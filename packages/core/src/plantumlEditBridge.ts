@@ -47,6 +47,26 @@ export function isPlantumlFence(info: string): boolean {
   return normalizeEmbedLang(info) === 'plantuml'
 }
 
+export type PlantumlVisualEditHandler = () => void
+
+let visualEditHandler: PlantumlVisualEditHandler | null = null
+
+/**
+ * The widget bar's 编辑 button hands off to the visual dialog: the ui side
+ * wires the dialog owner (it resolves the caret's fence itself), core only
+ * needs to know whether one exists.
+ */
+export function setPlantumlVisualEditHandler(next: PlantumlVisualEditHandler | null): void {
+  visualEditHandler = next
+}
+
+/** Returns false when no dialog owner is wired (caller falls back to source). */
+export function requestPlantumlVisualEdit(): boolean {
+  if (!visualEditHandler) return false
+  visualEditHandler()
+  return true
+}
+
 /**
  * Shared markdown-fence target for the plain-text adapters: scans for the
  * fence at `offset` and hands back a write-back that splices the content span

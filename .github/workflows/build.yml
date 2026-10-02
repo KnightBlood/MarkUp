@@ -23,6 +23,13 @@ jobs:
       - run: pnpm --filter @markup/wails-frontend build
       - run: pnpm --filter @markup/tauri-frontend build
       - run: pnpm --filter @markup/electron build
+      # Keep the web shell build output (deployable site).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 90
 
   typecheck:
     runs-on: ubuntu-latest
@@ -58,6 +65,28 @@ jobs:
         run: pnpm --filter @markup/electron exec electron-builder --dir --publish never
       - if: runner.os != 'Linux'
         run: pnpm --filter @markup/electron exec electron-builder --publish never
+      # Keep installers (win nsis / mac dmg); Linux --dir keeps the unpacked app.
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows
+          path: apps/electron/release/*.exe
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-macos
+          path: apps/electron/release/*.dmg
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-linux
+          path: apps/electron/release/linux-unpacked*
+          if-no-files-found: error
+          retention-days: 90
 
   tauri:
     strategy:
@@ -82,6 +111,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/tauri-frontend build
       - run: cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml
+      # Keep the built binary (markup / markup.exe + pdb + dep-info).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-${{ matrix.os }}
+          path: apps/tauri/src-tauri/target/debug/markup*
+          if-no-files-found: error
+          retention-days: 90
 
   wails:
     strategy:
@@ -110,4 +146,13 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/wails-frontend build
-      - run: cd apps/wails && go build ./...
+      # ./... matches main + services (2 packages) and discards the executable;
+      # build the single main package with an explicit output to keep the binary.
+      - run: cd apps/wails && go build -o markup-wails .
+      # Keep the built binary (markup-wails / markup-wails.exe).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wails-${{ matrix.os }}
+          path: apps/wails/markup-wails*
+          if-no-files-found: error
+          retention-days: 90

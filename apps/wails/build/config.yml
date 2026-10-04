@@ -1,12 +1,14 @@
 # Configuration for the Wails shell's build assets.
 #
-# `info` and `fileAssociations` are the single source of truth: after editing
-# them, regenerate the platform assets with
+# `info` and `fileAssociations` are the single source of truth: Wails generates
+# every platform asset from this file —
 #
-#   wails3 task common:update:build-assets
+#   cd build && wails3 update build-assets -name Markup -binaryname Markup \
+#     -config config.yml -dir .
 #
-# which rewrites `Info.plist`, `nsis/wails_tools.nsh`, … from this file. CI
-# runs that before packaging, so what is checked in is only a snapshot.
+# which writes the Taskfiles, `darwin/Info.plist`, `windows/nsis/project.nsi`
+# (directory page + `.md` association macro), the icons and the nfpm config.
+# CI runs that before packaging; nothing it produces is checked in.
 version: '3'
 
 info:

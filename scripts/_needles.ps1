@@ -121,9 +121,14 @@ Check-Needle 'packaging :: nsis directory page' "$root\scripts\packaging\electro
 Check-Needle 'packaging :: pkg destination domains' "$root\scripts\packaging\macos-pkg.sh" 'enable_anywhere' -Literal
 # --- wails: association (config.yml is the source of truth) + receive -------
 Check-Needle 'wails packaging :: md association' "$root\apps\wails\build\config.yml" 'fileAssociations' -Literal
-Check-Needle 'wails packaging :: nsis directory page' "$root\apps\wails\build\nsis\project.nsi" 'MUI_PAGE_DIRECTORY' -Literal
-Check-Needle 'wails packaging :: nsis associate macro' "$root\apps\wails\build\nsis\project.nsi" 'wails.associateFiles' -Literal
-Check-Needle 'wails packaging :: linux mime type' "$root\apps\wails\build\Taskfile.linux.yml" 'MimeType=text/markdown' -Literal
+Check-Needle 'wails packaging :: pnpm workspace manager' "$root\apps\wails\Taskfile.yml" 'PACKAGE_MANAGER: "pnpm"' -Literal
+Check-Needle 'wails packaging :: linux mime type' "$root\scripts\packaging\markup.desktop" 'MimeType=text/markdown' -Literal
+Check-File 'wails packaging :: desktop entry' "$root\scripts\packaging\markup.desktop"
+# Wails generates the platform scaffolding itself (Taskfiles, Info.plist,
+# windows/nsis/project.nsi, which carries MUI_PAGE_DIRECTORY + the association
+# macro), so CI must run it before packaging.
+Check-Needle 'ci :: wails generates build assets' "$root\.github\workflows\build.yml" 'wails3 update build-assets' -Literal
+Check-Needle 'ci :: wails nsis per-user scope' "$root\.github\workflows\build.yml" 'INSTALL_SCOPE=user' -Literal
 Check-Needle 'wails main :: single instance' "$root\apps\wails\main.go" 'SingleInstance' -Literal
 Check-Needle 'wails main :: argv file scan' "$root\apps\wails\main.go" 'scanArgsForFiles' -Literal
 Check-Needle 'wails main :: file-open flush' "$root\apps\wails\main.go" 'flushFileOpen' -Literal

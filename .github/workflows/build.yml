@@ -119,16 +119,19 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      # `tauri build` also runs `beforeBuildCommand` (the vite bundle). Per-OS
-      # bundle list because Tauri rejects targets that don't apply to the host.
+      # `tauri build` must run from `src-tauri` (it discovers the project by
+      # looking for `tauri.conf.json`), and each script `cd`s there itself —
+      # `pnpm --filter … exec` would run with cwd = `apps/tauri/frontend`,
+      # which is not a Tauri project. One script per platform because Tauri
+      # rejects bundle targets that don't apply to the host.
       - if: runner.os == 'Windows'
-        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles nsis
+        run: pnpm --filter @markup/tauri-frontend run tauri:bundle:nsis
       - if: runner.os == 'Linux'
-        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles appimage
+        run: pnpm --filter @markup/tauri-frontend run tauri:bundle:appimage
       # Tauri v2 has no `pkg` bundle type (only app/dmg), and a dmg cannot
       # choose an install location — so build the .app and package it here.
       - if: runner.os == 'macOS'
-        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles app
+        run: pnpm --filter @markup/tauri-frontend run tauri:bundle:app
       - if: runner.os == 'macOS'
         run: |
           bash scripts/packaging/macos-pkg.sh \
@@ -183,7 +186,6 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @markup/wails-frontend build
       # The v3 CLI embeds its own task runner, so there is no separate `task`
       # to install.
       - name: install wails3
@@ -191,29 +193,58 @@ jobs:
       - name: toolchain paths
         shell: bash
         run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      # `build/config.yml` is the source of truth for `fileAssociations`; this
-      # regenerates Info.plist / nsis/wails_tools.nsh from it.
-      - name: refresh build assets
-        working-directory: apps/wails
-        run: wails3 task common:update:build-assets
+      # `build/config.yml` is the single source for the app metadata and the
+      # `.md` association; Wails generates the whole platform scaffolding
+      # (Taskfiles, Info.plist, windows/nsis/project.nsi, icons, …) from it.
+      # Direct CLI call because the Taskfiles it produces are the includes this
+      # would otherwise need.
+      - name: generate build assets
+        working-directory: apps/wails/build
+        run: wails3 update build-assets -name Markup -binaryname Markup -config config.yml -dir .
       - name: install NSIS
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install nsis --no-progress -y
           'C:\Program Files (x86)\NSIS' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-      # Windows → NSIS (MUI_PAGE_DIRECTORY: user picks the install folder)
-      # Linux   → AppImage (user picks where the file lives)
-      # macOS   → .app bundle, turned into a .pkg below (dmg cannot choose a path)
-      - name: wails3 task package
+      # One target per platform: `windows:package` would also build an MSIX and
+      # `linux:package` would add deb/rpm/pacman, none of which we ship.
+      # Windows → NSIS in per-user scope (no UAC) with its directory page and
+      # `wails.associateFiles` for `.md` / `.markdown`.
+      - name: package (Windows)
+        if: runner.os == 'Windows'
         working-directory: apps/wails
-        run: wails3 task package
+        run: wails3 task windows:create:nsis:installer INSTALL_SCOPE=user
+      # macOS → `.app` here, `.pkg` below (dmg cannot choose an install path).
+      - name: package (macOS)
+        if: runner.os == 'macOS'
+        working-directory: apps/wails
+        run: wails3 task darwin:create:app:bundle
       - name: macOS pkg
         if: runner.os == 'macOS'
         working-directory: apps/wails
         run: |
           bash "$GITHUB_WORKSPACE/scripts/packaging/macos-pkg.sh" \
             "$PWD/bin/Markup.app" "$PWD/bin/Markup.pkg" dev.markup.editor 0.1.0
+      # Linux → AppImage built from our own `.desktop` so the association
+      # (`MimeType=text/markdown;`) is present; `wails3 generate .desktop` has
+      # no MimeType flag.
+      - name: package (Linux)
+        if: runner.os == 'Linux'
+        working-directory: apps/wails
+        run: |
+          wails3 task linux:build
+          mkdir -p build/linux/appimage
+          cp bin/Markup build/linux/appimage/Markup
+          cp build/appicon.png build/linux/appimage/Markup.png
+          cp "$GITHUB_WORKSPACE/scripts/packaging/markup.desktop" build/linux/Markup.desktop
+          cd build/linux/appimage
+          wails3 generate appimage \
+            -binary Markup \
+            -icon Markup.png \
+            -desktopfile ../Markup.desktop \
+            -outputdir "$GITHUB_WORKSPACE/apps/wails/bin" \
+            -builddir "$GITHUB_WORKSPACE/apps/wails/build/linux/appimage/build"
       - if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
@@ -256,7 +287,6 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @markup/electrobun-frontend build
       - name: install hutch
         shell: bash
         run: |

@@ -61,5 +61,8 @@ linux:
   # AppImage 是单文件，放哪儿完全由用户决定（deb/rpm 的路径由 FHS 写死）。
   target: AppImage
   category: Utility
+  # 不设的话 electron-builder 回落到包名 `@markup/electron`，AppImage 会因为
+  # 可执行名里出现 `@` 直接拒绝构建。
+  executableName: Markup
   icon: build/icon.png
   maintainer: Markup <markup@example.invalid>

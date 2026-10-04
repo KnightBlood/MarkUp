@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Markup
+Comment=Markdown editor
+Exec=Markup %F
+Icon=Markup
+Terminal=false
+Categories=Utility;TextEditor;
+# Linux file association: this line is what ties `.md` to the app. Wails'
+# `generate .desktop` has no MimeType flag, so the Wails shell feeds this file
+# to `wails3 generate appimage -desktopfile` instead of generating one.
+MimeType=text/markdown;

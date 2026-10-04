@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:build": "node ../../../scripts/sync-menu.mjs && cd ../src-tauri && tauri build --no-bundle",
+    "tauri:bundle:nsis": "node ../../../scripts/sync-menu.mjs && cd ../src-tauri && tauri build --bundles nsis",
+    "tauri:bundle:app": "node ../../../scripts/sync-menu.mjs && cd ../src-tauri && tauri build --bundles app",
+    "tauri:bundle:appimage": "node ../../../scripts/sync-menu.mjs && cd ../src-tauri && tauri build --bundles appimage",
     "tauri:dev": "cd ../src-tauri && tauri dev"
   },
   "dependencies": {

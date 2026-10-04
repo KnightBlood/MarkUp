@@ -346,6 +346,74 @@ fn emit_host_event(app: &AppHandle, event: &str, payload: serde_json::Value) {
     }
 }
 
+/// Extensions the app associates with (mirrors `bundle.fileAssociations` in
+/// `tauri.conf.json` and the installers of the other shells).
+const MARKDOWN_EXTENSIONS: &[&str] = &["md", "markdown"];
+
+struct FileOpenState {
+    /// The webview finished loading; `file-open` listeners exist only after the
+    /// frontend's `boot()`, so earlier paths wait here.
+    ready: bool,
+    pending: Vec<String>,
+}
+
+static FILE_OPEN: std::sync::Mutex<FileOpenState> = std::sync::Mutex::new(FileOpenState {
+    ready: false,
+    pending: Vec::new(),
+});
+
+fn is_markdown_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            MARKDOWN_EXTENSIONS
+                .iter()
+                .any(|known| extension.eq_ignore_ascii_case(known))
+        })
+        .unwrap_or(false)
+}
+
+/// Hand an OS-initiated open to the app, buffering until the page is up.
+fn deliver_file_open(app: &AppHandle, path: String) {
+    if !is_markdown_path(Path::new(&path)) {
+        return;
+    }
+    {
+        let mut state = FILE_OPEN.lock().unwrap();
+        if !state.ready {
+            if !state.pending.iter().any(|queued| queued == &path) {
+                state.pending.push(path);
+            }
+            return;
+        }
+    }
+    emit_host_event(app, "file-open", serde_json::Value::String(path));
+}
+
+/// `Builder::on_page_load` hook: hands over everything buffered so far.
+fn flush_file_open(app: &AppHandle) {
+    let pending = {
+        let mut state = FILE_OPEN.lock().unwrap();
+        state.ready = true;
+        std::mem::take(&mut state.pending)
+    };
+    for path in pending {
+        emit_host_event(app, "file-open", serde_json::Value::String(path));
+    }
+}
+
+/// Windows/Linux pass the associated file as a plain argument.
+fn deliver_argv(app: &AppHandle, argv: impl IntoIterator<Item = String>) {
+    for arg in argv {
+        if arg.starts_with('-') {
+            continue;
+        }
+        if Path::new(&arg).is_file() {
+            deliver_file_open(app, arg);
+        }
+    }
+}
+
 /// Single-source application menu — parsed from menu.json (synced from
 /// packages/host-api/src/menu.json by scripts/sync-menu.mjs).
 #[derive(Deserialize)]
@@ -476,6 +544,12 @@ async fn set_config(app: AppHandle, config: AppConfig) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be the first plugin (per its docs): a second launch — e.g.
+        // double-clicking another `.md` — hands its argv to the running
+        // instance instead of starting a second editor.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            deliver_argv(app, argv.into_iter().skip(1));
+        }))
         .invoke_handler(tauri::generate_handler![
             read_file,
             write_file,
@@ -497,6 +571,10 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             register_global_shortcuts(app)?;
+
+            // Cold start via file association: Windows/Linux pass the path as
+            // an argument.
+            deliver_argv(app.handle(), std::env::args().skip(1));
 
             use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -609,6 +687,24 @@ pub fn run() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Markup");
+        // `file-open` listeners only exist once the frontend ran `boot()`, so
+        // association paths collected earlier are flushed here.
+        .on_page_load(|webview, _payload| {
+            flush_file_open(webview.app_handle());
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building Markup")
+        .run(|handle, event| {
+            // macOS delivers association opens — including the one that
+            // launched the app — through this event.
+            if let tauri::RunEvent::Opened { urls } = event {
+                for url in urls {
+                    if let Ok(path) = url.to_file_path() {
+                        if let Some(path) = path.to_str() {
+                            deliver_file_open(handle, path.to_string());
+                        }
+                    }
+                }
+            }
+        });
 }

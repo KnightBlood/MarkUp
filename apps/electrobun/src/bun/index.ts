@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, watch, writeFileSync, type FSWatch
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow } from 'electrobun/main/browser-window'
 import { GlobalShortcut } from 'electrobun/main/native'
@@ -50,6 +51,55 @@ const watchers = new Map<string, FSWatcher>()
  */
 let allowClose = false
 let mainWindow: BrowserWindow | null = null
+
+/**
+ * Extensions the app associates with the OS (mirrors the macOS
+ * `fileAssociations` in `electrobun.config.ts` and the installers that wrap
+ * this shell on Windows/Linux).
+ */
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown'])
+
+/**
+ * Paths the OS asked us to open before the view could listen. The `file-open`
+ * listener only exists once the renderer ran `boot()`, and `open-url` even
+ * fires for the launch that started the app, so paths are buffered and
+ * flushed on the webview's `dom-ready`.
+ */
+const pendingFileOpen: string[] = []
+let viewReady = false
+
+function isMarkdownPath(candidate: string): boolean {
+  const dot = candidate.lastIndexOf('.')
+  return dot > 0 && MARKDOWN_EXTENSIONS.has(candidate.slice(dot).toLowerCase())
+}
+
+function openFileFromOs(path: string): void {
+  if (!isMarkdownPath(path)) return
+  if (viewReady) {
+    emitHostEvent('file-open', path)
+    return
+  }
+  if (!pendingFileOpen.includes(path)) pendingFileOpen.push(path)
+}
+
+/** macOS delivers association opens as a `file://` URL on `open-url`. */
+function openFileFromUrl(url: string): void {
+  if (!url.startsWith('file://')) return
+  try {
+    openFileFromOs(fileURLToPath(url))
+  } catch (error) {
+    console.warn('[markup] unparsable open-url:', url, error)
+  }
+}
+
+/** `argv[0]` is the executable; flags start `-`. */
+function scanArgvForFiles(): void {
+  const argv = process.argv ?? []
+  for (const arg of argv.slice(1)) {
+    if (arg.startsWith('-')) continue
+    if (isMarkdownPath(arg) && existsSync(arg)) openFileFromOs(arg)
+  }
+}
 
 const rpc = defineElectrobunRPC<AppRPC, 'bun'>('bun', {
   // Fs reads can hit cold antivirus scans; the default 1s RPC budget is too
@@ -246,6 +296,17 @@ function installWindowListeners(): void {
   events.on('focus', () => emitHostEvent('window-focus', true))
   events.on('blur', () => emitHostEvent('window-focus', false))
 
+  // File association: `open-url` also fires for the launch that started the
+  // app, and the renderer's `file-open` listener only exists after `boot()`,
+  // so paths are buffered (see `pendingFileOpen`) and flushed on `dom-ready`.
+  events.on('open-url', (event) => {
+    openFileFromUrl((event as { data: { url: string } }).data.url)
+  })
+  events.on('dom-ready', () => {
+    viewReady = true
+    for (const path of pendingFileOpen.splice(0)) emitHostEvent('file-open', path)
+  })
+
   events.on('will-close', (event) => {
     const closeEvent = event as {
       response?: { allow: boolean }
@@ -279,5 +340,8 @@ function installWindowListeners(): void {
  * `web` shell does; OS-level ones come from `menu.globalShortcuts` below.
  */
 installWindowListeners()
+// Cold start via file association: Windows/Linux pass the path as an argv
+// entry (our installers register `.md` to launch `Markup.exe "%1"`).
+scanArgvForFiles()
 createWindow()
 registerGlobalShortcuts()

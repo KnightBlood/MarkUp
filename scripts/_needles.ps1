@@ -102,6 +102,23 @@ Check-Needle 'electrobun source :: single host channel' "$root\apps\electrobun\s
 Check-Needle 'electrobun view :: host platform' "$root\apps\electrobun\frontend\src\main.ts" "platform: 'electrobun'" -Literal
 Check-Needle 'electrobun view :: confirm close' "$root\apps\electrobun\frontend\src\main.ts" 'winConfirmClose' -Literal
 Check-Needle 'electrobun config :: offline views bundle' "$root\apps\electrobun\electrobun.config.ts" 'views/app' -Literal
+Check-Needle 'electrobun config :: mac md association' "$root\apps\electrobun\electrobun.config.ts" 'fileAssociations' -Literal
+Check-Needle 'electrobun main :: mac open-url' "$root\apps\electrobun\src\bun\index.ts" "events.on('open-url'" -Literal
+Check-Needle 'electrobun main :: argv file scan' "$root\apps\electrobun\src\bun\index.ts" 'scanArgvForFiles' -Literal
+Check-Needle 'electrobun main :: file-open flush' "$root\apps\electrobun\src\bun\index.ts" "emitHostEvent('file-open'" -Literal
+# --- tauri: association + single-instance receive + per-OS bundles ----------
+Check-Needle 'tauri packaging :: md association' "$root\apps\tauri\src-tauri\tauri.conf.json" 'fileAssociations' -Literal
+Check-Needle 'tauri packaging :: nsis install mode' "$root\apps\tauri\src-tauri\tauri.conf.json" 'installMode' -Literal
+Check-Needle 'tauri main :: single instance plugin' "$root\apps\tauri\src-tauri\src\lib.rs" 'tauri_plugin_single_instance' -Literal
+Check-Needle 'tauri main :: mac opened event' "$root\apps\tauri\src-tauri\src\lib.rs" 'RunEvent::Opened' -Literal
+Check-Needle 'tauri main :: argv file open' "$root\apps\tauri\src-tauri\src\lib.rs" 'deliver_argv' -Literal
+Check-Needle 'tauri main :: file-open flush' "$root\apps\tauri\src-tauri\src\lib.rs" 'flush_file_open' -Literal
+# --- shared packaging wrappers (electrobun / tauri / wails on macOS) --------
+Check-File 'packaging :: macos pkg script' "$root\scripts\packaging\macos-pkg.sh"
+Check-File 'packaging :: electrobun windows nsis' "$root\scripts\packaging\electrobun\windows.nsi"
+Check-File 'packaging :: electrobun linux appimage' "$root\scripts\packaging\electrobun\linux-appimage.sh"
+Check-Needle 'packaging :: nsis directory page' "$root\scripts\packaging\electrobun\windows.nsi" 'MUI_PAGE_DIRECTORY' -Literal
+Check-Needle 'packaging :: pkg destination domains' "$root\scripts\packaging\macos-pkg.sh" 'enable_anywhere' -Literal
 # Electrobun exposes no menu-bar visibility flag: `setApplicationMenu` is the
 # only thing that grows an HMENU, so installing one would un-hide the native
 # bar. Assert the call stays out of the shell (the other four hide it instead).

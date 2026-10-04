@@ -115,13 +115,41 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @markup/tauri-frontend build
-      - run: cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml
-      # Keep the built binary (markup / markup.exe + pdb + dep-info).
-      - uses: actions/upload-artifact@v4
+      # `tauri build` also runs `beforeBuildCommand` (the vite bundle). Per-OS
+      # bundle list because Tauri rejects targets that don't apply to the host.
+      - if: runner.os == 'Windows'
+        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles nsis
+      - if: runner.os == 'Linux'
+        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles appimage
+      # Tauri v2 has no `pkg` bundle type (only app/dmg), and a dmg cannot
+      # choose an install location — so build the .app and package it here.
+      - if: runner.os == 'macOS'
+        run: pnpm --filter @markup/tauri-frontend exec tauri build --bundles app
+      - if: runner.os == 'macOS'
+        run: |
+          bash scripts/packaging/macos-pkg.sh \
+            apps/tauri/src-tauri/target/release/bundle/macos/Markup.app \
+            apps/tauri/src-tauri/target/release/bundle/pkg/Markup.pkg \
+            dev.markup.editor 0.1.0
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
-          name: tauri-${{ matrix.os }}
-          path: apps/tauri/src-tauri/target/debug/markup*
+          name: tauri-windows
+          path: apps/tauri/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-macos
+          path: apps/tauri/src-tauri/target/release/bundle/pkg/*.pkg
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-linux
+          path: apps/tauri/src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
           retention-days: 90
 
@@ -163,13 +191,17 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  # Fifth shell (Electrobun): unlike the other four, its main process is built
-  # by Electrobun's own `hutch` CLI on the bun runtime, not by a pnpm script —
-  # so the runner installs hutch, syncs its devkit SDK into
-  # `apps/electrobun/.hutch` (the `electrobun/*` import map in tsconfig
-  # resolves against it), typechecks, then packages.
+  # Fifth shell (Electrobun). Electrobun's own installers are fixed-directory
+  # (Windows/Linux) or dmg-only (macOS) and it cannot register file
+  # associations outside macOS, so each platform post-processes the payload
+  # `hutch electrobun build` produces into a real installer: NSIS on Windows,
+  # a .pkg on macOS, an AppImage on Linux (see scripts/packaging/electrobun/).
   electrobun:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     needs: typecheck
     steps:
       - uses: actions/checkout@v4
@@ -180,36 +212,97 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/electrobun-frontend build
-      # Windows installer; PATH additions only survive inside the step that
-      # makes them, so every hutch step re-prepends ~/.hutch/bin itself.
       - name: install hutch
-        shell: pwsh
-        run: '& ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -ExecutionPolicy Bypass -Command \
+              "& ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))"
+          else
+            curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
+          fi
+          echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
       - name: hutch install + electrobun sync + typecheck
-        shell: pwsh
+        shell: bash
         working-directory: apps/electrobun
         run: |
-          $env:PATH = "$env:USERPROFILE\.hutch\bin;$env:PATH"
           hutch install
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           hutch electrobun sync
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           hutch typecheck
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      # `electrobun.config.ts` `scripts.preBuild` rebuilds the vite bundle, and
-      # `build.copy` stages `frontend/dist` into the packaged `views/app`.
       - name: hutch electrobun build
+        shell: bash
+        working-directory: apps/electrobun
+        run: hutch electrobun build --env=stable
+
+      # ---- Windows: NSIS wrapper (directory page + .md association) --------
+      - name: NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis --no-progress -y
+      - name: Windows installer
+        if: runner.os == 'Windows'
         shell: pwsh
         working-directory: apps/electrobun
         run: |
-          $env:PATH = "$env:USERPROFILE\.hutch\bin;$env:PATH"
-          hutch electrobun build --env=stable
+          $root = (Resolve-Path '../../').Path
+          $buildRoot = (Get-ChildItem 'dist' -Directory | Where-Object Name -like '*-win-*' | Select-Object -First 1).FullName
+          $stage = Join-Path $env:RUNNER_TEMP 'stage'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          tar -xf (Join-Path $buildRoot 'Markup-Setup.tar.zst') -C $stage
+          & 'C:\Program Files (x86)\NSIS\makensis.exe' `
+            "-DPAYLOAD_DIR=$(Join-Path $stage 'Markup')" `
+            "-DOUTFILE=$root\apps\electrobun\dist\Markup-Setup-x64.exe" `
+            "-DVERSION=0.1.0" `
+            "-DICON=$root\apps\electrobun\assets\icon.ico" `
+            "$root\scripts\packaging\electrobun\windows.nsi"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      # Keep the installer + unpacked app (drop the 200MB release archives in
-      # `artifacts/`, which are local-only by policy).
-      - uses: actions/upload-artifact@v4
+
+      # ---- macOS: .pkg (dmg has no install-location choice) -----------------
+      - name: macOS installer
+        if: runner.os == 'macOS'
+        working-directory: apps/electrobun
+        run: |
+          APP="$(ls -d dist/*-mac-*/Markup.app | head -n 1)"
+          bash "$GITHUB_WORKSPACE/scripts/packaging/macos-pkg.sh" \
+            "$APP" "$PWD/dist/Markup-macos.pkg" dev.markup.editor 0.1.0
+
+      # ---- Linux: AppImage (user picks where the file lives) ----------------
+      - name: appimagetool
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool
+          # The tool itself is an AppImage; run it without FUSE in CI.
+          printf '#!/bin/sh\nexec /usr/local/bin/appimagetool --appimage-extract-and-run "$@"\n' > /usr/local/bin/appimagetool-wrapper
+          chmod +x /usr/local/bin/appimagetool-wrapper
+          ln -sf /usr/local/bin/appimagetool-wrapper /usr/local/bin/appimagetool
+      - name: Linux installer
+        if: runner.os == 'Linux'
+        working-directory: apps/electrobun
+        run: |
+          ROOT="$(ls -d dist/*-linux-*/ | head -n 1)"
+          bash "$GITHUB_WORKSPACE/scripts/packaging/electrobun/linux-appimage.sh" \
+            "$ROOT" "$PWD/dist/Markup-x86_64.AppImage" assets/icon.png
+
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
           name: electrobun-windows
-          path: apps/electrobun/dist/stable-win-x64
+          path: apps/electrobun/dist/*.exe
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-macos
+          path: apps/electrobun/dist/*.pkg
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-linux
+          path: apps/electrobun/dist/*.AppImage
           if-no-files-found: error
           retention-days: 90

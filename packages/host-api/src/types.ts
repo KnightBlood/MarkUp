@@ -126,6 +126,17 @@ export interface HostEventMap {
    * webviews — it silently cancels the close instead.
    */
   'close-request': void
+  /**
+   * The OS asked the app to open a document: double-click on an associated
+   * file type, a path passed on the command line, or a second instance
+   * handing its argv to the running one. Payload is the absolute path.
+   *
+   * The listener only exists after `boot()`, so shells must buffer paths that
+   * arrive earlier and flush them from their own view-loaded hook — Electron
+   * `did-finish-load`, Tauri `on_page_load`, Wails `OnDOMReady`, Electrobun
+   * the view `load` event.
+   */
+  'file-open': string
 }
 
 /** Native window chrome controls (title bar / minimize-maximize-close). */

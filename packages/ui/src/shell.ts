@@ -1721,6 +1721,12 @@ export function renderShell(): ShellHandle {
       registry.run(commandId)
     },
     onOsTheme: handleOsTheme,
+    // OS-initiated open (double-click on a `.md`, CLI arg, second instance).
+    // Reuses `openPath` so the tab, recents list and window title behave
+    // exactly like a quick-open / sidebar pick.
+    onFileOpen: (path) => {
+      void openPath(path)
+    },
   })
 
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {

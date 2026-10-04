@@ -46,6 +46,7 @@ const off = attachHostEvents(host, {
   onMenuCommand: (id) => seen.push(`menu:${id}`),
   onGlobalShortcut: (id) => seen.push(`shortcut:${id}`),
   onOsTheme: (theme) => seen.push(`os:${theme}`),
+  onFileOpen: (path) => seen.push(`open:${path}`),
 })
 
 function emit(event: string, payload: unknown): void {
@@ -57,16 +58,22 @@ function emit(event: string, payload: unknown): void {
 assert(listeners.get('menu-command')?.size === 1, 'menu-command subscribed')
 assert(listeners.get('global-shortcut')?.size === 1, 'global-shortcut subscribed')
 assert(listeners.get('os-theme')?.size === 1, 'os-theme subscribed')
+assert(listeners.get('file-open')?.size === 1, 'file-open subscribed')
 
 emit('menu-command', 'file.save')
 emit('global-shortcut', 'theme.toggle')
 emit('os-theme', 'dark')
-assert(seen.join(',') === 'menu:file.save,shortcut:theme.toggle,os:dark', `seen: ${seen.join(',')}`)
+emit('file-open', 'C:/doc/readme.md')
+assert(
+  seen.join(',') === 'menu:file.save,shortcut:theme.toggle,os:dark,open:C:/doc/readme.md',
+  `seen: ${seen.join(',')}`,
+)
 
 off()
 assert(listeners.get('menu-command')?.size === 0, 'menu-command unsubscribed')
 assert(listeners.get('global-shortcut')?.size === 0, 'global-shortcut unsubscribed')
 assert(listeners.get('os-theme')?.size === 0, 'os-theme unsubscribed')
+assert(listeners.get('file-open')?.size === 0, 'file-open unsubscribed')
 
 emit('menu-command', 'file.save')
 assert(seen.filter((s) => s.startsWith('menu:')).length === 1, 'no fire after off')

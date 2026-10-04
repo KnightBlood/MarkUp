@@ -9,6 +9,7 @@
   "scripts": {
     "gen:menu": "node scripts/sync-menu.mjs",
     "typecheck": "corepack pnpm -r typecheck",
+    "check:packaging": "node scripts/check-electron-builder-config.mjs apps/electron/electron-builder.yml",
     "audit": "corepack pnpm audit --audit-level=high",
     "dev:web": "corepack pnpm --filter @markup/web dev",
     "build:web": "corepack pnpm --filter @markup/web build",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@file-viewer/vite-plugin": "^3.1.2",
-    "@file-viewer/web-full": "^3.1.2"
+    "@file-viewer/web-full": "^3.1.2",
+    "yaml": "^2.9.1"
   }
 }

@@ -14,6 +14,21 @@ win:
   executableName: Markup
   # 应用图标（artifacts/brand/icon.ico 的来源见 README「品牌标识」）
   icon: build/icon.ico
+nsis:
+  # 默认 oneClick=true 是一键装进固定目录（无页面、不可改路径）；改成 assisted
+  # 安装器并打开目录页，用户才能自选安装位置。
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # false=按用户安装（无需管理员）。true 则默认装 Program Files。
+  perMachine: false
+  selectPerMachineByDefault: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Markup
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  runAfterFinish: true
 # .md 关联：安装后双击 Markdown 用 Markup 打开，资源管理器里显示文档图标。
 fileAssociations:
   - ext: md
@@ -27,10 +42,24 @@ fileAssociations:
     icon: build/doc.ico
     role: Editor
 mac:
-  target: dmg
+  # dmg 只能把 app 拖进 /Applications，没有安装路径选择；pkg 才有目的地页。
+  target: pkg
   category: public.app-category.productivity
   # electron-builder 按平台换扩展名解析图标资源（mac 要 .icns，win 要 .ico 并存）
   icon: build/icon.icns
+# macOS PKG 选项（electron-builder 里所有目标专属选项都在根级，和 nsis 同级）。
+pkg:
+  # macOS 侧的「可选安装位置」：允许任意宗卷 / 当前用户主目录。
+  installLocation: /Applications
+  allowAnywhere: true
+  allowCurrentUserHome: true
+  allowRootDirectory: false
+  overwriteAction: upgrade
+  isRelocatable: false
+  hasStrictIdentifier: true
 linux:
+  # AppImage 是单文件，放哪儿完全由用户决定（deb/rpm 的路径由 FHS 写死）。
   target: AppImage
   category: Utility
+  icon: build/icon.png
+  maintainer: Markup <markup@example.invalid>

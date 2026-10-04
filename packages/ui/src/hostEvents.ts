@@ -4,6 +4,8 @@ export interface HostEventHandlers {
   onMenuCommand: (commandId: string) => void
   onGlobalShortcut: (commandId: string) => void
   onOsTheme: (theme: 'light' | 'dark') => void
+  /** OS-initiated open: file association, CLI path or second-instance handoff. */
+  onFileOpen: (path: string) => void
 }
 
 /** Subscribe to host events; returns an unsubscribe that clears all listeners. */
@@ -12,6 +14,7 @@ export function attachHostEvents(host: HostAPI, handlers: HostEventHandlers): ()
     host.app.on('menu-command', handlers.onMenuCommand),
     host.app.on('global-shortcut', handlers.onGlobalShortcut),
     host.app.on('os-theme', handlers.onOsTheme),
+    host.app.on('file-open', handlers.onFileOpen),
   ]
   return () => {
     for (const off of offs) off()

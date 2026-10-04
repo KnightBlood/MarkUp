@@ -114,6 +114,19 @@ if (Test-Path $ebMain) {
 }
 Check-Needle 'host api :: confirmClose' "$root\packages\host-api\src\types.ts" 'confirmClose' -Literal
 Check-Needle 'electron main :: close interception' "$root\apps\electron\src\main\main.ts" "event: 'close-request'" -Literal
+# --- file association: shared receive contract + electron's half ------------
+Check-Needle 'host api :: file-open event' "$root\packages\host-api\src\types.ts" "'file-open': string" -Literal
+Check-Needle 'ui :: file-open subscription' "$root\packages\ui\src\hostEvents.ts" "host.app.on('file-open'" -Literal
+Check-Needle 'ui :: file-open routed to openPath' "$root\packages\ui\src\shell.ts" 'onFileOpen' -Literal
+Check-Needle 'electron main :: single instance lock' "$root\apps\electron\src\main\main.ts" 'requestSingleInstanceLock' -Literal
+Check-Needle 'electron main :: mac open-file' "$root\apps\electron\src\main\main.ts" "app.on('open-file'" -Literal
+Check-Needle 'electron main :: argv file scan' "$root\apps\electron\src\main\main.ts" 'scanArgvForFiles' -Literal
+# --- per-OS installers with a user-selectable install location --------------
+Check-Needle 'electron packaging :: nsis assisted installer' "$root\apps\electron\electron-builder.yml" 'oneClick: false' -Literal
+Check-Needle 'electron packaging :: nsis directory page' "$root\apps\electron\electron-builder.yml" 'allowToChangeInstallationDirectory: true' -Literal
+Check-Needle 'electron packaging :: mac pkg target' "$root\apps\electron\electron-builder.yml" 'target: pkg' -Literal
+Check-Needle 'electron packaging :: linux appimage target' "$root\apps\electron\electron-builder.yml" 'target: AppImage' -Literal
+Check-Needle 'electron packaging :: md association' "$root\apps\electron\electron-builder.yml" 'fileAssociations' -Literal
 Check-Needle 'core source :: inline format export' "$root\packages\core\src\textFormat.ts" 'export function inlineFormatEdit' -Literal
 Check-Needle 'core source :: block format export' "$root\packages\core\src\textFormat.ts" 'export function blockFormatEdit' -Literal
 Check-Needle 'ui source :: format pipeline wiring' "$root\packages\ui\src\shell.ts" 'applyInlineFormat' -Literal

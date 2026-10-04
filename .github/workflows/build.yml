@@ -42,6 +42,9 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
+      # electron-builder rejects unknown keys via `additionalProperties: false`
+      # only at package time; validate the installer config up front instead.
+      - run: pnpm run check:packaging
 
   electron:
     runs-on: ${{ matrix.os }}
@@ -59,13 +62,16 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/electron build
-      # AppImage tooling pulls extra Linux deps; `--dir` still validates the
-      # packaging config (icon/asar/main bundle) on the runner.
+      # Per-OS installer, each with a user-selectable install location:
+      #   win   → nsis assisted installer (directory page)
+      #   mac   → pkg (destination page; dmg cannot choose a path)
+      #   linux → AppImage, a single file the user places wherever they want
+      - if: runner.os == 'Windows'
+        run: pnpm --filter @markup/electron exec electron-builder --win nsis --publish never
+      - if: runner.os == 'macOS'
+        run: pnpm --filter @markup/electron exec electron-builder --mac pkg --publish never
       - if: runner.os == 'Linux'
-        run: pnpm --filter @markup/electron exec electron-builder --dir --publish never
-      - if: runner.os != 'Linux'
-        run: pnpm --filter @markup/electron exec electron-builder --publish never
-      # Keep installers (win nsis / mac dmg); Linux --dir keeps the unpacked app.
+        run: pnpm --filter @markup/electron exec electron-builder --linux AppImage --publish never
       - if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
@@ -77,14 +83,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: electron-macos
-          path: apps/electron/release/*.dmg
+          path: apps/electron/release/*.pkg
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: electron-linux
-          path: apps/electron/release/linux-unpacked*
+          path: apps/electron/release/*.AppImage
           if-no-files-found: error
           retention-days: 90
 

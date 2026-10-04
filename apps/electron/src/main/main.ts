@@ -45,6 +45,45 @@ const watchers = new Map<string, FSWatcher>()
  */
 let allowClose = false
 
+/**
+ * Extensions the app registers with the OS (mirrors the open dialog filter in
+ * `packages/ui/src/ui/sidebar.ts` and the `fileAssociations` in
+ * `electron-builder.yml`).
+ */
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown'])
+
+/**
+ * Paths the OS asked the running app to open: a double-clicked association, a
+ * CLI argument, or a second instance forwarding its argv.
+ *
+ * They are buffered because the `file-open` listener only exists once the
+ * renderer ran `boot()`; each window flushes the queue on `did-finish-load`.
+ */
+const pendingFileOpen: string[] = []
+let rendererLoaded = false
+
+function isMarkdownPath(candidate: string): boolean {
+  const dot = candidate.lastIndexOf('.')
+  return dot > 0 && MARKDOWN_EXTENSIONS.has(candidate.slice(dot).toLowerCase())
+}
+
+function openFileFromOs(path: string): void {
+  if (!isMarkdownPath(path)) return
+  if (rendererLoaded) {
+    emitHostEvent({ event: 'file-open', payload: path })
+    return
+  }
+  if (!pendingFileOpen.includes(path)) pendingFileOpen.push(path)
+}
+
+/** `argv[0]` is the executable (or `electron` in dev); Chromium flags start `-`. */
+function scanArgvForFiles(argv: readonly string[]): void {
+  for (const arg of argv.slice(1)) {
+    if (arg.startsWith('-')) continue
+    if (existsSync(arg)) openFileFromOs(arg)
+  }
+}
+
 function emitHostEvent(payload: { event: string; payload: unknown }): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(HOST_EVENT_CHANNEL, payload)
@@ -331,6 +370,17 @@ function createWindow(): void {
   // of the way. The menu itself stays set so its accelerators keep working.
   mainWindow.setMenuBarVisibility(false)
 
+  // Association / CLI paths buffered before the renderer was listening (see
+  // `openFileFromOs`); `did-finish-load` is the flush point, and re-arms on
+  // every window (re)creation.
+  rendererLoaded = false
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererLoaded = true
+    for (const path of pendingFileOpen.splice(0)) {
+      emitHostEvent({ event: 'file-open', payload: path })
+    }
+  })
+
   allowClose = false
   mainWindow.on('close', (event) => {
     if (allowClose) return
@@ -342,17 +392,41 @@ function createWindow(): void {
   })
 }
 
-void app.whenReady().then(() => {
-  registerHandlers()
-  buildApplicationMenu()
-  createWindow()
-  nativeTheme.on('updated', emitOsTheme)
-  emitOsTheme()
-  registerGlobalShortcuts()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+// macOS delivers association opens — including the one that launched the app —
+// through `open-file`, which can fire before `whenReady()`.
+app.on('open-file', (event, path) => {
+  event.preventDefault()
+  openFileFromOs(path)
 })
+
+// A second launch (double-clicking another `.md` while Markup runs) must hand
+// its argv to the existing window; a second editor would lose the session.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    scanArgvForFiles(argv)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+
+  void app.whenReady().then(() => {
+    registerHandlers()
+    buildApplicationMenu()
+    // Cold start via file association: the path is already in `process.argv`.
+    scanArgvForFiles(process.argv)
+    createWindow()
+    nativeTheme.on('updated', emitOsTheme)
+    emitOsTheme()
+    registerGlobalShortcuts()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+}
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()

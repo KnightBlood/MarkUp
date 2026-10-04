@@ -127,6 +127,11 @@ Check-Needle 'wails packaging :: linux mime type' "$root\apps\wails\build\Taskfi
 Check-Needle 'wails main :: single instance' "$root\apps\wails\main.go" 'SingleInstance' -Literal
 Check-Needle 'wails main :: argv file scan' "$root\apps\wails\main.go" 'scanArgsForFiles' -Literal
 Check-Needle 'wails main :: file-open flush' "$root\apps\wails\main.go" 'flushFileOpen' -Literal
+# The electrobun frontend resolves `electrobun/*` into a gitignored devkit, so
+# the shared typecheck job must exclude it — the electrobun job checks it after
+# `hutch electrobun sync` instead.
+Check-Needle 'ci :: typecheck excludes devkit package' "$root\.github\workflows\build.yml" '!@markup/electrobun-frontend' -Literal
+Check-Needle 'ci :: electrobun checks its frontend' "$root\.github\workflows\build.yml" 'pnpm --filter @markup/electrobun-frontend typecheck' -Literal
 # Electrobun exposes no menu-bar visibility flag: `setApplicationMenu` is the
 # only thing that grows an HMENU, so installing one would un-hide the native
 # bar. Assert the call stays out of the shell (the other four hide it instead).

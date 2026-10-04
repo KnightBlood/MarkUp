@@ -41,7 +41,11 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r typecheck
+      # `apps/electrobun/frontend` maps `electrobun/*` onto the devkit that
+      # `hutch electrobun sync` writes into a gitignored `.hutch/`, so it can
+      # only be typechecked by the electrobun job (which syncs first) — this
+      # job stays hermetic and skips it.
+      - run: pnpm -r --filter "!@markup/electrobun-frontend" typecheck
       # electron-builder rejects unknown keys via `additionalProperties: false`
       # only at package time; validate the installer config up front instead.
       - run: pnpm run check:packaging
@@ -270,6 +274,10 @@ jobs:
           hutch install
           hutch electrobun sync
           hutch typecheck
+      # The frontend resolves `electrobun/*` through tsconfig `paths` into
+      # `.hutch/devkit`, so it is only checkable after the sync above (the
+      # shared typecheck job deliberately excludes this package).
+      - run: corepack pnpm --filter @markup/electrobun-frontend typecheck
       - name: hutch electrobun build
         shell: bash
         working-directory: apps/electrobun

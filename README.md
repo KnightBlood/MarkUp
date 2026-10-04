@@ -81,7 +81,7 @@ pnpm gen:menu          # 改动 menu.json 后同步四壳副本（各壳构建�
 ## 自检
 
 ```bash
-pnpm -r typecheck                              # 8 个包
+pnpm -r typecheck                              # 8 个包（apps/electrobun/frontend 依赖 `hutch electrobun sync` 生成的 .hutch/devkit）
 pnpm --filter @markup/core smoke               # 内核冒烟（管道/编辑器/嵌入/多标签/格式管线）
 pnpm --filter @markup/ui smoke                 # UI 冒烟（设置/右键菜单/菜单栏/对话框/标签条/插件）
 pnpm run check:packaging                       # electron-builder 配置按 app-builder-lib schema 校验

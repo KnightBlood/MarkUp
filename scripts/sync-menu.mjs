@@ -8,6 +8,7 @@ const targets = [
   join(root, 'apps', 'electron', 'shared', 'menu.json'),
   join(root, 'apps', 'tauri', 'src-tauri', 'src', 'menu.json'),
   join(root, 'apps', 'wails', 'menu.json'),
+  join(root, 'apps', 'electrobun', 'menu.json'),
 ]
 for (const target of targets) {
   mkdirSync(dirname(target), { recursive: true })

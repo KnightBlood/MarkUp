@@ -1,6 +1,6 @@
 import menuJson from './menu.json'
 
-export type HostPlatform = 'electron' | 'wails' | 'tauri' | 'web'
+export type HostPlatform = 'electron' | 'wails' | 'tauri' | 'web' | 'electrobun'
 
 export interface FileResult {
   path: string

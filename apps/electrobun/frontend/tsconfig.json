@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      // Mirrors vite.config.ts and the devkit's own `exports` mapping; the
+      // file only exists after `hutch electrobun sync`.
+      "electrobun/view": ["../.hutch/devkit/api/browser/index.ts"]
+    }
+  },
+  "include": ["src", "../shared"]
+}

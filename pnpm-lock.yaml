@@ -15,6 +15,22 @@ importers:
         specifier: ^3.1.2
         version: 3.1.2(esbuild@0.28.2)(pdf-lib@1.17.1)(three@0.186.1)
 
+  apps/electrobun/frontend:
+    dependencies:
+      '@markup/host-api':
+        specifier: workspace:*
+        version: link:../../../packages/host-api
+      '@markup/ui':
+        specifier: workspace:*
+        version: link:../../../packages/ui
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: 8.3.1
+        version: 8.3.1(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+
   apps/electron:
     devDependencies:
       '@markup/core':

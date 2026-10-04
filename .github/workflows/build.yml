@@ -156,3 +156,54 @@ jobs:
           path: apps/wails/markup-wails*
           if-no-files-found: error
           retention-days: 90
+
+  # Fifth shell (Electrobun): unlike the other four, its main process is built
+  # by Electrobun's own `hutch` CLI on the bun runtime, not by a pnpm script —
+  # so the runner installs hutch, syncs its devkit SDK into
+  # `apps/electrobun/.hutch` (the `electrobun/*` import map in tsconfig
+  # resolves against it), typechecks, then packages.
+  electrobun:
+    runs-on: windows-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @markup/electrobun-frontend build
+      # Windows installer; PATH additions only survive inside the step that
+      # makes them, so every hutch step re-prepends ~/.hutch/bin itself.
+      - name: install hutch
+        shell: pwsh
+        run: '& ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))'
+      - name: hutch install + electrobun sync + typecheck
+        shell: pwsh
+        working-directory: apps/electrobun
+        run: |
+          $env:PATH = "$env:USERPROFILE\.hutch\bin;$env:PATH"
+          hutch install
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          hutch electrobun sync
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          hutch typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # `electrobun.config.ts` `scripts.preBuild` rebuilds the vite bundle, and
+      # `build.copy` stages `frontend/dist` into the packaged `views/app`.
+      - name: hutch electrobun build
+        shell: pwsh
+        working-directory: apps/electrobun
+        run: |
+          $env:PATH = "$env:USERPROFILE\.hutch\bin;$env:PATH"
+          hutch electrobun build --env=stable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # Keep the installer + unpacked app (drop the 200MB release archives in
+      # `artifacts/`, which are local-only by policy).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: electrobun-windows
+          path: apps/electrobun/dist/stable-win-x64
+          if-no-files-found: error
+          retention-days: 90

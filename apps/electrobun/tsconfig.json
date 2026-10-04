@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // The devkit SDK is Bun-only (`bun:ffi`, `process`, node builtins).
+    "types": ["bun"],
+    // `hutch electrobun sync` projects these files into `.hutch/devkit` and
+    // publishes the same subpath map in its tsconfig.json; it is written for
+    // older TypeScript (it still uses `baseUrl`, which TS 7 removed), so the
+    // shell keeps a trimmed copy of the entries it actually imports. Paths are
+    // relative to this file, per TS 7's `paths`-without-`baseUrl` rule.
+    "paths": {
+      "electrobun": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main/*": ["./.hutch/devkit/api/sdks/main/entries/*"],
+      "electrobun/rpc": ["./.hutch/devkit/api/sdks/main/entries/rpc.ts"],
+      "electrobun/view": ["./.hutch/devkit/api/browser/index.ts"]
+    }
+  },
+  "include": ["src", "shared", "scripts", "electrobun.config.ts", "hutch.config.ts"]
+}

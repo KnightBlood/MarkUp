@@ -68,6 +68,9 @@ Check-File 'ui source :: keybindings.ts' "$root\packages\ui\src\ui\keybindings.t
 Check-File 'ui source :: menuBar.ts' "$root\packages\ui\src\ui\menuBar.ts"
 Check-File 'ui source :: promptDialog.ts' "$root\packages\ui\src\ui\promptDialog.ts"
 Check-File 'core source :: textFormat.ts' "$root\packages\core\src\textFormat.ts"
+Check-File 'electrobun main :: bun entry' "$root\apps\electrobun\src\bun\index.ts"
+Check-File 'electrobun main :: rpc schema' "$root\apps\electrobun\shared\rpc.ts"
+Check-File 'electrobun view :: host impl' "$root\apps\electrobun\frontend\src\main.ts"
 Check-Needle 'ui source :: shell-main row' "$root\packages\ui\src\theme\shell.css" '.shell-main' -Literal
 Check-Needle 'ui source :: shared tab row height' "$root\packages\ui\src\theme\tokens.css" '--tabrow-height' -Literal
 Check-Needle 'ui source :: menu max-height' "$root\packages\ui\src\theme\shell.css" 'max-height: calc(100vh - 8px)' -Literal
@@ -89,6 +92,26 @@ Check-Needle 'tauri source :: hidden menu bar' "$root\apps\tauri\src-tauri\src\l
 Check-Needle 'tauri source :: devtools command' "$root\apps\tauri\src-tauri\src\lib.rs" 'open_devtools' -Literal
 Check-Needle 'wails source :: hidden menu bar' "$root\apps\wails\main.go" 'HideMenuBar' -Literal
 Check-Needle 'wails source :: devtools service' "$root\apps\wails\services\host.go" 'OpenDevTools' -Literal
+# --- electrobun (fifth shell): HostAPI over Electrobun's typed view<->bun RPC
+Check-Needle 'electrobun source :: hidden menu bar' "$root\apps\electrobun\src\bun\index.ts" 'HIDE_NATIVE_MENU_BAR' -Literal
+Check-Needle 'electrobun source :: devtools rpc' "$root\apps\electrobun\src\bun\index.ts" 'appOpenDevTools' -Literal
+Check-Needle 'electrobun source :: menu.json shortcuts' "$root\apps\electrobun\src\bun\index.ts" 'menu.globalShortcuts' -Literal
+Check-Needle 'electrobun source :: close interception' "$root\apps\electrobun\src\bun\index.ts" "emitHostEvent('close-request'" -Literal
+Check-Needle 'electrobun source :: native save dialog' "$root\apps\electrobun\src\bun\saveDialog.ts" 'GetSaveFileNameW' -Literal
+Check-Needle 'electrobun source :: single host channel' "$root\apps\electrobun\shared\rpc.ts" "'host-event'" -Literal
+Check-Needle 'electrobun view :: host platform' "$root\apps\electrobun\frontend\src\main.ts" "platform: 'electrobun'" -Literal
+Check-Needle 'electrobun view :: confirm close' "$root\apps\electrobun\frontend\src\main.ts" 'winConfirmClose' -Literal
+Check-Needle 'electrobun config :: offline views bundle' "$root\apps\electrobun\electrobun.config.ts" 'views/app' -Literal
+# Electrobun exposes no menu-bar visibility flag: `setApplicationMenu` is the
+# only thing that grows an HMENU, so installing one would un-hide the native
+# bar. Assert the call stays out of the shell (the other four hide it instead).
+$ebMain = "$root\apps\electrobun\src\bun\index.ts"
+if (Test-Path $ebMain) {
+  if ((Get-Content $ebMain -Raw) -match 'setApplicationMenu\(') { Write-Output 'MISS electrobun main :: no native menu installed'; $script:misses++ } else { Write-Output 'HIT  electrobun main :: no native menu installed'; $script:hits++ }
+} else {
+  Write-Output 'MISS electrobun main :: no native menu installed (missing file)'
+  $script:misses++
+}
 Check-Needle 'host api :: confirmClose' "$root\packages\host-api\src\types.ts" 'confirmClose' -Literal
 Check-Needle 'electron main :: close interception' "$root\apps\electron\src\main\main.ts" "event: 'close-request'" -Literal
 Check-Needle 'core source :: inline format export' "$root\packages\core\src\textFormat.ts" 'export function inlineFormatEdit' -Literal
@@ -102,8 +125,8 @@ Check-Needle 'menu json :: paragraph section' "$root\packages\host-api\src\menu.
 Check-Needle 'menu json :: format section' "$root\packages\host-api\src\menu.json" 'format.bold' -Literal
 Check-Needle 'menu json :: copy-as command' "$root\packages\host-api\src\menu.json" 'edit.copyAsMarkdown' -Literal
 Check-Needle 'menu json :: horizontal rule' "$root\packages\host-api\src\menu.json" 'insert.hr' -Literal
-# file-viewer vite plugin registered in all four shell configs
-foreach ($cfg in @("$root\apps\web\vite.config.ts", "$root\apps\electron\vite.config.ts", "$root\apps\tauri\frontend\vite.config.ts", "$root\apps\wails\frontend\vite.config.ts")) {
+# file-viewer vite plugin registered in all five shell configs
+foreach ($cfg in @("$root\apps\web\vite.config.ts", "$root\apps\electron\vite.config.ts", "$root\apps\tauri\frontend\vite.config.ts", "$root\apps\wails\frontend\vite.config.ts", "$root\apps\electrobun\frontend\vite.config.ts")) {
   Check-Needle "vite config :: fileViewerRenderers ($cfg)" $cfg 'fileViewerRenderers' -Literal
 }
 # file-viewer copied assets (copyAssets:true → dist/file-viewer/…)
@@ -141,7 +164,7 @@ if (Test-Path $emMain) {
   $mainText = Get-Content $emMain -Raw
   if ($mainText -match 'showMessageBox') { Write-Output 'MISS electron main :: showMessageBox removed'; $script:misses++ } else { Write-Output 'HIT  electron main :: showMessageBox removed'; $script:hits++ }
 }
-foreach ($pair in @(@('tauri frontend', "$root\apps\tauri\frontend\dist\assets"), @('wails frontend', "$root\apps\wails\frontend\dist\assets"))) {
+foreach ($pair in @(@('tauri frontend', "$root\apps\tauri\frontend\dist\assets"), @('wails frontend', "$root\apps\wails\frontend\dist\assets"), @('electrobun frontend', "$root\apps\electrobun\frontend\dist\assets"))) {
   $name = $pair[0]; $dir = $pair[1]
   $js = Get-ChildItem "$dir\*.js" -ErrorAction SilentlyContinue
   if ($js) {
@@ -199,7 +222,7 @@ if (Test-Path $wailsExe) {
 }
 
 # --- menu copies in sync ---
-foreach ($copy in @("$root\apps\electron\shared\menu.json", "$root\apps\tauri\src-tauri\src\menu.json", "$root\apps\wails\menu.json")) {
+foreach ($copy in @("$root\apps\electron\shared\menu.json", "$root\apps\tauri\src-tauri\src\menu.json", "$root\apps\wails\menu.json", "$root\apps\electrobun\menu.json")) {
   Check-Needle "menu copy :: insert.plantuml ($copy)" $copy 'insert.plantuml' -Literal
   Check-Needle "menu copy :: insert.file ($copy)" $copy 'insert.file' -Literal
 }
@@ -219,7 +242,7 @@ Check-File 'brand :: web favicon' "$root\apps\web\public\favicon.svg"
 # --- avbridge video embeds (vendor libav + <avbridge-player> playback) ----
 Check-File 'avbridge :: libav vendor plugin' "$root\scripts\libav-vendor-plugin.mjs"
 Check-File 'avbridge :: libav vendor plugin types' "$root\scripts\libav-vendor-plugin.d.mts"
-foreach ($app in @('apps\web', 'apps\electron', 'apps\tauri\frontend', 'apps\wails\frontend')) {
+foreach ($app in @('apps\web', 'apps\electron', 'apps\tauri\frontend', 'apps\wails\frontend', 'apps\electrobun\frontend')) {
   Check-Needle "vite config :: libav vendor ($app)" "$root\$app\vite.config.ts" 'libavVendorPlugin' -Literal
 }
 Check-Needle 'core source :: avbridge player element mount' "$root\packages\core\src\embeds.ts" 'avbridge-player' -Literal

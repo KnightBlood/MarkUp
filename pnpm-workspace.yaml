@@ -4,6 +4,7 @@ packages:
   - apps/electron
   - apps/tauri/frontend
   - apps/wails/frontend
+  - apps/electrobun/frontend
 
 onlyBuiltDependencies:
   - esbuild

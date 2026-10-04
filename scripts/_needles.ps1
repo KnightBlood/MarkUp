@@ -119,6 +119,14 @@ Check-File 'packaging :: electrobun windows nsis' "$root\scripts\packaging\elect
 Check-File 'packaging :: electrobun linux appimage' "$root\scripts\packaging\electrobun\linux-appimage.sh"
 Check-Needle 'packaging :: nsis directory page' "$root\scripts\packaging\electrobun\windows.nsi" 'MUI_PAGE_DIRECTORY' -Literal
 Check-Needle 'packaging :: pkg destination domains' "$root\scripts\packaging\macos-pkg.sh" 'enable_anywhere' -Literal
+# --- wails: association (config.yml is the source of truth) + receive -------
+Check-Needle 'wails packaging :: md association' "$root\apps\wails\build\config.yml" 'fileAssociations' -Literal
+Check-Needle 'wails packaging :: nsis directory page' "$root\apps\wails\build\nsis\project.nsi" 'MUI_PAGE_DIRECTORY' -Literal
+Check-Needle 'wails packaging :: nsis associate macro' "$root\apps\wails\build\nsis\project.nsi" 'wails.associateFiles' -Literal
+Check-Needle 'wails packaging :: linux mime type' "$root\apps\wails\build\Taskfile.linux.yml" 'MimeType=text/markdown' -Literal
+Check-Needle 'wails main :: single instance' "$root\apps\wails\main.go" 'SingleInstance' -Literal
+Check-Needle 'wails main :: argv file scan' "$root\apps\wails\main.go" 'scanArgsForFiles' -Literal
+Check-Needle 'wails main :: file-open flush' "$root\apps\wails\main.go" 'flushFileOpen' -Literal
 # Electrobun exposes no menu-bar visibility flag: `setApplicationMenu` is the
 # only thing that grows an HMENU, so installing one would un-hide the native
 # bar. Assert the call stays out of the shell (the other four hide it instead).

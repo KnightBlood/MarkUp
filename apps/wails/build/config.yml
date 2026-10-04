@@ -1,0 +1,39 @@
+# Configuration for the Wails shell's build assets.
+#
+# `info` and `fileAssociations` are the single source of truth: after editing
+# them, regenerate the platform assets with
+#
+#   wails3 task common:update:build-assets
+#
+# which rewrites `Info.plist`, `nsis/wails_tools.nsh`, … from this file. CI
+# runs that before packaging, so what is checked in is only a snapshot.
+version: '3'
+
+info:
+  companyName: "Markup"
+  productName: "Markup"
+  productIdentifier: "dev.markup.editor"
+  description: "Markdown editor"
+  copyright: "(c) Markup"
+  comments: "Markdown editor with WYSIWYG editing, diagrams and embeds."
+  version: "v0.1.0"
+
+# `.md` / `.markdown` open with Markup.
+#   Windows → registry keys written by `nsis/project.nsi` (wails.associateFiles)
+#   macOS   → CFBundleDocumentTypes in Info.plist
+#   Linux   → MimeType= line in the AppImage .desktop
+#             (build/Taskfile.linux.yml appends it, since the desktop generator
+#             of `wails3 generate .desktop` has no MimeType flag)
+fileAssociations:
+  - ext: md
+    name: Markdown
+    description: Markdown document
+    iconName: icon
+    role: Editor
+  - ext: markdown
+    name: Markdown
+    description: Markdown document
+    iconName: icon
+    role: Editor
+
+other: []

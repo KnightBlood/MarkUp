@@ -4,10 +4,99 @@ import (
 	"embed"
 	"encoding/json"
 	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/markup/markup-wails/services"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
+
+// markdownExtensions are the types the app associates with the OS (mirrors
+// `fileAssociations` in build/config.yml and the installers of the other
+// shells).
+var markdownExtensions = []string{".md", ".markdown"}
+
+// emitHostEvent is assigned once the window exists. The single-instance
+// callback and the cold-start argument scan can both run before that, so they
+// only queue (see queueFileOpen).
+var emitHostEvent func(eventName, payload string)
+
+type fileOpenState struct {
+	// ready flips on common:WindowRuntimeReady; the renderer's `file-open`
+	// listener only exists after its `boot()`.
+	ready   bool
+	pending []string
+}
+
+var (
+	fileOpenMu sync.Mutex
+	fileOpen   fileOpenState
+)
+
+func isMarkdownPath(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	for _, known := range markdownExtensions {
+		if ext == known {
+			return true
+		}
+	}
+	return false
+}
+
+// queueFileOpen hands an OS-initiated open to the app, or buffers it until the
+// webview runtime is ready.
+func queueFileOpen(path string) {
+	if !isMarkdownPath(path) {
+		return
+	}
+	fileOpenMu.Lock()
+	if !fileOpen.ready {
+		for _, queued := range fileOpen.pending {
+			if queued == path {
+				fileOpenMu.Unlock()
+				return
+			}
+		}
+		fileOpen.pending = append(fileOpen.pending, path)
+		fileOpenMu.Unlock()
+		return
+	}
+	fileOpenMu.Unlock()
+	if emitHostEvent != nil {
+		emitHostEvent("file-open", path)
+	}
+}
+
+func flushFileOpen() {
+	fileOpenMu.Lock()
+	fileOpen.ready = true
+	pending := fileOpen.pending
+	fileOpen.pending = nil
+	fileOpenMu.Unlock()
+	for _, path := range pending {
+		if emitHostEvent != nil {
+			emitHostEvent("file-open", path)
+		}
+	}
+}
+
+// scanArgsForFiles picks the associated files out of a command line — both the
+// cold start (os.Args) and a second launch forwarded by SingleInstance.
+func scanArgsForFiles(args []string) {
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		info, err := os.Stat(arg)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		queueFileOpen(arg)
+	}
+}
 
 // Frontend is embedded at build time: build frontend/dist first, then go build.
 //go:embed all:frontend/dist
@@ -76,6 +165,15 @@ func main() {
 		Name:        "Markup",
 		Description: "Typora-like markdown editor",
 		Icon:        appIcon,
+		// A second launch (double-clicking another `.md` while Markup runs)
+		// hands its arguments to this instance instead of opening a second
+		// editor that would lose the session.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "dev.markup.editor",
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				scanArgsForFiles(data.Args)
+			},
+		},
 		Services: []application.Service{
 			application.NewService(&services.HostService{}),
 		},
@@ -99,12 +197,20 @@ func main() {
 	// renderer commands instead (shell.ts + HostService.OpenDevTools).
 	window.HideMenuBar()
 
-	emitHostEvent := func(eventName, payload string) {
+	emitHostEvent = func(eventName, payload string) {
 		window.EmitEvent("host-event", map[string]any{
 			"event":   eventName,
 			"payload": payload,
 		})
 	}
+	// File association: `.md` paths arrive as command-line arguments (cold
+	// start) or through SingleInstance (already running). They stay buffered
+	// until the runtime is ready, since the renderer's `file-open` listener
+	// only exists once `boot()` ran.
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+		flushFileOpen()
+	})
+	scanArgsForFiles(os.Args[1:])
 	// Services (fs watch) emit through the same channel with a structured payload.
 	services.SetEventEmitter(func(event string, payload any) {
 		window.EmitEvent("host-event", map[string]any{

@@ -180,14 +180,55 @@ jobs:
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @markup/wails-frontend build
-      # ./... matches main + services (2 packages) and discards the executable;
-      # build the single main package with an explicit output to keep the binary.
-      - run: cd apps/wails && go build -o markup-wails .
-      # Keep the built binary (markup-wails / markup-wails.exe).
-      - uses: actions/upload-artifact@v4
+      # The v3 CLI embeds its own task runner, so there is no separate `task`
+      # to install.
+      - name: install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.25
+      - name: toolchain paths
+        shell: bash
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # `build/config.yml` is the source of truth for `fileAssociations`; this
+      # regenerates Info.plist / nsis/wails_tools.nsh from it.
+      - name: refresh build assets
+        working-directory: apps/wails
+        run: wails3 task common:update:build-assets
+      - name: install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          'C:\Program Files (x86)\NSIS' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      # Windows → NSIS (MUI_PAGE_DIRECTORY: user picks the install folder)
+      # Linux   → AppImage (user picks where the file lives)
+      # macOS   → .app bundle, turned into a .pkg below (dmg cannot choose a path)
+      - name: wails3 task package
+        working-directory: apps/wails
+        run: wails3 task package
+      - name: macOS pkg
+        if: runner.os == 'macOS'
+        working-directory: apps/wails
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/packaging/macos-pkg.sh" \
+            "$PWD/bin/Markup.app" "$PWD/bin/Markup.pkg" dev.markup.editor 0.1.0
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
-          name: wails-${{ matrix.os }}
-          path: apps/wails/markup-wails*
+          name: wails-windows
+          path: apps/wails/bin/*-installer.exe
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wails-macos
+          path: apps/wails/bin/*.pkg
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wails-linux
+          path: apps/wails/bin/*.AppImage
           if-no-files-found: error
           retention-days: 90
 

@@ -1,6 +1,6 @@
 # Markup
 
-> 离线优先的 Markdown 编辑器 —— **一套代码产出 Web / Electron / Tauri / Wails 四个壳**，界面与能力对齐 Typora。
+> 离线优先的 Markdown 编辑器 —— **一套代码产出 Web / Electron / Tauri / Wails / Electrobun 五个壳**，界面与能力对齐 Typora。
 
 <p align="center">
   <img src="artifacts/brand/icon-rounded.svg" width="96" alt="Markup" />
@@ -8,13 +8,13 @@
 
 - **三视图**：实时预览（Milkdown / ProseMirror）、分屏（OverType）、源码（CodeMirror 6）——共用同一份 markdown 与**字符级选区偏移**，切换视图不丢光标、不置脏
 - **多标签页**：脏点标记、拖拽重排、中键关闭、右键 6 项；`Ctrl+T` 新建 / `Ctrl+W` 关闭 / `Ctrl+Tab` 循环；关闭脏标签弹应用内确认；会话恢复（开启哪些标签、活动标签）
-- **Typora 形制右键菜单**：图标行（剪切/复制/粘贴/删除）→ 复制·粘贴为 ▸（Markdown / HTML / 纯文本）→ 格式图标格（`B I </> 🔗` / `❝ • 1. ☑`）→ 段落 ▸ / 插入 ▸ / 视图 ▸；**应用内 7 节菜单栏**（文件/编辑/段落/格式/插入/视图/帮助）由 `menu.json` 单一源驱动，三壳原生菜单栏已隐藏避免重复
+- **Typora 形制右键菜单**：图标行（剪切/复制/粘贴/删除）→ 复制·粘贴为 ▸（Markdown / HTML / 纯文本）→ 格式图标格（`B I </> 🔗` / `❝ • 1. ☑`）→ 段落 ▸ / 插入 ▸ / 视图 ▸；**应用内 7 节菜单栏**（文件/编辑/段落/格式/插入/视图/帮助）由 `menu.json` 单一源驱动，各桌面壳原生菜单栏已隐藏避免重复
 - **格式管线**：粗体 / 斜体 / 行内代码 / 删除线 / 链接（带输入弹窗）/ 标题 1-6 / 引用 / 无序·有序·任务列表 / 代码块；实时预览走 ProseMirror **原生命令**（Undo 正常），纯文本视图按行重写
 - **富内容**：Mermaid 图（AntV X6 图形编辑 + Visimer 编辑序列/类/ER 图）、PlantUML（**离线 TeaVM 引擎**）、Draw.io / XMind / 30+ 格式文件预览（file-viewer，资产全离线自托管）、3D 模型（model-viewer）/ 视频 / 脑图（markmap）嵌入、公式（MathLive 输入 + KaTeX 渲染）、表格编辑（工具栏 + 对齐/移动/增删）
 - **侧栏**：文件（工作区树 + 最近文件）/ 大纲 / 搜索，标签行与文档标签行**同高对齐**
 - **插件系统**：`~/.markup/plugins` + 程序目录双根、权限门禁（`document`/`fs`/`dialog`/`config`）、热加载、12 个示例插件（模板库、开发工具、AI 助手/翻译摘要、文本工具箱、日记、TOC、反链、片段、选区统计、表格工具、链接检查）
 - **导出**：独立 HTML（自包含、离线可读）/ PDF / 打印
-- **HostAPI 抽象**：`packages/host-api` 定义 fs / dialog / config / window / clipboard / 事件 / 菜单，四壳各自实现，业务代码零分支
+- **HostAPI 抽象**：`packages/host-api` 定义 fs / dialog / config / window / clipboard / 事件 / 菜单，各壳各自实现，业务代码零分支
 
 ## 技术栈
 
@@ -24,7 +24,9 @@
 | 编辑器内核 | Milkdown 7（ProseMirror 7）· CodeMirror 6 · OverType |
 | Markdown 管道 | remark / rehype · KaTeX · Mermaid 12 |
 | 图形 | AntV X6 · Visimer · markmap · flowchart.js · elkjs |
-| 壳 | Electron 44（electron-builder / NSIS）· Tauri 2（Rust）· Wails 3（Go）· 纯静态 Web |
+| 壳 | Electron 44（electron-builder）· Tauri 2（Rust）· Wails 3（Go）· Electrobun 2（Bun + Cottontail）· 纯静态 Web |
+| 安装包 | 每壳三平台独立产物，都可选安装位置：Windows = NSIS 目录页 · macOS = `.pkg` 目的地页（dmg 只能拖进 `/Applications`，无法选路径） · Linux = AppImage（放哪儿由用户决定） |
+| 文件关联 | `.md` / `.markdown`：Windows 写注册表、macOS `CFBundleDocumentTypes`、Linux `.desktop` 的 `MimeType`；被打开的文件经 `file-open` 主机事件回到应用（`packages/host-api` 的 `HostEventMap`） |
 
 ## 仓库结构
 
@@ -36,8 +38,9 @@ apps/web            Web 壳（静态站）
 apps/electron       Electron 壳（主进程 + preload + renderer）
 apps/tauri          Tauri 壳（Rust + 前端）
 apps/wails          Wails 壳（Go + 前端）
+apps/electrobun     Electrobun 壳（Bun 主进程 + vite 前端，hutch 构建）
 examples/plugins    12 个示例插件（开发指南见 examples/plugins/README.md）
-scripts             sync-menu.mjs（菜单同步）· make-icons.mjs（图标生成）· bundle-host-api.mjs · _needles.ps1（产物结构自检）
+scripts             sync-menu.mjs（菜单同步）· make-icons.mjs（图标生成）· bundle-host-api.mjs · packaging/（macOS `.pkg` + Electrobun NSIS/AppImage 包装）· _needles.ps1（产物结构自检）
 artifacts/          打包产物镜像（不入库）+ README.md（功能详解 / 已知问题）+ brand/（图标资产）
 ```
 
@@ -51,26 +54,41 @@ pnpm dev:web          # http://localhost:5173
 
 > 首次 `dev` 会由 vite 插件把 file-viewer 的 ~3000 个离线资产拷进 `public/file-viewer/`（慢盘 + 杀软下可能几分钟；服务会先起，拷贝在后台进行）。
 
-## 构建四壳
+## 构建五壳
 
 ```bash
 pnpm build:web         # 静态站 → apps/web/dist
 pnpm build:electron    # renderer + main + electron-builder → apps/electron/release/win-unpacked
 pnpm tauri:build       # 需 Rust 工具链 → apps/tauri/src-tauri/target/release/markup.exe
 pnpm wails:build       # 需 Go → apps/wails/markup-wails.exe
-pnpm gen:menu          # 改动 menu.json 后同步三壳副本（各壳构建也会自动同步）
+pnpm gen:menu          # 改动 menu.json 后同步四壳副本（各壳构建也会自动同步）
 ```
+
+**安装包不在本地打，全部由 [CI](.github/workflows/build.yml) 出**（三平台各自独立产物，均带可选安装位置与 `.md` 关联）：
+
+| 平台 | electron | tauri | wails | electrobun |
+|---|---|---|---|---|
+| Windows | NSIS | NSIS | NSIS | 自写 NSIS |
+| macOS | `.pkg` | `.app` → 自建 `.pkg` | `.app` → 自建 `.pkg` | `.app` → 自建 `.pkg` |
+| Linux | AppImage | AppImage | AppImage | 自建 AppImage |
+
+> Tauri v2 没有 `pkg` bundle type，Wails / Electrobun 只出 dmg，所以 macOS 的 `.pkg`
+> 由 [`scripts/packaging/macos-pkg.sh`](scripts/packaging/macos-pkg.sh) 统一生成
+> （`installer-gui-script` 的 `domains` 决定安装位置是否可选）。Electrobun 上游的
+> Windows/Linux 安装器不支持选路径、也不支持 Windows 关联，其包装见
+> [`scripts/packaging/electrobun/`](scripts/packaging/electrobun)。
 
 ## 自检
 
 ```bash
-pnpm -r typecheck                              # 7 个包
+pnpm -r typecheck                              # 8 个包
 pnpm --filter @markup/core smoke               # 内核冒烟（管道/编辑器/嵌入/多标签/格式管线）
 pnpm --filter @markup/ui smoke                 # UI 冒烟（设置/右键菜单/菜单栏/对话框/标签条/插件）
-powershell -File scripts/_needles.ps1          # 产物结构断点（四壳 + 资产 + 菜单副本 + 图标接线）
+pnpm run check:packaging                       # electron-builder 配置按 app-builder-lib schema 校验
+powershell -File scripts/_needles.ps1          # 产物结构断点（五壳 + 资产 + 菜单副本 + 图标接线）
 ```
 
-CI 见 [`.github/workflows/build.yml`](.github/workflows/build.yml)（typecheck + 四壳构建，三平台矩阵）。
+CI 见 [`.github/workflows/build.yml`](.github/workflows/build.yml)（typecheck + 五壳安装包，三平台矩阵）。
 
 ## 品牌标识
 

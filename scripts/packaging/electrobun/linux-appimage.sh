@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build a Linux AppImage from an Electrobun build directory.
+# Build a Linux AppImage from an Electrobun app bundle archive.
 #
 # Electrobun's own Linux artifact is a self-extracting `installer` that always
 # unpacks to `~/.local/share` (no path choice) and cannot register file
@@ -8,25 +8,27 @@
 # like, and its `.desktop` `MimeType=` line is what Linux uses for the
 # `.md` / `.markdown` association — so this shell repacks Electrobun's payload.
 #
-# `hutch electrobun build` leaves `<bundle>.tar.zst` in the build root (the
-# uncompressed tar is deleted, the compressed one is kept for the updater).
+# `hutch electrobun build` moves the app bundle tar
+# (`<channel>-<platform>-<arch>-Markup.tar.zst`) into `artifacts/` — the build
+# root keeps only the self-extracting installer.
 #
-#   scripts/packaging/electrobun/linux-appimage.sh <build-root> <out.AppImage> [icon.png]
+#   scripts/packaging/electrobun/linux-appimage.sh <bundle.tar.zst> <out.AppImage> [icon.png]
 #
 # Requires appimagetool on PATH (CI downloads it).
 set -euo pipefail
 
-BUILD_ROOT="${1:?usage: linux-appimage.sh <build-root> <out.AppImage> [icon.png]}"
-OUT="${2:?usage: linux-appimage.sh <build-root> <out.AppImage> [icon.png]}"
+ARCHIVE="${1:?usage: linux-appimage.sh <bundle.tar.zst> <out.AppImage> [icon.png]}"
+OUT="${2:?usage: linux-appimage.sh <bundle.tar.zst> <out.AppImage> [icon.png]}"
 ICON="${3:-}"
 
-ARCHIVE="$(ls -t "$BUILD_ROOT"/*.tar.zst 2>/dev/null | head -n 1 || true)"
-if [[ -z "$ARCHIVE" ]]; then
-  echo "linux-appimage: no *.tar.zst under $BUILD_ROOT" >&2
+if [[ ! -f "$ARCHIVE" ]]; then
+  echo "linux-appimage: no such archive: $ARCHIVE" >&2
   exit 1
 fi
 
-OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
+OUT_DIR="$(dirname "$OUT")"
+mkdir -p "$OUT_DIR"
+OUT="$(cd "$OUT_DIR" && pwd)/$(basename "$OUT")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

@@ -287,18 +287,30 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
-      - name: install hutch
-        shell: bash
+      # Windows runners must not reach hutch through Git Bash: its GNU tar reads
+      # `C:\...` as a remote host ("tar (child): Cannot connect to C: resolve
+      # failed"), which breaks both the installer and `hutch electrobun sync`.
+      - name: install hutch (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -ExecutionPolicy Bypass -Command \
-              "& ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))"
-          else
-            curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
-          fi
+          & ([scriptblock]::Create((irm https://hutch.blackboard.sh/hutch/install.ps1)))
+          "$env:USERPROFILE\.hutch\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: install hutch (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://hutch.blackboard.sh/hutch/install.sh | sh
           echo "$HOME/.hutch/bin" >> "$GITHUB_PATH"
-      - name: hutch install + electrobun sync + typecheck
-        shell: bash
+      - name: hutch install + electrobun sync + typecheck (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/electrobun
+        run: |
+          hutch install
+          hutch electrobun sync
+          hutch typecheck
+      - name: hutch install + electrobun sync + typecheck (Unix)
+        if: runner.os != 'Windows'
         working-directory: apps/electrobun
         run: |
           hutch install
@@ -308,8 +320,13 @@ jobs:
       # `.hutch/devkit`, so it is only checkable after the sync above (the
       # shared typecheck job deliberately excludes this package).
       - run: corepack pnpm --filter @markup/electrobun-frontend typecheck
-      - name: hutch electrobun build
-        shell: bash
+      - name: hutch electrobun build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/electrobun
+        run: hutch electrobun build --env=stable
+      - name: hutch electrobun build (Unix)
+        if: runner.os != 'Windows'
         working-directory: apps/electrobun
         run: hutch electrobun build --env=stable
 
@@ -341,7 +358,8 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/electrobun
         run: |
-          APP="$(ls -d dist/*-mac-*/Markup.app | head -n 1)"
+          # hutch names the platform directory `macos` (`stable-macos-arm64`).
+          APP="$(ls -d dist/*-macos-*/Markup.app | head -n 1)"
           bash "$GITHUB_WORKSPACE/scripts/packaging/macos-pkg.sh" \
             "$APP" "$PWD/dist/Markup-macos.pkg" dev.markup.editor 0.1.0
 
@@ -349,20 +367,23 @@ jobs:
       - name: appimagetool
         if: runner.os == 'Linux'
         run: |
-          curl -fsSL -o /usr/local/bin/appimagetool \
+          # The tool is itself an AppImage; keep the real file under a distinct
+          # name so the wrapper cannot resolve back to itself.
+          curl -fsSL -o /usr/local/bin/appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool.AppImage
+          printf '#!/bin/sh\nexec /usr/local/bin/appimagetool.AppImage --appimage-extract-and-run "$@"\n' > /usr/local/bin/appimagetool
           chmod +x /usr/local/bin/appimagetool
-          # The tool itself is an AppImage; run it without FUSE in CI.
-          printf '#!/bin/sh\nexec /usr/local/bin/appimagetool --appimage-extract-and-run "$@"\n' > /usr/local/bin/appimagetool-wrapper
-          chmod +x /usr/local/bin/appimagetool-wrapper
-          ln -sf /usr/local/bin/appimagetool-wrapper /usr/local/bin/appimagetool
       - name: Linux installer
         if: runner.os == 'Linux'
         working-directory: apps/electrobun
         run: |
-          ROOT="$(ls -d dist/*-linux-*/ | head -n 1)"
+          # `writeReleaseArtifacts` moves the app bundle tar out of the build
+          # root into `artifacts/`; the build root keeps only Electrobun's own
+          # self-extracting installer, which we do not ship.
+          ARCHIVE="$(ls -t artifacts/*-linux-*.tar.zst | head -n 1)"
           bash "$GITHUB_WORKSPACE/scripts/packaging/electrobun/linux-appimage.sh" \
-            "$ROOT" "$PWD/dist/Markup-x86_64.AppImage" assets/icon.png
+            "$ARCHIVE" "$PWD/dist/Markup-x86_64.AppImage" assets/icon.png
 
       - if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4

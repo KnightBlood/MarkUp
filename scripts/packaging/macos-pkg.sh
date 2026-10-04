@@ -28,7 +28,10 @@ if [[ ! -d "$APP" ]]; then
 fi
 
 APP_NAME="$(basename "$APP" .app)"
-OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
+# The caller's directory may not exist yet (e.g. a fresh bundle/pkg dir).
+OUT_DIR="$(dirname "$OUT")"
+mkdir -p "$OUT_DIR"
+OUT="$(cd "$OUT_DIR" && pwd)/$(basename "$OUT")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

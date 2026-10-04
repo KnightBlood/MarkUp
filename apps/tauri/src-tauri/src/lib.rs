@@ -694,14 +694,16 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while building Markup")
-        .run(|handle, event| {
+        .run(|_handle, _event| {
             // macOS delivers association opens — including the one that
-            // launched the app — through this event.
-            if let tauri::RunEvent::Opened { urls } = event {
+            // launched the app — through this event, and the variant only
+            // exists on macOS (elsewhere the path arrives as an argument).
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
                 for url in urls {
                     if let Ok(path) = url.to_file_path() {
                         if let Some(path) = path.to_str() {
-                            deliver_file_open(handle, path.to_string());
+                            deliver_file_open(_handle, path.to_string());
                         }
                     }
                 }

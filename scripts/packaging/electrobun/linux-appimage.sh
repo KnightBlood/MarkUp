@@ -45,6 +45,11 @@ APP_DIR="$WORK/AppDir"
 mkdir -p "$APP_DIR"
 cp -a "$BUNDLE"/. "$APP_DIR"/
 
+# Electrobun's Linux bundle ships its own `.desktop` shortcut; appimagetool
+# picks whichever one it finds first and that one has no `Icon=` key, so drop
+# any root-level entry before writing ours.
+find "$APP_DIR" -maxdepth 1 -name '*.desktop' -delete
+
 if [[ -z "$ICON" ]]; then
   ICON="$(find "$APP_DIR" -maxdepth 3 -name '*.png' | head -n 1 || true)"
 fi

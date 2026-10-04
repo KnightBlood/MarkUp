@@ -18,7 +18,10 @@ info:
   description: "Markdown editor"
   copyright: "(c) Markup"
   comments: "Markdown editor with WYSIWYG editing, diagrams and embeds."
-  version: "v0.1.0"
+  # Three components, no leading `v`: `project.nsi` renders
+  # `VIFileVersion "${INFO_PRODUCTVERSION}.0"`, which NSIS only accepts as four
+  # numeric parts.
+  version: "0.1.0"
 
 # `.md` / `.markdown` open with Markup.
 #   Windows → registry keys written by `nsis/project.nsi` (wails.associateFiles)

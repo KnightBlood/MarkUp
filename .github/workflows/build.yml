@@ -216,10 +216,12 @@ jobs:
         working-directory: apps/wails
         run: wails3 task windows:create:nsis:installer INSTALL_SCOPE=user
       # macOS → `.app` here, `.pkg` below (dmg cannot choose an install path).
+      # `package` (not `create:app:bundle`) because only `package` depends on
+      # `build`, which is what runs `generate:icons` and produces the binary.
       - name: package (macOS)
         if: runner.os == 'macOS'
         working-directory: apps/wails
-        run: wails3 task darwin:create:app:bundle
+        run: wails3 task darwin:package
       - name: macOS pkg
         if: runner.os == 'macOS'
         working-directory: apps/wails

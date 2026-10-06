@@ -32,6 +32,28 @@
   white-space: nowrap;
 }
 
+/* `$$…$$` filling a whole paragraph: rendered in display mode, centred on the
+   paragraph's own line. */
+.md-math--display-widget {
+  display: block;
+  margin: 0.2em 0;
+  text-align: center;
+}
+
+/* Inline `$…$` source while the caret is outside: collapsed to a zero-size box
+   instead of `display: none` — the DOM stays rendered, so ProseMirror keeps
+   mapping positions to it (the block-level `.md-diagram-hidden` idiom). */
+.md-math-hidden {
+  display: inline-block;
+  width: 0 !important;
+  max-width: 0 !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .md-math--inline-widget:hover {
   background: color-mix(in srgb, var(--mk-accent, #4285f4) 14%, transparent);
   outline: 1px solid color-mix(in srgb, var(--mk-accent, #4285f4) 35%, transparent);

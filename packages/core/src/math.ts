@@ -126,10 +126,18 @@ export function mathWidgetFactory(
   }
 }
 
+/**
+ * Inline `$…$` widget. The source stays in the document (it is the source of
+ * truth); the widget only stands in for it while the caret is outside.
+ *
+ * `source` is the raw markdown slice the widget replaces (delimiters included),
+ * so the write-back can verify the position before rewriting it.
+ */
 export function inlineMathWidgetFactory(
+  source: string,
   latex: string,
 ): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
-  return (view) => {
+  return (view, getPos) => {
     const span = document.createElement('span')
     span.className = 'md-math md-math--inline-widget'
     span.contentEditable = 'false'
@@ -139,7 +147,7 @@ export function inlineMathWidgetFactory(
       renderMath(latex, span, false)
     } catch {
       span.classList.add('md-math--error')
-      span.textContent = `$${latex}$`
+      span.textContent = source
     }
     span.addEventListener('mousedown', (event) => {
       event.preventDefault()
@@ -150,7 +158,9 @@ export function inlineMathWidgetFactory(
       event.stopPropagation()
       requestMathEdit({ latex, display: false }, (result) => {
         if (!result) return
-        const range = findTextRange(view, `$${latex}$`)
+        // Inline math keeps its inline form: promoting it to `$$…$$` mid
+        // paragraph would leave literal source behind (see displayMathWidgetFactory).
+        const range = mathSourceRange(view, getPos(), source)
         if (!range) return
         view.dispatch(view.state.tr.insertText(`$${result.latex}$`, range.from, range.to))
         view.focus()
@@ -160,13 +170,130 @@ export function inlineMathWidgetFactory(
   }
 }
 
-export function replaceInlineMathLatex(
-  view: EditorView,
-  oldLatex: string,
-  newLatex: string,
-): boolean {
-  const range = findTextRange(view, `$${oldLatex}$`)
-  if (!range) return false
-  view.dispatch(view.state.tr.insertText(`$${newLatex}$`, range.from, range.to))
-  return true
+/**
+ * `$$…$$` display-math widget: replaces the *content* of the whole paragraph
+ * (the paragraph box, and therefore its margins, stays). Clicking it opens the
+ * editor; the paragraph content is rewritten in place, so a multi-line
+ * `$$\n…\n$$` (whose newlines ProseMirror stores as soft breaks) survives too.
+ */
+export function displayMathWidgetFactory(
+  latex: string,
+): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
+  return (view, getPos) => {
+    const span = document.createElement('span')
+    span.className = 'md-math md-math--inline-widget md-math--display-widget'
+    span.contentEditable = 'false'
+    span.dataset.math = 'display'
+    span.title = '点击编辑公式'
+    try {
+      renderMath(latex, span, true)
+    } catch {
+      span.classList.add('md-math--error')
+      span.textContent = `$$${latex}$$`
+    }
+    span.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+    })
+    span.addEventListener('click', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      requestMathEdit({ latex, display: true }, (result) => {
+        if (!result) return
+        const pos = getPos()
+        if (pos === undefined) return
+        const $pos = view.state.doc.resolve(pos)
+        const from = $pos.start($pos.depth)
+        const to = $pos.end($pos.depth)
+        view.dispatch(view.state.tr.insertText(`$$${result.latex}$$`, from, to))
+        view.focus()
+      })
+    })
+    return span
+  }
 }
+
+/**
+ * The `$$…$$` latex when the paragraph is nothing but display math (the
+ * standalone-line form remark-math turns into block math). ProseMirror stores
+ * soft breaks as leaves, so the surrounding text is trimmed first.
+ */
+export function displayMathOfParagraph(text: string): string | null {
+  const match = /^\$\$((?:(?!\$\$)[\s\S])+)\$\$$/.exec(text.trim())
+  return match ? match[1]!.trim() : null
+}
+
+/**
+ * Locate one math source in the document: the widget position when it still
+ * holds the expected text, a text search otherwise (the widget may have been
+ * re-created against a stale position).
+ */
+function mathSourceRange(
+  view: EditorView,
+  from: number | undefined,
+  source: string,
+): { from: number; to: number } | null {
+  if (from !== undefined) {
+    const to = from + source.length
+    if (to <= view.state.doc.content.size && view.state.doc.textBetween(from, to) === source) {
+      return { from, to }
+    }
+  }
+  return findTextRange(view, source)
+}
+
+export interface InlineMathRange {
+  /** Offset of the opening `$` within the scanned text. */
+  from: number
+  /** Offset just past the closing `$`. */
+  to: number
+  latex: string
+}
+
+/** Whether the character at `index` is escaped by an odd run of backslashes. */
+function isEscaped(text: string, index: number): boolean {
+  let backslashes = 0
+  for (let i = index - 1; i >= 0 && text[i] === '\\'; i--) backslashes += 1
+  return backslashes % 2 === 1
+}
+
+/**
+ * Inline math ranges (`$…$`) inside one text node, following the single-dollar
+ * rules of micromark/remark-math: the opening `$` must be followed by a
+ * non-space, the closing `$` must be preceded by a non-space, `\$` is escaped
+ * and `$$` is left alone (block math). `$5 与 $6` therefore stays plain text.
+ *
+ * Ranges never span text nodes — a `$…$` split by a mark boundary (e.g.
+ * `$a**b**$`) stays literal source.
+ */
+export function findInlineMath(text: string): InlineMathRange[] {
+  const ranges: InlineMathRange[] = []
+  let i = 0
+  while (i < text.length) {
+    const open = text.indexOf('$', i)
+    if (open < 0) break
+    // Not a single, unescaped opener: skip it and keep scanning.
+    if (isEscaped(text, open) || text[open + 1] === '$' || /\s/.test(text[open + 1] ?? '')) {
+      i = open + 1
+      continue
+    }
+    let close = open + 1
+    let found = -1
+    while (close < text.length) {
+      close = text.indexOf('$', close)
+      if (close < 0) break
+      const adjacent = text[close - 1] === '$' || text[close + 1] === '$'
+      if (isEscaped(text, close) || adjacent || /\s/.test(text[close - 1] ?? '')) {
+        close += 1
+        continue
+      }
+      found = close
+      break
+    }
+    if (found < 0) break
+    ranges.push({ from: open, to: found + 1, latex: text.slice(open + 1, found) })
+    i = found + 1
+  }
+  return ranges
+}
+

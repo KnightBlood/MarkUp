@@ -42,6 +42,8 @@ let focusMode = false
 let imagePaste = true
 let spellcheck = false
 let restoreSession = true
+let bodyFont: string | undefined
+let codeFont: string | undefined
 
 const settings = createSettings({
   getAppearance: () => ({
@@ -57,6 +59,8 @@ const settings = createSettings({
     imagePaste,
     spellcheck,
     restoreSession,
+    bodyFont,
+    codeFont,
     customTheme: { bg: '#101010', accent: '#ff0000' },
   }),
   onAppearanceChange: (next) => {
@@ -69,6 +73,8 @@ const settings = createSettings({
     imagePaste = next.imagePaste !== false
     spellcheck = next.spellcheck === true
     restoreSession = next.restoreSession !== false
+    bodyFont = next.bodyFont
+    codeFont = next.codeFont
   },
 })
 
@@ -151,9 +157,70 @@ assert(settings.getTab() === 'view', 'settings.view opens view tab')
 
 const themeSelect = settings.el.querySelector<HTMLSelectElement>('select')
 assert(themeSelect, 'theme select exists')
-assert(themeSelect.options.length === 4, 'theme options: system/light/dark/custom')
+assert(
+  themeSelect.options.length === 6,
+  `theme options: system/light/dark/github/github-dark/custom, got ${themeSelect.options.length}`,
+)
 const colorSection = settings.el.querySelector<HTMLElement>('[data-section="custom-theme"]')
 assert(colorSection, 'custom theme section exists')
+
+// ---- fonts (外观 → 字体) ------------------------------------------------
+settings.setTab('appearance')
+const fontInputs = settings.el.querySelectorAll<HTMLInputElement>(
+  '[data-section="fonts"] input[type="text"]',
+)
+assert(fontInputs.length === 2, `font inputs: ${fontInputs.length}`)
+const bodyFontInput = fontInputs[0]!
+const codeFontInput = fontInputs[1]!
+bodyFontInput.value = 'Maple Mono NF CN'
+bodyFontInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(bodyFont === 'Maple Mono NF CN', `bodyFont emitted: ${bodyFont}`)
+codeFontInput.value = 'JetBrains Mono'
+codeFontInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(codeFont === 'JetBrains Mono', `codeFont emitted: ${codeFont}`)
+bodyFontInput.value = '   '
+bodyFontInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(bodyFont === undefined, 'blank bodyFont clears to undefined')
+
+// ---- appearance metadata (theme classes + font vars) --------------------
+const { fontVars, themeClass, THEME_OPTIONS, THEME_LABELS, THEME_ORDER } = await import(
+  '../src/appearance'
+)
+assert(THEME_OPTIONS.length === 6, `theme options metadata: ${THEME_OPTIONS.length}`)
+assert(
+  THEME_ORDER.includes('github') && THEME_ORDER.includes('github-dark'),
+  'github themes in cycle order',
+)
+assert(THEME_LABELS['github-dark'] === 'github-dark', 'theme label github-dark')
+assert(themeClass('github') === 'theme-github', 'themeClass github')
+assert(themeClass('github-dark') === 'theme-github-dark', 'themeClass github-dark')
+assert(themeClass('light') === 'theme-light', 'themeClass light')
+assert(themeClass('system') === null, 'themeClass system resolves through OS preference')
+
+const fontVarsOf = (patch: { bodyFont?: string; codeFont?: string }): Record<string, string | null> =>
+  Object.fromEntries(
+    fontVars({
+      theme: 'system',
+      fontSize: 16,
+      lineWidth: 780,
+      recentDocuments: [],
+      ...patch,
+    }).map((entry) => [entry.name, entry.value]),
+  )
+const withFonts = fontVarsOf({ bodyFont: 'Maple Mono NF CN', codeFont: 'JetBrains Mono' })
+assert(
+  withFonts['--font-ui'] === 'Maple Mono NF CN, var(--font-ui-default)',
+  `body font keeps the fallback stack: ${withFonts['--font-ui']}`,
+)
+assert(
+  withFonts['--font-editor'] === 'JetBrains Mono, var(--font-editor-default)',
+  `code font keeps the fallback stack: ${withFonts['--font-editor']}`,
+)
+const blankFonts = fontVarsOf({})
+assert(
+  blankFonts['--font-ui'] === null && blankFonts['--font-editor'] === null,
+  'blank fonts fall back to the CSS defaults',
+)
 
 const colorInputs = settings.el.querySelectorAll<HTMLInputElement>('input[type="color"]')
 assert(colorInputs.length === 10, `color fields: ${colorInputs.length}`)

@@ -70,7 +70,7 @@ export interface CustomTheme {
 }
 
 export interface AppConfig {
-  theme: 'light' | 'dark' | 'system' | 'custom'
+  theme: 'light' | 'dark' | 'system' | 'custom' | 'github' | 'github-dark'
   fontSize: number
   lineWidth: number
   recentDocuments: string[]

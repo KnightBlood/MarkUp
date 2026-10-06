@@ -1,5 +1,6 @@
 import type { AppConfig, CustomTheme } from '@markup/host-api'
 import { el } from '../dom'
+import { THEME_OPTIONS } from '../appearance'
 
 export type SettingsTab = 'appearance' | 'editor' | 'view'
 
@@ -28,13 +29,6 @@ export interface SettingsCallbacks {
   /** Called when the dialog closes (pending key capture must stop). */
   onClose?: () => void
 }
-
-const THEME_OPTIONS: Array<{ value: AppConfig['theme']; label: string }> = [
-  { value: 'system', label: '跟随系统' },
-  { value: 'light', label: '浅色' },
-  { value: 'dark', label: '深色' },
-  { value: 'custom', label: '自定义' },
-]
 
 const COLOR_FIELDS: Array<{ key: keyof CustomTheme; label: string; fallback: string }> = [
   { key: 'bg', label: '背景', fallback: '#ffffff' },

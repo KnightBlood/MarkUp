@@ -52,6 +52,9 @@ jobs:
       # electron-builder rejects unknown keys via `additionalProperties: false`
       # only at package time; validate the installer config up front instead.
       - run: pnpm run check:packaging
+      # The Tauri/Wails shells re-declare AppConfig as a struct and silently
+      # drop unknown keys on write — keep them in sync with the interface.
+      - run: pnpm run check:host-config
 
   electron:
     runs-on: ${{ matrix.os }}

@@ -10,6 +10,7 @@
     "gen:menu": "node scripts/sync-menu.mjs",
     "typecheck": "corepack pnpm -r typecheck",
     "check:packaging": "node scripts/check-electron-builder-config.mjs apps/electron/electron-builder.yml",
+    "check:host-config": "node scripts/check-host-config.mjs",
     "audit": "corepack pnpm audit --audit-level=high",
     "dev:web": "corepack pnpm --filter @markup/web dev",
     "build:web": "corepack pnpm --filter @markup/web build",

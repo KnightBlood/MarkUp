@@ -56,6 +56,12 @@ type AppConfig struct {
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`
+	BodyFont        *string           `json:"bodyFont,omitempty"`
+	CodeFont        *string           `json:"codeFont,omitempty"`
+	Shortcuts       map[string]string `json:"shortcuts,omitempty"`
+	RestoreSession  *bool             `json:"restoreSession,omitempty"`
+	OpenTabs        []string          `json:"openTabs,omitempty"`
+	ActiveTab       *string           `json:"activeTab,omitempty"`
 }
 
 func defaultConfig() *AppConfig {

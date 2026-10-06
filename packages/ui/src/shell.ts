@@ -51,6 +51,7 @@ import { countStats } from './outline'
 import { parseLineLink } from './mdLinks'
 import { openWorkspaceFolder, walkMarkdownFiles, type WorkspaceState } from './workspace'
 import { attachHostEvents, systemThemeClass } from './hostEvents'
+import { THEME_CLASSES, THEME_LABELS, THEME_ORDER, fontVars, themeClass } from './appearance'
 import './theme/shell.css'
 
 function basename(path: string): string {
@@ -119,14 +120,13 @@ function prefersDark(): boolean {
 
 function applyAppearance(config: AppConfig): void {
   const root = document.documentElement
-  root.classList.remove('theme-dark', 'theme-light', 'theme-custom')
+  root.classList.remove(...THEME_CLASSES)
   for (const { css } of CUSTOM_THEME_VARS) root.style.removeProperty(css)
-  if (config.theme === 'dark') root.classList.add('theme-dark')
-  else if (config.theme === 'light') root.classList.add('theme-light')
-  else if (config.theme === 'system') {
-    root.classList.add(systemThemeClass(osTheme, prefersDark()))
-  } else if (config.theme === 'custom') {
-    root.classList.add('theme-custom')
+  // `system` resolves through the OS preference, every other theme is explicit.
+  const resolved =
+    config.theme === 'system' ? systemThemeClass(osTheme, prefersDark()) : themeClass(config.theme)
+  if (resolved) root.classList.add(resolved)
+  if (config.theme === 'custom') {
     const palette = config.customTheme ?? {}
     for (const { key, css } of CUSTOM_THEME_VARS) {
       const value = palette[key]
@@ -136,21 +136,10 @@ function applyAppearance(config: AppConfig): void {
   root.style.setProperty('--font-size', `${config.fontSize || 16}px`)
   root.style.setProperty('--editor-line-width', `${config.lineWidth || 780}px`)
   // Optional font overrides (settings → 外观 → 字体); absent = CSS defaults.
-  const bodyFont = (config.bodyFont ?? '').trim()
-  if (bodyFont) root.style.setProperty('--font-ui', bodyFont)
-  else root.style.removeProperty('--font-ui')
-  const codeFont = (config.codeFont ?? '').trim()
-  if (codeFont) root.style.setProperty('--font-editor', codeFont)
-  else root.style.removeProperty('--font-editor')
-}
-
-const THEME_ORDER: AppConfig['theme'][] = ['light', 'dark', 'system', 'custom']
-
-const THEME_LABELS: Record<AppConfig['theme'], string> = {
-  light: 'light',
-  dark: 'dark',
-  system: 'system',
-  custom: 'custom',
+  for (const { name, value } of fontVars(config)) {
+    if (value) root.style.setProperty(name, value)
+    else root.style.removeProperty(name)
+  }
 }
 
 export interface EditorContextMenuContext {

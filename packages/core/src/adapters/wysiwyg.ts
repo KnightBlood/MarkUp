@@ -61,7 +61,15 @@ import { hydrateDiagrams, normalizeDiagramLang, type DiagramLang } from '../diag
 import { hydrateEmbeds, normalizeEmbedLang, requestEmbedEnlarge, type EmbedKind } from '../embeds'
 import { requestDiagramEdit, requestDiagramEnlarge } from '../diagramEditBridge'
 import { joinFrontmatter, splitFrontmatter } from '../frontmatter'
-import { mathWidgetFactory, normalizeMathLang, replaceCodeBlockContent } from '../math'
+import {
+  displayMathOfParagraph,
+  displayMathWidgetFactory,
+  findInlineMath,
+  inlineMathWidgetFactory,
+  mathWidgetFactory,
+  normalizeMathLang,
+  replaceCodeBlockContent,
+} from '../math'
 import {
   requestPlantumlVisualEdit,
   setPlantumlResolver,
@@ -452,7 +460,56 @@ function embedWidgetFactory(
 function widgetDecorations(state: EditorState): DecorationSet {
   const decorations: Decoration[] = []
   const { doc, selection } = state
-  doc.descendants((node, pos) => {
+  doc.descendants((node, pos, parent) => {
+    // `$$…$$` filling a whole paragraph (remark-math's block math): the
+    // paragraph's inline content collapses and the display widget takes its
+    // place. The paragraph box itself stays, so the formula keeps its own line.
+    if (node.type.name === 'paragraph') {
+      const latex = displayMathOfParagraph(node.textContent)
+      if (latex) {
+        const from = pos + 1
+        const to = pos + node.nodeSize - 1
+        const inside = selection.ranges.some((r) => r.$from.pos < to && r.$to.pos > from)
+        if (!inside) {
+          decorations.push(Decoration.inline(from, to, { nodeName: 'span', class: 'md-math-hidden' }))
+          decorations.push(
+            Decoration.widget(from, displayMathWidgetFactory(latex), {
+              key: `md-math-display:${latex}`,
+              stopEvent: stopWidgetPointerEvents,
+            }),
+          )
+        }
+      }
+      return
+    }
+    if (node.isText) {
+      // Inline `$…$`: the widget stands in for the source while the caret is
+      // outside; the source itself is collapsed (`.md-math-hidden`) rather than
+      // removed, so ProseMirror can still map every position to the DOM.
+      if (
+        node.text &&
+        node.text.includes('$') &&
+        !parent?.type.spec.code &&
+        !(parent?.type.name === 'paragraph' && displayMathOfParagraph(parent.textContent)) &&
+        !node.marks.some((mark) => mark.type.name === 'code')
+      ) {
+        for (const range of findInlineMath(node.text)) {
+          const from = pos + range.from
+          const to = pos + range.to
+          if (selection.ranges.some((r) => r.$from.pos < to && r.$to.pos > from)) continue
+          decorations.push(
+            Decoration.inline(from, to, { nodeName: 'span', class: 'md-math-hidden' }),
+          )
+          decorations.push(
+            Decoration.widget(from, inlineMathWidgetFactory(node.text.slice(range.from, range.to), range.latex), {
+              key: `md-math-inline:${range.latex}`,
+              stopEvent: stopWidgetPointerEvents,
+            }),
+          )
+        }
+      }
+      return
+    }
     if (node.type.name !== 'code_block') return
     const language = String(node.attrs.language ?? '')
     const from = pos

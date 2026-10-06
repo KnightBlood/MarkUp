@@ -1,0 +1,135 @@
+/**
+ * GitHub theme — the markdown-content half of `.theme-github` /
+ * `.theme-github-dark` (their palettes live in `packages/ui/src/theme/tokens.css`,
+ * values follow Primer / github-markdown-css).
+ *
+ * Only the real-time preview is restyled: the split view's preview overlay
+ * aligns one source line to one row, so its metrics must stay untouched.
+ * Font size still follows the 字号 setting; only the line height is GitHub's.
+ */
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror {
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror > * + * {
+  margin-block-start: 16px;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h1,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h2,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h3,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h4,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h5,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h6 {
+  margin-block: 24px 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h1,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--mk-border, #d1d9e0);
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h1 {
+  font-size: 2em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h2 {
+  font-size: 1.5em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h3 {
+  font-size: 1.25em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h4 {
+  font-size: 1em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h5 {
+  font-size: 0.875em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror h6 {
+  font-size: 0.85em;
+  color: var(--mk-text-dim, #59636e);
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror a {
+  color: var(--mk-accent, #0969da);
+  text-decoration: none;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror a:hover {
+  text-decoration: underline;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror blockquote {
+  padding: 0 1em;
+  border-left: 0.25em solid var(--mk-border, #d1d9e0);
+  color: var(--mk-text-dim, #59636e);
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror code {
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  background: var(--mk-code-bg, #f6f8fa);
+  font-size: 85%;
+  white-space: break-spaces;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror pre {
+  padding: 16px;
+  border-radius: 6px;
+  background: var(--mk-code-bg, #f6f8fa);
+  font-size: 85%;
+  line-height: 1.45;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit;
+  white-space: pre;
+}
+
+/* GitHub tables: block-level scroller, header row on the subtle background,
+   every second row striped. */
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror th,
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror td {
+  padding: 6px 13px;
+  border: 1px solid var(--mk-border, #d1d9e0);
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror th {
+  background: var(--mk-code-bg, #f6f8fa);
+  font-weight: 600;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror tbody tr:nth-child(2n) {
+  background: var(--mk-code-bg, #f6f8fa);
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror li + li {
+  margin-block-start: 0.25em;
+}
+
+:is(.theme-github, .theme-github-dark) .adapter-wysiwyg .ProseMirror hr {
+  height: 0.25em;
+  margin: 24px 0;
+  border: 0;
+  background: var(--mk-border, #d1d9e0);
+}

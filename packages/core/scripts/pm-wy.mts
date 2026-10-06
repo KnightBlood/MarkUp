@@ -28,6 +28,23 @@ window.Element.prototype.scrollIntoView = function () {}
 window.HTMLElement.prototype.focus = function () {}
 
 const { createWysiwygAdapter } = await import('../src/adapters/wysiwyg')
+const { findInlineMath } = await import('../src/math')
+
+// ---- inline math scanner (pure) -----------------------------------------
+const rangesOf = (text: string): string[] =>
+  findInlineMath(text).map((range) => `${range.from}:${range.to}=${range.latex}`)
+assert(rangesOf('a $x$ b').join() === '2:5=x', `single range: ${rangesOf('a $x$ b')}`)
+assert(rangesOf('$x$ 与 $y^2$').join() === '0:3=x,6:11=y^2', `two ranges: ${rangesOf('$x$ 与 $y^2$')}`)
+assert(rangesOf('价格 $5 与 $6 元').length === 0, 'currency text is not math')
+assert(rangesOf('转义 \\$x\\$').length === 0, 'escaped dollars are not math')
+assert(rangesOf('$$x$$').length === 0, 'block dollars are left alone')
+assert(rangesOf('$ x$').length === 0, 'space after the opener is not math')
+assert(rangesOf('$x $').length === 0, 'space before the closer is not math')
+assert(rangesOf('空 $$ 不是').length === 0, 'empty dollars are not math')
+assert(
+  rangesOf('前 \\$ 后 $\\frac{1}{2}$').join() === '7:20=\\frac{1}{2}',
+  `latex body kept: ${rangesOf('前 \\$ 后 $\\frac{1}{2}$')}`,
+)
 
 const markdown = [
   '# 标题',
@@ -605,9 +622,112 @@ root
 await new Promise((r) => setTimeout(r, 40))
 assert(taskLine(true, 'todo one'), 'text clicks leave the box alone')
 
+// ---- inline `$…$`: widget stands in while the caret is outside -----------
+adapter.setValue('行内公式 $a^2 + b^2$ 结束')
+await new Promise((r) => setTimeout(r, 120))
+const inlineWidget = root.querySelector<HTMLElement>('.md-math--inline-widget')
+assert(inlineWidget, 'inline math widget missing')
+assert(inlineWidget.querySelector('.katex'), 'inline math widget missing katex output')
+assert(root.querySelector('.md-math-hidden'), 'inline math source collapsed while the caret is outside')
+assert(adapter.getValue().includes('$a^2 + b^2$'), `inline math markdown kept: ${adapter.getValue()}`)
+
+let inlineEditRequest: { latex: string; display: boolean } | null = null
+setMathEditHandler((request, done) => {
+  inlineEditRequest = request
+  done({ latex: 'x^2 + y^2', display: false })
+})
+inlineWidget.click()
+// The markdownUpdated listener is debounced (200ms) — wait past it.
+await new Promise((r) => setTimeout(r, 320))
+assert(
+  inlineEditRequest?.latex === 'a^2 + b^2' && inlineEditRequest.display === false,
+  `inline math edit request: ${JSON.stringify(inlineEditRequest)}`,
+)
+assert(
+  adapter.getValue().includes('$x^2 + y^2$'),
+  `inline math write-back: ${adapter.getValue()}`,
+)
+setMathEditHandler(null)
+
+const inlineOffset = adapter.getValue().indexOf('$x^2 + y^2$')
+assert(inlineOffset >= 0, 'inline math offset missing')
+adapter.restoreAnchor({ offset: inlineOffset + 3, line: 1 })
+await new Promise((r) => setTimeout(r, 120))
+assert(
+  !root.querySelector('.md-math--inline-widget'),
+  'inline widget must drop while the caret is inside the range',
+)
+assert(
+  !root.querySelector('.md-math-hidden'),
+  'inline source must reappear while the caret is inside the range',
+)
+assert(
+  adapter.getValue().includes('$x^2 + y^2$'),
+  'caret inside inline math keeps the markdown intact',
+)
+
+// ---- `$$…$$` display math (a paragraph that is nothing but display math) ---
+const { displayMathOfParagraph } = await import('../src/math')
+assert(displayMathOfParagraph('$$E=mc^2$$') === 'E=mc^2', 'single-line display math')
+assert(displayMathOfParagraph('$$\nE=mc^2\n$$') === 'E=mc^2', 'multi-line display math')
+assert(displayMathOfParagraph('  $$E=mc^2$$  ') === 'E=mc^2', 'padded display math')
+assert(displayMathOfParagraph('前 $$E=mc^2$$ 后') === null, 'mid-paragraph $$ stays plain text')
+assert(displayMathOfParagraph('$$$$') === null, 'empty display math is not math')
+assert(displayMathOfParagraph('$$a$$b$$') === null, 'content may not hold $$ itself')
+
+adapter.setValue('$$E=mc^2$$')
+await new Promise((r) => setTimeout(r, 200))
+const displayWidget = root.querySelector<HTMLElement>('.md-math--display-widget')
+assert(displayWidget, 'display math widget missing')
+assert(displayWidget.querySelector('.katex'), 'display math widget missing katex output')
+assert(displayWidget.querySelector('.katex-display'), 'display math renders in display mode')
+assert(root.querySelector('.md-math-hidden'), 'display math source collapsed while the caret is outside')
+assert(adapter.getValue().includes('$$E=mc^2$$'), `display math markdown kept: ${adapter.getValue()}`)
+
+let displayEditRequest: { latex: string; display: boolean } | null = null
+setMathEditHandler((request, done) => {
+  displayEditRequest = request
+  // No `_` in the latex: Milkdown's serializer escapes text underscores
+  // (`a_b` → `a\_b`), which is pre-existing and unrelated to math rendering.
+  done({ latex: '\\frac{1}{2}', display: true })
+})
+displayWidget.click()
+// The markdownUpdated listener is debounced (200ms) — wait past it.
+await new Promise((r) => setTimeout(r, 320))
+assert(
+  displayEditRequest?.latex === 'E=mc^2' && displayEditRequest.display === true,
+  `display math edit request: ${JSON.stringify(displayEditRequest)}`,
+)
+assert(
+  adapter.getValue().includes('$$\\frac{1}{2}$$'),
+  `display math write-back: ${adapter.getValue()}`,
+)
+setMathEditHandler(null)
+
+const displayOffset = adapter.getValue().indexOf('$$\\frac{1}{2}$$')
+adapter.restoreAnchor({ offset: displayOffset + 3, line: 1 })
+await new Promise((r) => setTimeout(r, 200))
+assert(
+  !root.querySelector('.md-math--display-widget'),
+  'display widget must drop while the caret is inside the paragraph',
+)
+assert(
+  !root.querySelector('.md-math-hidden'),
+  'display source must reappear while the caret is inside the paragraph',
+)
+
+// The multi-line form keeps its soft breaks in the document.
+adapter.setValue('$$\nE=mc^2\n$$')
+await new Promise((r) => setTimeout(r, 200))
+assert(root.querySelector('.md-math--display-widget'), 'multi-line display math widget missing')
+assert(
+  adapter.getValue().includes('$$\nE=mc^2\n$$'),
+  `multi-line display math markdown kept: ${adapter.getValue()}`,
+)
+
 adapter.unmount()
 
 console.log(
-  'SMOKE WYSIWYG DIAGRAM OK: widget draw/body-click-inert/bar edit+enlarge/cursor-leave/serialize + math widget bar-to-edit + live math while caret inside + task-list/outline anchors + selection range round-trip + native block formats + table toolbar/guards/align/move/delete',
+  'SMOKE WYSIWYG DIAGRAM OK: widget draw/body-click-inert/bar edit+enlarge/cursor-leave/serialize + math widget bar-to-edit + live math while caret inside + inline $…$ scanner/widget/write-back/caret-inside + $$…$$ display math widget/write-back/caret-inside/multi-line + task-list/outline anchors + selection range round-trip + native block formats + table toolbar/guards/align/move/delete',
 )
 process.exit(0)

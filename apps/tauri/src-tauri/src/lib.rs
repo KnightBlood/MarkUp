@@ -1,5 +1,6 @@
 use notify::{RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -80,6 +81,18 @@ struct AppConfig {
     spellcheck: Option<bool>,
     #[serde(default)]
     disabled_plugins: Option<Vec<String>>,
+    #[serde(default)]
+    body_font: Option<String>,
+    #[serde(default)]
+    code_font: Option<String>,
+    #[serde(default)]
+    shortcuts: Option<HashMap<String, String>>,
+    #[serde(default)]
+    restore_session: Option<bool>,
+    #[serde(default)]
+    open_tabs: Option<Vec<String>>,
+    #[serde(default)]
+    active_tab: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -99,6 +112,12 @@ impl Default for AppConfig {
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,
+            body_font: None,
+            code_font: None,
+            shortcuts: None,
+            restore_session: None,
+            open_tabs: None,
+            active_tab: None,
         }
     }
 }

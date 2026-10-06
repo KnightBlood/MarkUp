@@ -12,12 +12,19 @@
   --ok: #1a7f37;
   --bad: #cf222e;
 
-  --font-ui: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-editor: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  /* Kept as separate tokens so a user-supplied family list can be prepended
+     without losing the fallback stack (see `fontVars` in ui/src/theme.ts). */
+  --font-ui-default: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-editor-default: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --font-ui: var(--font-ui-default);
+  --font-editor: var(--font-editor-default);
   --font-size: 14px;
   --editor-line-width: 780px;
 
   --mk-font-size: var(--font-size);
+  /* Preview body text: one step above the UI base (14px) so a wide column of
+     Chinese stays readable; still grows with the 字号 setting above 16px. */
+  --mk-font-size-prose: max(16px, var(--font-size));
   --mk-text: var(--fg);
   --mk-text-dim: var(--fg-muted);
   --mk-accent: var(--accent);
@@ -71,6 +78,38 @@
   --accent: #0969da;
   --ok: #1a7f37;
   --bad: #cf222e;
+}
+
+/* GitHub theme — Primer palette (github-markdown-css); the markdown typography
+   lives in packages/core/src/adapters/github.css. */
+.theme-github {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-soft: #f6f8fa;
+  --bg-raise: #ffffff;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #0969da;
+  --accent-fg: #ffffff;
+  --ok: #1a7f37;
+  --bad: #cf222e;
+  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.theme-github-dark {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --bg-soft: #151b23;
+  --bg-raise: #212830;
+  --fg: #f0f6fc;
+  --fg-muted: #9198a1;
+  --border: #3d444d;
+  --accent: #4493f8;
+  --accent-fg: #ffffff;
+  --ok: #3fb950;
+  --bad: #f85149;
+  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 .theme-custom {

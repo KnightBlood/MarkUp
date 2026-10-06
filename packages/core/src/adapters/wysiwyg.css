@@ -7,16 +7,30 @@
 .adapter-wysiwyg .ProseMirror {
   min-height: 100%;
   box-sizing: border-box;
-  padding: 20px 28px;
+  /* Content measure (设置 → 编辑区宽度). The editable area keeps spanning the
+     whole pane — so a click anywhere still lands the caret — while the text
+     column is capped at the configured width and centred through the padding
+     (the reference reader centres its column the same way). */
+  padding: 20px max(28px, calc((100% - var(--editor-line-width, 780px)) / 2));
   outline: none;
   line-height: 1.7;
-  font-size: var(--mk-font-size, 16px);
+  /* 预览正文字号独立于界面基准字号（tokens.css 的 --mk-font-size-prose）。 */
+  font-size: var(--mk-font-size-prose, 16px);
   color: var(--mk-text, #1f2328);
   caret-color: var(--mk-accent, #4285f4);
 }
 
 .adapter-wysiwyg .ProseMirror > * + * {
   margin-block-start: 0.6em;
+}
+
+/* 代码字体 (settings → 外观 → 字体) reaches the preview too: inline code,
+   fenced blocks and the diagram/embed/math source blocks. Without this the
+   preview rendered code in the UI font and the setting only affected the
+   source/hybrid views. */
+.adapter-wysiwyg .ProseMirror code,
+.adapter-wysiwyg .ProseMirror pre {
+  font-family: var(--mk-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 
 .adapter-wysiwyg .ProseMirror pre {

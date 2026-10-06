@@ -22,6 +22,9 @@
   --editor-line-width: 780px;
 
   --mk-font-size: var(--font-size);
+  /* Preview body text: one step above the UI base (14px) so a wide column of
+     Chinese stays readable; still grows with the 字号 setting above 16px. */
+  --mk-font-size-prose: max(16px, var(--font-size));
   --mk-text: var(--fg);
   --mk-text-dim: var(--fg-muted);
   --mk-accent: var(--accent);

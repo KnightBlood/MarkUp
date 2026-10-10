@@ -15,10 +15,15 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
@@ -27,7 +32,7 @@ jobs:
       - run: pnpm --filter @markup/tauri-frontend build
       - run: pnpm --filter @markup/electron build
       # Keep the web shell build output (deployable site).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: apps/web/dist
@@ -37,10 +42,15 @@ jobs:
   typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
@@ -64,10 +74,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
@@ -83,21 +98,21 @@ jobs:
       - if: runner.os == 'Linux'
         run: pnpm --filter @markup/electron exec electron-builder --linux AppImage --publish never
       - if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electron-windows
           path: apps/electron/release/*.exe
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electron-macos
           path: apps/electron/release/*.pkg
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electron-linux
           path: apps/electron/release/*.AppImage
@@ -112,10 +127,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: typecheck
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
       - uses: dtolnay/rust-toolchain@stable
       # Tauri v2 on Linux links GTK3 / WebKit2GTK 4.1 (runner image has no dev pkg).
       - if: runner.os == 'Linux'
@@ -145,21 +165,21 @@ jobs:
             apps/tauri/src-tauri/target/release/bundle/pkg/Markup.pkg \
             dev.markup.editor 0.1.0
       - if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tauri-windows
           path: apps/tauri/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tauri-macos
           path: apps/tauri/src-tauri/target/release/bundle/pkg/*.pkg
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tauri-linux
           path: apps/tauri/src-tauri/target/release/bundle/appimage/*.AppImage
@@ -174,11 +194,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: typecheck
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - uses: actions/setup-go@v5
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.25'
           # go.sum lives in the Go app, not the repo root (the action's default
@@ -254,21 +279,21 @@ jobs:
             -outputdir "$GITHUB_WORKSPACE/apps/wails/bin" \
             -builddir "$GITHUB_WORKSPACE/apps/wails/build/linux/appimage/build"
       - if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wails-windows
           path: apps/wails/bin/*-installer.exe
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wails-macos
           path: apps/wails/bin/*.pkg
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wails-linux
           path: apps/wails/bin/*.AppImage
@@ -288,10 +313,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: typecheck
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
+          # package.json pins `packageManager: pnpm@…`, which setup-node ≥ v5
+          # auto-detects to enable pnpm store caching — but it runs before
+          # `corepack enable`, so pin the behaviour off rather than leave it to
+          # the action's detection heuristics.
+          package-manager-cache: false
       - run: corepack enable
       - run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
@@ -394,21 +424,21 @@ jobs:
             "$ARCHIVE" "$PWD/dist/Markup-x86_64.AppImage" assets/icon.png
 
       - if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electrobun-windows
           path: apps/electrobun/dist/*.exe
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electrobun-macos
           path: apps/electrobun/dist/*.pkg
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: electrobun-linux
           path: apps/electrobun/dist/*.AppImage
@@ -429,7 +459,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
       # Each artifact directory is named `<shell>-<os>` (`electron-macos`,
@@ -455,7 +485,7 @@ jobs:
               \( -name '*.exe' -o -name '*.pkg' -o -name '*.AppImage' \) -print0)
           done
           ls -l release
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: release/*
           # Fails the job instead of publishing an empty/partial release.

@@ -30,6 +30,7 @@ import type {
   HostMenuData,
   OpenDialogOptions,
   PathInfo,
+  SaveDialogOptions,
 } from '@markup/host-api'
 import { embedMimeForPath } from '@markup/host-api'
 import { convertDocument, resolveConverter } from './converter'
@@ -189,7 +190,7 @@ function registerHandlers(): void {
     return paths
   })
 
-  ipcMain.handle(IPC_CHANNELS.dlSave, async (_event, options: OpenDialogOptions) => {
+  ipcMain.handle(IPC_CHANNELS.dlSave, async (_event, options: SaveDialogOptions) => {
     const result = await dialog.showSaveDialog({
       title: '保存为',
       defaultPath: options.defaultPath,

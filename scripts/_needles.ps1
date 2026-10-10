@@ -34,6 +34,35 @@ function Check-File {
   if (Test-Path $Path) { Write-Output "HIT  $Label"; $script:hits++ } else { Write-Output "MISS $Label ($Path)"; $script:misses++ }
 }
 
+# The inverse of Check-Needle: asserts something is gone. Used where a bug was
+# a hardcoded value rather than a missing one — a positive assertion on the
+# replacement can pass while the old constant is still sitting there winning.
+function Check-Absent {
+  param([string]$Label, [string]$Path, [string]$Pattern, [switch]$Literal)
+  if (!(Test-Path $Path)) {
+    Write-Output "MISS $Label (file not found: $Path)"
+    $script:misses++
+    return
+  }
+  $found = $false
+  try {
+    if ($Literal) {
+      $found = [bool](Select-String -LiteralPath $Path -Pattern $Pattern -SimpleMatch -Quiet -ErrorAction SilentlyContinue)
+    } else {
+      $found = [bool](Select-String -Path $Path -Pattern $Pattern -Quiet -ErrorAction SilentlyContinue)
+    }
+  } catch {
+    $found = $false
+  }
+  if ($found) {
+    Write-Output "MISS $Label (must not appear in $Path)"
+    $script:misses++
+  } else {
+    Write-Output "HIT  $Label"
+    $script:hits++
+  }
+}
+
 # --- web dist (assets js) ---
 $webAssets = Get-ChildItem "$root\apps\web\dist\assets\*.js" -ErrorAction SilentlyContinue
 if ($webAssets) {
@@ -337,6 +366,20 @@ Check-Needle 'convert :: settings path field' "$root\packages\ui\src\ui\settings
 Check-Needle 'convert :: gfm is the round-trip format' "$root\packages\ui\src\shell.ts" "const MARKDOWN_FORMAT = 'gfm'" -Literal
 Check-Needle 'convert :: media extracted portably' "$root\packages\ui\src\shell.ts" 'mediaDir' -Literal
 Check-Needle 'convert :: media dir never orphans a folder' "$root\packages\ui\src\shell.ts" 'existsAtTarget ? {}' -Literal
+
+# --- dialog filters reach the native picker ---------------------------------
+# Tauri used to hardcode a Markdown filter in open_dialog/save_dialog and its
+# option structs had no `filters` field, so serde dropped the renderer's list
+# and every picker — insert a model/video/XMind file, import a .docx, export
+# HTML/PDF — offered only .md. Assert the field exists *and* that the hardcoded
+# filter is gone: the positive assertion alone would still pass if the old
+# constant were left in place.
+Check-Needle 'dialog :: tauri option structs carry filters' "$root\apps\tauri\src-tauri\src\lib.rs" 'filters: Option<Vec<FileFilter>>' -Literal
+Check-Needle 'dialog :: tauri filter row type' "$root\apps\tauri\src-tauri\src\lib.rs" 'struct FileFilter {' -Literal
+Check-Needle 'dialog :: tauri applies the renderer filters' "$root\apps\tauri\src-tauri\src\lib.rs" 'fn add_filters(' -Literal
+Check-Needle 'dialog :: tauri honours defaultPath' "$root\apps\tauri\src-tauri\src\lib.rs" 'fn apply_default_path(' -Literal
+Check-Absent 'dialog :: tauri Markdown filter no longer hardcoded' "$root\apps\tauri\src-tauri\src\lib.rs" '.add_filter("Markdown"' -Literal
+Check-Needle 'dialog :: electron save handler is SaveDialogOptions' "$root\apps\electron\src\main\main.ts" 'dlSave, async (_event, options: SaveDialogOptions)' -Literal
 
 Write-Output "---- needle: $hits HIT / $misses MISS ----"
 if ($misses -gt 0) { exit 1 }

@@ -41,12 +41,23 @@ struct PathInfo {
     path: String,
 }
 
+/// One row of the format dropdown. `extensions` are bare (`md`, not `.md`), but
+/// they are normalised on the way into rfd so a caller spelling them either way
+/// still gets a working filter.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileFilter {
+    name: String,
+    extensions: Vec<String>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenDialogOptions {
     multiple: Option<bool>,
     directory: Option<bool>,
     default_path: Option<String>,
+    filters: Option<Vec<FileFilter>>,
 }
 
 #[derive(Deserialize)]
@@ -54,6 +65,7 @@ struct OpenDialogOptions {
 struct SaveDialogOptions {
     default_path: Option<String>,
     default_ext: Option<String>,
+    filters: Option<Vec<FileFilter>>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -258,10 +270,55 @@ async fn fs_watch(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Apply the renderer's format list to a picker. Omitting this is what made
+/// every dialog in the app offer only `.md`: the options structs used to have
+/// no `filters` field at all, so serde dropped it before it ever reached rfd.
+fn add_filters(dialog: rfd::FileDialog, filters: Option<Vec<FileFilter>>) -> rfd::FileDialog {
+    let mut dialog = dialog;
+    for filter in filters.unwrap_or_default() {
+        if filter.extensions.is_empty() {
+            // A filter matching nothing hides the whole file list on Windows.
+            continue;
+        }
+        let extensions: Vec<&str> = filter
+            .extensions
+            .iter()
+            .map(|ext| ext.strip_prefix('.').unwrap_or(ext))
+            .collect();
+        dialog = dialog.add_filter(&filter.name, &extensions);
+    }
+    dialog
+}
+
+/// `defaultPath` reaches here as a full path from some callers and as a bare
+/// filename from others (导出 HTML passes just `报告.html`). Split it the way a
+/// native dialog would: the folder becomes the starting directory, the last
+/// segment the preselected name. An empty parent means "keep the current
+/// directory" — handing "" to rfd would reset it to the process cwd.
+fn apply_default_path(dialog: rfd::FileDialog, default_path: Option<String>) -> rfd::FileDialog {
+    let Some(path) = default_path.filter(|value| !value.is_empty()) else {
+        return dialog;
+    };
+    let candidate = Path::new(&path);
+    let mut dialog = dialog;
+    if let Some(parent) = candidate.parent() {
+        if !parent.as_os_str().is_empty() {
+            dialog = dialog.set_directory(parent);
+        }
+    }
+    if let Some(name) = candidate.file_name() {
+        dialog = dialog.set_file_name(name.to_string_lossy().into_owned());
+    }
+    dialog
+}
+
 #[tauri::command]
 async fn open_dialog(options: OpenDialogOptions) -> Result<Vec<PathInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
+        let dialog = apply_default_path(
+            add_filters(rfd::FileDialog::new(), options.filters),
+            options.default_path,
+        );
         let picked: Vec<PathBuf> = if options.directory.unwrap_or(false) {
             dialog.pick_folder().map(|p| vec![p]).unwrap_or_default()
         } else if options.multiple.unwrap_or(false) {
@@ -281,11 +338,18 @@ async fn open_dialog(options: OpenDialogOptions) -> Result<Vec<PathInfo>, String
 }
 
 #[tauri::command]
-async fn save_dialog(_options: SaveDialogOptions) -> Result<Option<PathInfo>, String> {
+async fn save_dialog(options: SaveDialogOptions) -> Result<Option<PathInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let file = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]).save_file();
+        // `defaultExt` only matters as a suffix when the caller gave no name of
+        // its own — a user typing "报告" into a dialog with filters already
+        // attached gets the extension from the selected filter row.
+        let suggested = options.default_path.or(options.default_ext);
+        let dialog =
+            apply_default_path(add_filters(rfd::FileDialog::new(), options.filters), suggested);
         Ok::<Option<PathInfo>, String>(
-            file.map(|p| PathInfo { path: p.to_string_lossy().into_owned() }),
+            dialog
+                .save_file()
+                .map(|p| PathInfo { path: p.to_string_lossy().into_owned() }),
         )
     })
     .await

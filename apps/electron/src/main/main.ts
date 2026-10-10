@@ -23,6 +23,7 @@ import { HOST_EVENT_CHANNEL, IPC_CHANNELS } from '../../shared/ipc'
 import menuData from '../../shared/menu.json'
 import type {
   AppConfig,
+  ConvertRequest,
   DirEntry,
   FileResult,
   FsEvent,
@@ -31,6 +32,7 @@ import type {
   PathInfo,
 } from '@markup/host-api'
 import { embedMimeForPath } from '@markup/host-api'
+import { convertDocument, resolveConverter } from './converter'
 
 // JSON import infers wide `string` kinds; structure validated by pm-l-menu smoke.
 const menu = menuData as unknown as HostMenuData
@@ -225,6 +227,13 @@ function registerHandlers(): void {
     await writeFile(path, buffer)
     return true
   })
+  // 文档转换 — the renderer only ever names formats, never a program, so both
+  // handlers re-read the configured path at call time: changing it in 设置 ▸ 编辑 ▸ 文档转换
+  // has to take effect without restarting the app.
+  ipcMain.handle(IPC_CHANNELS.appConverter, () => resolveConverter(loadConfig().converterPath))
+  ipcMain.handle(IPC_CHANNELS.appConvert, (_event, request: ConvertRequest) =>
+    convertDocument(loadConfig().converterPath, request),
+  )
   ipcMain.handle(IPC_CHANNELS.winMinimize, () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize()
   })

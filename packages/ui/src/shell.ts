@@ -1,4 +1,4 @@
-import { verifyHost, getHost, menuCommandIds, type AppConfig, type CustomTheme, type FileFilter, type FsEvent } from '@markup/host-api'
+import { verifyHost, getHost, menuCommandIds, type AppConfig, type ConvertRequest, type ConvertResult, type CustomTheme, type FileFilter, type FsEvent } from '@markup/host-api'
 import {
   DocStore,
   FLOW_TEMPLATE,
@@ -56,6 +56,12 @@ import './theme/shell.css'
 
 function basename(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
+}
+
+/** Folder of `path`, matching {@link basename}. Empty when it has none. */
+function dirname(path: string): string {
+  const cut = path.search(/[\\/][^\\/]+$/)
+  return cut > 0 ? path.slice(0, cut) : ''
 }
 
 function resolveMarkdownUrl(url: string): string {
@@ -638,6 +644,152 @@ export function renderShell(): ShellHandle {
     }
   }
 
+  // ---- document conversion (导入文档 / 导出为…) --------------------------
+  // Markup never bundles a converter. `host.app.convert` exists only in the
+  // desktop shells, which resolve `pandoc` first and `carta` as a fallback and
+  // are interchangeable here — both spell formats the same way and both take
+  // `-f`/`-t`/`-o`/stdin, so this layer names formats and never programs.
+  //
+  // `gfm` is the format name in both directions, and that was measured against
+  // pandoc 3.12.1 rather than guessed: it is the one name that keeps pipe
+  // tables (`markdown` emits grid tables, which this renderer does not draw),
+  // the `[^1]` footnotes `insert.footnote` writes, and `- [ ]` task lists all
+  // at once.
+  const MARKDOWN_FORMAT = 'gfm'
+
+  type ConverterCall = (request: ConvertRequest) => Promise<ConvertResult>
+
+  const IMPORT_FORMAT_BY_EXT: Record<string, string> = {
+    docx: 'docx',
+    odt: 'odt',
+    rtf: 'rtf',
+    epub: 'epub',
+    html: 'html',
+    htm: 'html',
+  }
+
+  const IMPORT_FILTERS: FileFilter[] = [
+    { name: 'Word 文档', extensions: ['docx'] },
+    { name: 'OpenDocument 文本', extensions: ['odt'] },
+    { name: '富文本', extensions: ['rtf'] },
+    { name: 'EPUB 电子书', extensions: ['epub'] },
+    { name: '网页', extensions: ['html', 'htm'] },
+  ]
+
+  interface ConvertTarget {
+    id: string
+    label: string
+    ext: string
+    format: string
+    filterName: string
+  }
+
+  const CONVERT_TARGETS: ConvertTarget[] = [
+    { id: 'file.exportDocx', label: '导出为 Word (.docx)…', ext: 'docx', format: 'docx', filterName: 'Word 文档' },
+    { id: 'file.exportOdt', label: '导出为 OpenDocument (.odt)…', ext: 'odt', format: 'odt', filterName: 'OpenDocument 文本' },
+    { id: 'file.exportRtf', label: '导出为富文本 (.rtf)…', ext: 'rtf', format: 'rtf', filterName: '富文本' },
+    { id: 'file.exportEpub', label: '导出为 EPUB (.epub)…', ext: 'epub', format: 'epub', filterName: 'EPUB 电子书' },
+  ]
+
+  /**
+   * Probe before opening any dialog. Nothing is bundled, so "no converter
+   * yet" is the normal first-run state — it gets an offer to open
+   * 设置 ▸ 编辑 ▸ 文档转换 rather than a stack trace, and the caller simply stops.
+   */
+  const requireConverter = async (): Promise<ConverterCall | null> => {
+    const convert = host.app.convert
+    if (!convert) {
+      await showError('文档转换需要桌面版：浏览器版没有本机的转换程序。')
+      return null
+    }
+    const info = await host.app.converter?.().catch(() => null)
+    if (info) return convert
+    // A bad explicit path and no converter at all fail the same way, but they
+    // are not the same mistake — say which one happened.
+    const configured = (await host.app.getConfig().catch(() => null))?.converterPath?.trim()
+    const detail = configured
+      ? `当前填的路径「${configured}」无法运行，请修正它，或清空改用 PATH 上的 pandoc / carta。`
+      : '请安装 pandoc（首选）或 carta 并保证它在 PATH 上，或在「设置 ▸ 编辑 ▸ 文档转换」里填写它的路径。'
+    const answer = await host.dialog
+      .message({
+        title: '需要文档转换器',
+        message: `Markup 不内置转换程序。${detail}`,
+        buttons: ['打开设置', '取消'],
+      })
+      .catch(() => ({ button: '取消' }))
+    // Open the 编辑 tab, not the default one: 文档转换 lives there, and making
+    // the user hunt for the field the prompt just told them to fill is the
+    // whole point of the button existing.
+    if (answer.button === '打开设置') settings.open('editor')
+    return null
+  }
+
+  const importDocument = async (): Promise<void> => {
+    const convert = await requireConverter()
+    if (!convert) return
+    try {
+      const picked = await host.dialog.open({ multiple: false, filters: IMPORT_FILTERS })
+      const path = picked[0]?.path
+      if (!path) return
+      const ext = (path.split('.').pop() ?? '').toLowerCase()
+      const from = IMPORT_FORMAT_BY_EXT[ext]
+      if (!from) {
+        await showError(`不支持的文档格式：.${ext}`)
+        return
+      }
+      // Claim `<source>.md` only when nothing already lives there — an import
+      // must never shadow a document the user already has on disk. Deciding
+      // this *before* converting is also what keeps `--extract-media` from
+      // leaving an orphaned `_files/` folder for a document we open untitled.
+      const target = path.replace(/\.[^.]+$/, '.md')
+      let existsAtTarget = false
+      try {
+        await host.fs.read(target)
+        existsAtTarget = true
+      } catch {
+        /* absent — safe to claim */
+      }
+      const result = await convert({
+        from,
+        to: MARKDOWN_FORMAT,
+        inputPath: path,
+        // Relative on purpose: pandoc then writes the images to a sibling
+        // `<name>_files/` and emits portable links, so the markdown and its
+        // pictures travel as a pair instead of being nailed to this machine.
+        ...(existsAtTarget ? {} : { mediaDir: `${basename(path).replace(/\.[^.]+$/, '')}_files` }),
+      })
+      openDocument(existsAtTarget ? '' : target, result.text ?? '')
+      statusbar.refresh()
+    } catch (error) {
+      await showError(`导入失败：${String(error)}`)
+    }
+  }
+
+  const exportConverted = async (target: ConvertTarget): Promise<void> => {
+    const convert = await requireConverter()
+    if (!convert) return
+    try {
+      const picked = await host.dialog.save({
+        defaultPath: `${exportBaseName()}.${target.ext}`,
+        filters: [{ name: target.filterName, extensions: [target.ext] }],
+      })
+      if (!picked?.path) return
+      const open = doc.getDocument()
+      await convert({
+        from: MARKDOWN_FORMAT,
+        to: target.format,
+        text: editor.getMarkdown(),
+        outputPath: picked.path,
+        // Relative `![](./images/cover.png)` links resolve against the
+        // document's own folder — not wherever the copy is being saved to,
+        // which is what makes images survive the round trip.
+        ...(open?.path ? { cwd: dirname(open.path) } : {}),
+      })
+    } catch (error) {
+      await showError(`导出失败：${String(error)}`)
+    }
+  }
+
   const printDocumentHtml = async (html?: string): Promise<void> => {
     try {
       const payload = html ?? (await exportHtmlDocument(editor.getMarkdown(), { title: exportBaseName() }))
@@ -1209,6 +1361,10 @@ export function renderShell(): ShellHandle {
     shortcut: 'Mod+Shift+M',
     run: () => void printDocumentHtml(),
   })
+  registry.register({ id: 'file.import', label: '导入文档…', run: () => void importDocument() })
+  for (const target of CONVERT_TARGETS) {
+    registry.register({ id: target.id, label: target.label, run: () => void exportConverted(target) })
+  }
   registry.register({
     id: 'file.autoSaveToggle',
     label: '切换自动保存',

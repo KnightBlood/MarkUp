@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import { boot, showHostMessage } from '@markup/ui'
 import type {
   AppConfig,
+  ConvertRequest,
   DirEntry,
   FileResult,
   FsEvent,
@@ -58,6 +59,9 @@ function createTauriHost(): HostAPI {
       },
       getPath: (name: 'plugins' | 'pluginsLocal' | 'userData'): Promise<string | null> =>
         invoke('get_path', { name }),
+      // 文档转换 — formats only; Rust decides whether pandoc or carta runs.
+      converter: () => invoke('converter_info'),
+      convert: (request: ConvertRequest) => invoke('convert_document', { request }),
       on: (event, listener) => {
         let off: (() => void) | null = null
         void listen<HostMessage>('host-event', (e) => {

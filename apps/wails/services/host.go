@@ -62,6 +62,10 @@ type AppConfig struct {
 	RestoreSession  *bool             `json:"restoreSession,omitempty"`
 	OpenTabs        []string          `json:"openTabs,omitempty"`
 	ActiveTab       *string           `json:"activeTab,omitempty"`
+	// ConverterPath is the absolute path to the document converter
+	// (pandoc / carta); nil or empty means resolve them from PATH. It has to
+	// exist in this struct or SetConfig would drop it on every write.
+	ConverterPath *string `json:"converterPath,omitempty"`
 }
 
 func defaultConfig() *AppConfig {

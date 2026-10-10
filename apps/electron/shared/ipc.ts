@@ -33,6 +33,8 @@ export const IPC_CHANNELS = {
   appGetPath: 'markup:app:getPath',
   appPrint: 'markup:app:print',
   appExportPdf: 'markup:app:exportPdf',
+  appConverter: 'markup:app:converter',
+  appConvert: 'markup:app:convert',
   winMinimize: 'markup:win:minimize',
   winToggleMaximize: 'markup:win:toggleMaximize',
   winClose: 'markup:win:close',

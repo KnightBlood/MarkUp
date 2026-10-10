@@ -7,6 +7,7 @@ import {
 } from '../../shared/ipc'
 import type {
   AppConfig,
+  ConvertRequest,
   FsEvent,
   HostAPI,
   HostEvent,
@@ -79,6 +80,8 @@ const api: HostAPI = {
     on: (event, listener) => onHostMessage(event, (payload) => listener(payload as never)),
     print: (html?: string) => ipcRenderer.invoke(IPC_CHANNELS.appPrint, html),
     exportPdf: (path: string, html: string) => ipcRenderer.invoke(IPC_CHANNELS.appExportPdf, path, html),
+    converter: () => ipcRenderer.invoke(IPC_CHANNELS.appConverter),
+    convert: (request: ConvertRequest) => ipcRenderer.invoke(IPC_CHANNELS.appConvert, request),
   },
   window: {
     minimize: () => void ipcRenderer.invoke(IPC_CHANNELS.winMinimize),

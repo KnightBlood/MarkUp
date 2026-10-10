@@ -1,3 +1,5 @@
+mod converter;
+
 use notify::{RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -93,6 +95,11 @@ struct AppConfig {
     open_tabs: Option<Vec<String>>,
     #[serde(default)]
     active_tab: Option<String>,
+    /// Absolute path to the document converter (pandoc / carta), or absent to
+    /// resolve `pandoc` then `carta` from PATH. Must exist here: a struct that
+    /// omits it would silently drop the setting on every `set_config` write.
+    #[serde(default)]
+    converter_path: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -118,6 +125,7 @@ impl Default for AppConfig {
             restore_session: None,
             open_tabs: None,
             active_tab: None,
+            converter_path: None,
         }
     }
 }
@@ -560,6 +568,25 @@ async fn set_config(app: AppHandle, config: AppConfig) -> Result<(), String> {
     fs::write(path, raw).map_err(|e| e.to_string())
 }
 
+/// Locate the document converter behind 导入文档 / 导出为…. Reads the config at
+/// call time so a path typed into 设置 ▸ 编辑 ▸ 文档转换 applies without a restart.
+#[tauri::command]
+async fn converter_info(app: AppHandle) -> Option<converter::ConverterInfo> {
+    let configured = get_config(app).await.ok().and_then(|config| config.converter_path);
+    converter::resolve_converter(configured.as_deref())
+}
+
+/// Run the converter. The renderer names formats only — which binary answers
+/// is decided here, never passed in from the webview.
+#[tauri::command]
+async fn convert_document(
+    app: AppHandle,
+    request: converter::ConvertRequest,
+) -> Result<converter::ConvertResult, String> {
+    let configured = get_config(app).await.ok().and_then(|config| config.converter_path);
+    converter::convert(configured.as_deref(), request)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -585,7 +612,9 @@ pub fn run() {
             open_devtools,
             get_config,
             set_config,
-            get_path
+            get_path,
+            converter_info,
+            convert_document
         ])
         .setup(|app| {
             #[cfg(desktop)]

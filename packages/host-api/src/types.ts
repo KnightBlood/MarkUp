@@ -55,6 +55,65 @@ export interface MessageResult {
   button: string
 }
 
+/**
+ * The document converter (pandoc, or its lightweight Rust reimplementation
+ * carta) that 导入文档 / 导出为… run. Both binaries share the same format
+ * vocabulary and the same `-f`/`-t`/`-o`/stdin surface, so the UI never has
+ * to know which one answered.
+ */
+export interface ConverterInfo {
+  /** Absolute path of the executable that was selected. */
+  path: string
+  /** Which implementation answered — `pandoc` is preferred over `carta`. */
+  kind: 'pandoc' | 'carta'
+  /** First line of `<prog> --version`, when the probe could run it. */
+  version?: string
+}
+
+export interface ConvertRequest {
+  /**
+   * Source format as the converter spells it: `docx`, `odt`, `rtf`, `epub`,
+   * `html`, `markdown`, … Pandoc and carta use these names verbatim.
+   */
+  from: string
+  /** Target format in the same vocabulary. */
+  to: string
+  /** Absolute path of the file to read. Omit it and pass `text` instead. */
+  inputPath?: string
+  /** Source text — the open document, when exporting. */
+  text?: string
+  /**
+   * Absolute destination path. Omit it to have the result come back as
+   * `text` instead — that is the import direction (file in, markdown out).
+   */
+  outputPath?: string
+  /**
+   * Ask the converter to unpack the source document's embedded images into
+   * this directory (`--extract-media`). It must be **relative to `cwd`**,
+   * because that is what makes the returned markdown carry portable
+   * `报告_files/media/image1.png` links instead of absolute ones — and the
+   * folder then travels with the markdown. Omit it to leave the media
+   * references untouched (they will point at files that do not exist).
+   */
+  mediaDir?: string
+  /**
+   * Working directory for the run. Relative paths inside `text` resolve
+   * against it, so passing the document's own folder is what keeps
+   * `![](./images/cover.png)` embedded on export. Hosts fall back to the
+   * folder of `inputPath` / `outputPath`.
+   */
+  cwd?: string
+}
+
+export interface ConvertResult {
+  /** Converted document — present exactly when `outputPath` was omitted. */
+  text?: string
+  /** Destination path — echoed back when `outputPath` was given. */
+  outputPath?: string
+  /** Absolute path of the converter that produced it, for status/errors. */
+  program: string
+}
+
 /** User-defined color overrides applied on top of light/dark/system base. */
 export interface CustomTheme {
   bg?: string
@@ -109,6 +168,13 @@ export interface AppConfig {
   openTabs?: string[]
   /** Path of the tab focused last session (paired with `openTabs`). */
   activeTab?: string
+  /**
+   * Absolute path to the document converter (pandoc / carta) used by
+   * 导入文档 / 导出为…. Empty or absent = resolve `pandoc`, then `carta`, from
+   * PATH. Markup never bundles one, so this is the only way to reach a
+   * converter that is not on PATH.
+   */
+  converterPath?: string
 }
 
 export interface HostEventMap {
@@ -277,6 +343,23 @@ export interface HostAPI {
      * - 'userData' — the config root
      */
     getPath?(name: 'plugins' | 'pluginsLocal' | 'userData'): Promise<string | null>
+    /**
+     * Locate the document converter behind 导入文档 / 导出为…. Optional —
+     * hosts that cannot spawn a process (web) omit it, and those commands
+     * report that conversion is unavailable instead of failing.
+     *
+     * Order: `AppConfig.converterPath`, then `pandoc` on PATH, then `carta`.
+     * Returns null when nothing answers, which the UI turns into a prompt
+     * pointing at 设置 ▸ 编辑 ▸ 文档转换 rather than an error — the converter is
+     * never bundled, so "not configured yet" is the normal first-run state.
+     */
+    converter?(): Promise<ConverterInfo | null>
+    /**
+     * Convert a document between formats. Optional, resolved exactly like
+     * `converter()`. Give it either `inputPath` or `text`; add `outputPath`
+     * to write a file, or leave it off to get the result back as `text`.
+     */
+    convert?(request: ConvertRequest): Promise<ConvertResult>
   }
   /**
    * Native window controls (minimize / maximize / close).

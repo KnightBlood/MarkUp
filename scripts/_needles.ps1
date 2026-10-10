@@ -312,5 +312,31 @@ Check-Needle 'plantuml :: ui dependency' "$root\packages\ui\package.json" 'beaut
 Check-Needle 'plantuml :: core smoke wired' "$root\packages\core\package.json" 'pm-puml.mts' -Literal
 Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s-plantuml.mts' -Literal
 
+# --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
+# Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
+# or uses an explicit path from 设置 ▸ 编辑 ▸ 文档转换. These needles pin the seams that
+# have to stay wired across the five shells.
+Check-Needle 'convert :: host API (locate)' "$root\packages\host-api\src\types.ts" 'converter?(): Promise<ConverterInfo | null>' -Literal
+Check-Needle 'convert :: host API (convert)' "$root\packages\host-api\src\types.ts" 'convert?(request: ConvertRequest): Promise<ConvertResult>' -Literal
+Check-Needle 'convert :: config field (single source)' "$root\packages\host-api\src\types.ts" 'converterPath?: string' -Literal
+Check-Needle 'convert :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'converter_path: Option<String>' -Literal
+Check-Needle 'convert :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"converterPath,omitempty"' -Literal
+Check-File   'convert :: electron impl' "$root\apps\electron\src\main\converter.ts"
+Check-File   'convert :: tauri impl' "$root\apps\tauri\src-tauri\src\converter.rs"
+Check-File   'convert :: wails impl' "$root\apps\wails\services\converter.go"
+Check-File   'convert :: electrobun impl' "$root\apps\electrobun\src\bun\converter.ts"
+Check-Needle 'convert :: electron host exposes it' "$root\apps\electron\src\preload\preload.ts" 'convert: (request: ConvertRequest)' -Literal
+Check-Needle 'convert :: tauri host exposes it' "$root\apps\tauri\frontend\src\main.ts" "invoke('convert_document'" -Literal
+Check-Needle 'convert :: wails host exposes it' "$root\apps\wails\frontend\src\main.ts" 'ConvertDocument' -Literal
+Check-Needle 'convert :: electrobun host exposes it' "$root\apps\electrobun\frontend\src\main.ts" 'appConvert(request)' -Literal
+Check-Needle 'convert :: menu has import' "$root\packages\host-api\src\menu.json" 'file.import' -Literal
+Check-Needle 'convert :: menu has docx export' "$root\packages\host-api\src\menu.json" 'file.exportDocx' -Literal
+Check-Needle 'convert :: settings path field' "$root\packages\ui\src\ui\settings.ts" 'converterPath' -Literal
+# `gfm`, not `markdown`: measured against pandoc 3.12.1, it is the one name that
+# keeps pipe tables, `[^1]` footnotes and task lists all at once.
+Check-Needle 'convert :: gfm is the round-trip format' "$root\packages\ui\src\shell.ts" "const MARKDOWN_FORMAT = 'gfm'" -Literal
+Check-Needle 'convert :: media extracted portably' "$root\packages\ui\src\shell.ts" 'mediaDir' -Literal
+Check-Needle 'convert :: media dir never orphans a folder' "$root\packages\ui\src\shell.ts" 'existsAtTarget ? {}' -Literal
+
 Write-Output "---- needle: $hits HIT / $misses MISS ----"
 if ($misses -gt 0) { exit 1 }

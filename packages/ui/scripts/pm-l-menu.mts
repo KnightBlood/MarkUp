@@ -88,6 +88,19 @@ const registered = new Set<string>()
 for (const match of shellSrc.matchAll(/registry\.register\(\{\s*id:\s*'([^']+)'/g)) registered.add(match[1]!)
 // Table commands register in a loop from TABLE_COMMANDS (palette-flagged specs).
 for (const match of shellSrc.matchAll(/\{\s*id:\s*'(\w+)',\s*palette:/g)) registered.add(`table.${match[1]!}`)
+// 文件▸导出为… register in a loop from CONVERT_TARGETS, so their ids never
+// appear as a literal `registry.register({ id: '…' })`. Assert each one is
+// still in that array — adding a format without wiring it up has to fail here
+// rather than as a menu item that does nothing.
+for (const id of [
+  'file.exportDocx',
+  'file.exportOdt',
+  'file.exportRtf',
+  'file.exportEpub',
+]) {
+  assert(shellSrc.includes(`'${id}'`), `CONVERT_TARGETS lost "${id}"`)
+  registered.add(id)
+}
 assert(registered.size >= 50, `expected 50+ registered commands in shell.ts, got ${registered.size}`)
 const missing = [...seen].filter((id) => !registered.has(id))
 assert(missing.length === 0, `menu references unregistered commands: ${missing.join(', ')}`)

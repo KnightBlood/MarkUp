@@ -13,6 +13,9 @@
  */
 import type {
   AppConfig,
+  ConvertRequest,
+  ConvertResult,
+  ConverterInfo,
   DirEntry,
   FileResult,
   HostEvent,
@@ -47,6 +50,9 @@ export type HostRequests = {
   }
   appPrint: { params: string | undefined; response: boolean }
   appExportPdf: { params: { path: string; html: string }; response: boolean }
+  /** 文档转换 — `null` means no converter is configured yet, not an error. */
+  appConverter: { params: void; response: ConverterInfo | null }
+  appConvert: { params: ConvertRequest; response: ConvertResult }
   winMinimize: { params: void; response: void }
   winToggleMaximize: { params: void; response: void }
   winClose: { params: void; response: void }

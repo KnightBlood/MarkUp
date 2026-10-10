@@ -13,7 +13,8 @@
 - **富内容**：Mermaid 图（AntV X6 图形编辑 + Visimer 编辑序列/类/ER 图）、PlantUML（**离线 TeaVM 引擎**）、Draw.io / XMind / 30+ 格式文件预览（file-viewer，资产全离线自托管）、3D 模型（model-viewer）/ 视频 / 脑图（markmap）嵌入、公式（MathLive 输入 + KaTeX 渲染）、表格编辑（工具栏 + 对齐/移动/增删）
 - **侧栏**：文件（工作区树 + 最近文件）/ 大纲 / 搜索，标签行与文档标签行**同高对齐**
 - **插件系统**：`~/.markup/plugins` + 程序目录双根、权限门禁（`document`/`fs`/`dialog`/`config`）、热加载、12 个示例插件（模板库、开发工具、AI 助手/翻译摘要、文本工具箱、日记、TOC、反链、片段、选区统计、表格工具、链接检查）
-- **导出**：独立 HTML（自包含、离线可读）/ PDF / 打印
+- **导出**：独立 HTML（自包含、离线可读）/ PDF / 打印 / **Word `.docx` · ODT · RTF · EPUB**
+- **文档互转**：`文件 ▸ 导入文档…` 把 docx / odt / rtf / epub / html 读成 markdown（图片抽到 `<名字>_files/` 兄弟目录、链接保持相对，可整体搬走），`文件 ▸ 导出为…` 反向写出；转换由用户机器上的 **pandoc（首选）或 carta** 承担，**Markup 不内置也不打包该程序**——PATH 上有即可，或在 `设置 ▸ 编辑 ▸ 文档转换` 填一个路径（填了就只用它，坏了会明说而不是偷偷换一个）。浏览器版没有本机进程，这两组命令会提示不可用
 - **HostAPI 抽象**：`packages/host-api` 定义 fs / dialog / config / window / clipboard / 事件 / 菜单，各壳各自实现，业务代码零分支
 
 ## 技术栈

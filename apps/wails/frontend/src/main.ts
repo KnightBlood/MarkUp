@@ -2,6 +2,7 @@ import { Call, Dialogs, Events, Window } from '@wailsio/runtime'
 import { boot, showHostMessage } from '@markup/ui'
 import type {
   AppConfig,
+  ConvertRequest,
   DirEntry,
   FileResult,
   FsEvent,
@@ -92,6 +93,9 @@ function createWailsHost(): HostAPI {
       setConfig: (config: AppConfig): Promise<void> => Call.ByName(`${HOST}.SetConfig`, config),
       getPath: (name: 'plugins' | 'pluginsLocal' | 'userData'): Promise<string | null> =>
         Call.ByName(`${HOST}.GetPath`, name),
+      // 文档转换 — formats only; Go decides whether pandoc or carta runs.
+      converter: () => Call.ByName(`${HOST}.ConverterInfo`),
+      convert: (request: ConvertRequest) => Call.ByName(`${HOST}.ConvertDocument`, request),
       on: (event, listener) => {
         // Go emits a single "host-event" channel with { event, payload }.
         // Listen once per HostEvent name and unwrap by nested event field.

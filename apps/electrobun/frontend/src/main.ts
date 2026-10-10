@@ -2,6 +2,7 @@ import { Electroview } from 'electrobun/view'
 import { boot, showHostMessage } from '@markup/ui'
 import type {
   AppConfig,
+  ConvertRequest,
   DirEntry,
   FileResult,
   FsEvent,
@@ -19,8 +20,11 @@ import type { AppRPC, HostEventEnvelope } from '../../shared/rpc'
 // One typed channel up (host methods) and one down (`host-event`), which is
 // exactly the shape the other shells get from their single IPC channel.
 const rpc = Electroview.defineRPC<AppRPC>({
-  // fs reads can block on antivirus scans; Electrobun's default RPC budget is 1s.
-  maxRequestTime: 30_000,
+  // fs reads can block on antivirus scans; Electrobun's default RPC budget is
+  // 1s. Document conversion is the ceiling: it waits on pandoc/carta and the
+  // converter gives itself five minutes, so the transport has to outlive that
+  // or a legitimate slow conversion would surface as a transport timeout.
+  maxRequestTime: 5 * 60_000,
   handlers: {
     requests: {},
     messages: {
@@ -137,6 +141,9 @@ function createElectrobunHost(): HostAPI {
       },
       getPath: (name: 'plugins' | 'pluginsLocal' | 'userData'): Promise<string | null> =>
         rpc.request.appGetPath(name),
+      // 文档转换 — formats only; the Bun side decides whether pandoc or carta runs.
+      converter: () => rpc.request.appConverter(),
+      convert: (request: ConvertRequest) => rpc.request.appConvert(request),
       on: <E extends HostEvent>(event: E, listener: (payload: HostEventMap[E]) => void) => {
         addListener(event, listener)
         if (event === 'os-theme') ensureThemeWatcher()

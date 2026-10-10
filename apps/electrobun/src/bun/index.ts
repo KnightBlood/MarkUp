@@ -24,6 +24,9 @@ import { openExternal, openFileDialog } from 'electrobun/main/utils'
 import { embedMimeForPath } from '../../../../packages/host-api/src/mime'
 import type {
   AppConfig,
+  ConvertRequest,
+  ConvertResult,
+  ConverterInfo,
   DirEntry,
   FileResult,
   HostEvent,
@@ -35,6 +38,7 @@ import type {
 } from '../../../../packages/host-api/src/types'
 import menuData from '../../menu.json'
 import type { AppRPC } from '../../shared/rpc'
+import { convertDocument, resolveConverter } from './converter'
 import { saveFileDialog } from './saveDialog'
 
 // JSON import infers wide `string` kinds; content validated by pm-l-menu smoke.
@@ -205,6 +209,12 @@ const rpc = defineElectrobunRPC<AppRPC, 'bun'>('bun', {
         }
         return configDir()
       },
+      // 文档转换 — re-read the config per call so a path typed into
+      // 设置 ▸ 编辑 ▸ 文档转换 applies without restarting the app.
+      appConverter: async (): Promise<ConverterInfo | null> =>
+        resolveConverter(loadConfig().converterPath),
+      appConvert: async (request: ConvertRequest): Promise<ConvertResult> =>
+        convertDocument(loadConfig().converterPath, request),
       winMinimize: (): void => {
         mainWindow?.minimize()
       },

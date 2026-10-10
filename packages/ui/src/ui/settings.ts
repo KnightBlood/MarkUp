@@ -104,6 +104,13 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     spellcheck: 'false',
     autocomplete: 'off',
   })
+  const converterPathInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '留空则从 PATH 查找 pandoc / carta',
+  })
 
   const lineNumbersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const showStatsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
@@ -225,6 +232,21 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         el('span', { class: 'settings__label', text: '重启后恢复上次打开的标签页' }),
       ),
     ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'converter' },
+      el('h3', { class: 'settings__heading', text: '文档转换' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '转换器程序路径' }),
+        converterPathInput,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '「导入文档」与「导出为 Word/ODT/RTF/EPUB」靠它完成转换。留空则依次查找 PATH 上的 pandoc、carta；Markup 不内置该程序，装好后无需填写。',
+      }),
+    ),
   )
 
   const viewPanel = el(
@@ -306,6 +328,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     widthInput.value = String(config.lineWidth || 780)
     bodyFontInput.value = config.bodyFont ?? ''
     codeFontInput.value = config.codeFont ?? ''
+    converterPathInput.value = config.converterPath ?? ''
     autoSaveCheck.checked = config.autoSave === true
     autoSaveDelayInput.value = String(config.autoSaveDelayMs ?? 1500)
     autoSaveDelayInput.disabled = config.autoSave !== true
@@ -336,6 +359,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       lineWidth: Math.max(480, Math.min(1400, Number(widthInput.value) || 780)),
       bodyFont: bodyFontInput.value.trim() || undefined,
       codeFont: codeFontInput.value.trim() || undefined,
+      converterPath: converterPathInput.value.trim() || undefined,
       autoSave: autoSaveOn,
       autoSaveDelayMs: Math.max(300, Math.min(60000, Number(autoSaveDelayInput.value) || 1500)),
       typewriter: checked(typewriterCheck),
@@ -366,6 +390,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   widthInput.addEventListener('change', () => emit({}))
   bodyFontInput.addEventListener('change', () => emit({}))
   codeFontInput.addEventListener('change', () => emit({}))
+  converterPathInput.addEventListener('change', () => emit({}))
   autoSaveDelayInput.addEventListener('change', () => emit({}))
   for (const input of [
     autoSaveCheck,

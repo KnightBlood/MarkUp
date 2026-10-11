@@ -92,7 +92,12 @@
       "items": [
         { "kind": "command", "id": "format.bold", "label": "加粗" },
         { "kind": "command", "id": "format.italic", "label": "斜体" },
+        { "kind": "command", "id": "format.underline", "label": "下划线" },
         { "kind": "command", "id": "format.inlineCode", "label": "行内代码" },
+        { "kind": "command", "id": "format.strike", "label": "删除线" },
+        { "kind": "command", "id": "format.highlight", "label": "高亮" },
+        { "kind": "command", "id": "format.sup", "label": "上标" },
+        { "kind": "command", "id": "format.sub", "label": "下标" },
         { "kind": "separator" },
         { "kind": "command", "id": "format.link", "label": "超链接…" }
       ]

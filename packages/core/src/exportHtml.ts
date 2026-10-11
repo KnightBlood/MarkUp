@@ -1,4 +1,4 @@
-import { createSharedPipeline } from './pipeline'
+import { createSharedPipeline, type PipelineOptions } from './pipeline'
 import { splitFrontmatter } from './frontmatter'
 import { hydrateDiagrams } from './diagrams'
 import { hydrateEmbeds } from './embeds'
@@ -58,6 +58,34 @@ th, td { border: 1px solid #d0d7de; padding: 6px 12px; }
 th { background: #f6f8fa; font-weight: 600; text-align: left; }
 img { max-width: 100%; height: auto; }
 hr { border: none; border-top: 1px solid #d0d7de; margin: 2em 0; }
+mark { background: #fff8c5; color: inherit; padding: 0 0.15em; border-radius: 3px; }
+@media (prefers-color-scheme: dark) { mark { background: #bb800966; } }
+sub, sup { font-size: 0.75em; line-height: 0; }
+u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.md-alert {
+  margin: 1em 0;
+  padding: 0.75em 1em;
+  border-left: 4px solid #0969da;
+  border-radius: 6px;
+  background: #ddf4ff;
+  color: inherit;
+}
+.md-alert p { margin: 0 0 0.5em; }
+.md-alert p:last-child { margin-bottom: 0; }
+.md-alert__title { font-weight: 600; }
+.md-alert--note { border-left-color: #0969da; background: #ddf4ff; }
+.md-alert--tip { border-left-color: #1a7f37; background: #dafbe1; }
+.md-alert--important { border-left-color: #8250df; background: #fbefff; }
+.md-alert--warning { border-left-color: #9a6700; background: #fff8c5; }
+.md-alert--caution { border-left-color: #d1242f; background: #ffebe9; }
+@media (prefers-color-scheme: dark) {
+  .md-alert { background: #121d2f; }
+  .md-alert--note { background: #0c2d6b33; }
+  .md-alert--tip { background: #1a7f3733; }
+  .md-alert--important { background: #8250df33; }
+  .md-alert--warning { background: #9a670033; }
+  .md-alert--caution { background: #d1242f33; }
+}
 .md-math { margin: 1em 0; overflow-x: auto; text-align: center; }
 .md-diagram { margin: 1em 0; background: #f6f8fa; border-radius: 8px; padding: 12px; overflow-x: auto; }
 .md-diagram__source pre { margin: 0; background: transparent; }
@@ -100,11 +128,20 @@ export interface ExportHtmlOptions {
   title?: string
   /** Include @media print rules (default true). */
   printStyles?: boolean
+  /**
+   * Typora 「Markdown ▸ 语法支持」 toggles applied while rendering. Export must
+   * honour the same switches as the live views, otherwise turning a syntax off
+   * would only hide it in the editor and still ship it in the file.
+   */
+  pipeline?: PipelineOptions
 }
 
-export async function renderMarkdownHtml(markdown: string): Promise<string> {
-  const pipeline = createSharedPipeline()
-  const { html } = await pipeline.render(markdown)
+export async function renderMarkdownHtml(
+  markdown: string,
+  pipeline: PipelineOptions = {},
+): Promise<string> {
+  const processor = createSharedPipeline(pipeline)
+  const { html } = await processor.render(markdown)
   return html
 }
 
@@ -166,7 +203,7 @@ export async function exportHtmlDocument(
     options.title ??
     splitFrontmatter(markdown).body.split('\n').find((line) => line.startsWith('# '))?.slice(2).trim() ??
     'Document'
-  const body = await renderMarkdownHtml(markdown)
+  const body = await renderMarkdownHtml(markdown, options.pipeline)
   const hydrated = await hydrateExportDiagrams(body)
   return buildStandaloneHtml(hydrated, { ...options, title })
 }

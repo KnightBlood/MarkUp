@@ -66,6 +66,17 @@ type AppConfig struct {
 	// (pandoc / carta); nil or empty means resolve them from PATH. It has to
 	// exist in this struct or SetConfig would drop it on every write.
 	ConverterPath *string `json:"converterPath,omitempty"`
+	// Typora 「Markdown ▸ 语法支持」 toggles. nil means enabled, which is what
+	// the render pipeline and 分屏's OverType hook both assume.
+	MdInlineMath    *bool `json:"mdInlineMath,omitempty"`
+	MdCodeBlockMath *bool `json:"mdCodeBlockMath,omitempty"`
+	MdSubscript     *bool `json:"mdSubscript,omitempty"`
+	MdSuperscript   *bool `json:"mdSuperscript,omitempty"`
+	MdHighlight     *bool `json:"mdHighlight,omitempty"`
+	MdUnderline     *bool `json:"mdUnderline,omitempty"`
+	MdAlerts        *bool `json:"mdAlerts,omitempty"`
+	MdDiagrams      *bool `json:"mdDiagrams,omitempty"`
+	MdAutoLink      *bool `json:"mdAutoLink,omitempty"`
 }
 
 func defaultConfig() *AppConfig {

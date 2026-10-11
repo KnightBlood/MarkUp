@@ -340,6 +340,7 @@ Check-Needle 'plantuml :: resolver wired (hybrid)' "$root\packages\core\src\adap
 Check-Needle 'plantuml :: ui dependency' "$root\packages\ui\package.json" 'beautiful-plantuml' -Literal
 Check-Needle 'plantuml :: core smoke wired' "$root\packages\core\package.json" 'pm-puml.mts' -Literal
 Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s-plantuml.mts' -Literal
+Check-Needle 'mdsyntax :: core smoke wired' "$root\packages\core\package.json" 'pm-syntax.mts' -Literal
 
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
@@ -362,11 +363,12 @@ Check-Needle 'convert :: menu has import' "$root\packages\host-api\src\menu.json
 Check-Needle 'convert :: menu has docx export' "$root\packages\host-api\src\menu.json" 'file.exportDocx' -Literal
 Check-Needle 'convert :: settings path field' "$root\packages\ui\src\ui\settings.ts" 'converterPath' -Literal
 
-# --- settings panel layout (aligned with Typora's preferences: 通用/外观/编辑器/图像/导出) ---
+# --- settings panel layout (aligned with Typora's preferences: 通用/外观/编辑器/Markdown/图像/导出) ---
 # The type union is the single declaration of the built-in panel set; the shell's
 # per-panel commands and the `view` panel removal below are both keyed off it.
-Check-Needle 'settings :: panel set' "$root\packages\ui\src\ui\settings.ts" "'general' | 'appearance' | 'editor' | 'image' | 'export'" -Literal
+Check-Needle 'settings :: panel set' "$root\packages\ui\src\ui\settings.ts" "'general' | 'appearance' | 'editor' | 'markdown' | 'image' | 'export'" -Literal
 Check-Needle 'settings :: general panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'general'" -Literal
+Check-Needle 'settings :: markdown panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'markdown'" -Literal
 Check-Needle 'settings :: image panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'image'" -Literal
 Check-Needle 'settings :: export panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'export'" -Literal
 Check-Needle 'settings :: converter lives on export' "$root\packages\ui\src\shell.ts" "settings.open('export')" -Literal
@@ -392,6 +394,33 @@ Check-Needle 'dialog :: tauri applies the renderer filters' "$root\apps\tauri\sr
 Check-Needle 'dialog :: tauri honours defaultPath' "$root\apps\tauri\src-tauri\src\lib.rs" 'fn apply_default_path(' -Literal
 Check-Absent 'dialog :: tauri Markdown filter no longer hardcoded' "$root\apps\tauri\src-tauri\src\lib.rs" '.add_filter("Markdown"' -Literal
 Check-Needle 'dialog :: electron save handler is SaveDialogOptions' "$root\apps\electron\src\main\main.ts" 'dlSave, async (_event, options: SaveDialogOptions)' -Literal
+
+# --- Typora Markdown syntax support (上标/下标/高亮/下划线 + GitHub alerts) ---
+# One mdast transform serves every consumer: the remark pipeline behind export,
+# and (via a separate OverType hook) 分屏. `singleTilde: false` is the load-
+# bearing choice — it is what frees the lone `~` for subscript while keeping
+# `~~x~~` the only strikethrough, matching Typora. Undo it and subscript
+# silently stops working everywhere.
+Check-Needle 'mdsyntax :: mdast transform' "$root\packages\core\src\mdSyntax.ts" 'export function mdSyntax(' -Literal
+Check-Needle 'mdsyntax :: single tilde is subscript' "$root\packages\core\src\mdSyntax.ts" '(?<!~)~([^~\s]' -Literal
+Check-Needle 'mdsyntax :: pipeline opts out of single-tilde strike' "$root\packages\core\src\pipeline.ts" 'singleTilde: false' -Literal
+Check-Needle 'mdsyntax :: pipeline installs it' "$root\packages\core\src\pipeline.ts" '.use(mdSyntax' -Literal
+Check-Needle 'mdsyntax :: config maps onto options' "$root\packages\core\src\pipeline.ts" 'export function pipelineOptionsFromConfig' -Literal
+Check-File   'mdsyntax :: github alerts' "$root\packages\core\src\mdAlerts.ts"
+Check-Needle 'mdsyntax :: pipeline installs alerts' "$root\packages\core\src\pipeline.ts" '.use(mdAlerts)' -Literal
+Check-Needle 'mdsyntax :: export honours the toggles' "$root\packages\core\src\exportHtml.ts" 'pipeline: PipelineOptions' -Literal
+# 分屏 is OverType, not remark, so it needs the same rules replayed over HTML
+# OverType already produced. Without the hook the three views disagree.
+Check-File   'mdsyntax :: overtype (split view) hook' "$root\packages\core\src\overtypeSyntax.ts"
+Check-Needle 'mdsyntax :: shell installs the overtype hook' "$root\packages\ui\src\shell.ts" 'setOvertypeSyntax(mdSyntaxOptionsFromConfig(next))' -Literal
+# Inline formats: `strike` existed in the engine but had no command, and the
+# four new ones needed both the marker table and a registered command.
+Check-Needle 'mdsyntax :: marker table' "$root\packages\core\src\textFormat.ts" "underline: { open: '<u>', close: '</u>' }" -Literal
+Check-Needle 'mdsyntax :: strike command registered' "$root\packages\ui\src\shell.ts" "id: 'format.strike'" -Literal
+Check-Needle 'mdsyntax :: sub command registered' "$root\packages\ui\src\shell.ts" "id: 'format.sub'" -Literal
+Check-Needle 'mdsyntax :: menu exposes the inline formats' "$root\packages\host-api\src\menu.json" 'format.highlight' -Literal
+Check-Needle 'mdsyntax :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'md_inline_math: Option<bool>' -Literal
+Check-Needle 'mdsyntax :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"mdInlineMath,omitempty"' -Literal
 
 Write-Output "---- needle: $hits HIT / $misses MISS ----"
 if ($misses -gt 0) { exit 1 }

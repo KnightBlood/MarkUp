@@ -2,7 +2,7 @@ import type { AppConfig, CustomTheme } from '@markup/host-api'
 import { el } from '../dom'
 import { THEME_OPTIONS } from '../appearance'
 
-export type SettingsTab = 'general' | 'appearance' | 'editor' | 'image' | 'export'
+export type SettingsTab = 'general' | 'appearance' | 'editor' | 'markdown' | 'image' | 'export'
 
 /** Extra settings tab contributed at runtime (plugins / registration surface). */
 export interface SettingsTabSpec {
@@ -44,13 +44,14 @@ const COLOR_FIELDS: Array<{ key: keyof CustomTheme; label: string; fallback: str
 ]
 
 /**
- * 面板顺序与命名对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → 图像 → 导出。
- * （Typora 还有 Markdown / 文件 两个面板，本项目暂无对应功能，故不设空壳。）
+ * 面板顺序与命名对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → Markdown →
+ * 图像 → 导出。（Typora 还有「文件」面板，本项目暂无对应功能，故不设空壳。）
  */
 const TAB_LABELS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'general', label: '通用' },
   { id: 'appearance', label: '外观' },
   { id: 'editor', label: '编辑器' },
+  { id: 'markdown', label: 'Markdown' },
   { id: 'image', label: '图像' },
   { id: 'export', label: '导出' },
 ]
@@ -121,6 +122,32 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const lineNumbersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const showStatsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const focusModeCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「Markdown ▸ 语法支持」。每项都默认开启，与本应用此前硬编码的行为
+  // 一致；关闭任一项只影响解析与渲染，不改动文档内容。
+  const mdSyntaxChecks = {
+    mdInlineMath: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdCodeBlockMath: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdSubscript: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdSuperscript: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdHighlight: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdUnderline: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdAlerts: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdDiagrams: el('input', { class: 'settings__check', type: 'checkbox' }),
+    mdAutoLink: el('input', { class: 'settings__check', type: 'checkbox' }),
+  } satisfies Record<string, HTMLInputElement>
+
+  const MD_SYNTAX_FIELDS: Array<{ key: keyof typeof mdSyntaxChecks; label: string; hint: string }> = [
+    { key: 'mdInlineMath', label: '内联公式', hint: '$E=mc^2$ 与 $$ 块' },
+    { key: 'mdCodeBlockMath', label: '代码块公式', hint: '```math 围栏' },
+    { key: 'mdSubscript', label: '下标', hint: 'H~2~O' },
+    { key: 'mdSuperscript', label: '上标', hint: 'X^2^' },
+    { key: 'mdHighlight', label: '高亮', hint: '==key==' },
+    { key: 'mdUnderline', label: '下划线', hint: '<u>key</u>' },
+    { key: 'mdAlerts', label: 'Github Style Alert', hint: '> [!NOTE] 等五种' },
+    { key: 'mdDiagrams', label: '图表', hint: 'mermaid / flowchart / sequence' },
+    { key: 'mdAutoLink', label: '自动识别链接', hint: '正文里的裸 URL' },
+  ]
 
   const colorRow = el('div', { class: 'settings__colors' })
   const colorInputs = new Map<keyof CustomTheme, HTMLInputElement>()
@@ -274,6 +301,30 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     ),
   )
 
+  // Markdown：Typora 的「Markdown」面板，负责语法开关。这些开关同时作用于
+  // 导出管线与分屏视图，因此不需要重启即可生效。
+  const markdownPanel = el(
+    'div',
+    { class: 'settings__panel-body', 'data-tab-panel': 'markdown' },
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'syntax-support' },
+      el('h3', { class: 'settings__heading', text: '语法支持' }),
+      ...MD_SYNTAX_FIELDS.map((field) =>
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          mdSyntaxChecks[field.key],
+          el('span', { class: 'settings__label', text: `${field.label} — ${field.hint}` }),
+        ),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '关闭后，对应的语法按普通文本显示与导出；文档内容不受影响，重新开启即可恢复。',
+      }),
+    ),
+  )
+
   // 图像：对应 Typora「图像」面板的「插入图片时」。
   const imagePanel = el(
     'div',
@@ -344,6 +395,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     ['general', generalPanel],
     ['appearance', appearancePanel],
     ['editor', editorPanel],
+    ['markdown', markdownPanel],
     ['image', imagePanel],
     ['export', exportPanel],
   ])
@@ -380,6 +432,10 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     lineNumbersCheck.checked = config.lineNumbers === true
     showStatsCheck.checked = config.showStats !== false
     focusModeCheck.checked = config.focusMode === true
+    for (const field of MD_SYNTAX_FIELDS) {
+      // Absent key means enabled — same default the pipeline and 分屏 use.
+      mdSyntaxChecks[field.key].checked = config[field.key] !== false
+    }
     colorSection.hidden =
       activeTab !== 'appearance' || config.theme !== 'custom' || colorSectionHiddenBySearch
     for (const field of COLOR_FIELDS) {
@@ -389,6 +445,10 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       }
     }
   }
+
+  /** Read the nine 语法支持 checkboxes back into an AppConfig patch. */
+  const mdSyntaxPatch = (): Partial<AppConfig> =>
+    Object.fromEntries(MD_SYNTAX_FIELDS.map((field) => [field.key, checked(mdSyntaxChecks[field.key])]))
 
   const emit = (patch: Partial<AppConfig>): void => {
     const autoSaveOn = checked(autoSaveCheck)
@@ -410,6 +470,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       lineNumbers: checked(lineNumbersCheck),
       showStats: checked(showStatsCheck),
       focusMode: checked(focusModeCheck),
+      ...mdSyntaxPatch(),
     }
     autoSaveDelayInput.disabled = !autoSaveOn
     if (next.theme === 'custom') {
@@ -442,6 +503,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     lineNumbersCheck,
     showStatsCheck,
     focusModeCheck,
+    ...MD_SYNTAX_FIELDS.map((field) => mdSyntaxChecks[field.key]),
   ]) {
     input.addEventListener('change', () => emit({}))
   }
@@ -537,6 +599,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     generalPanel,
     appearancePanel,
     editorPanel,
+    markdownPanel,
     imagePanel,
     exportPanel,
   )

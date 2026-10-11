@@ -175,6 +175,31 @@ export interface AppConfig {
    * converter that is not on PATH.
    */
   converterPath?: string
+
+  // ── Typora 「Markdown ▸ 语法支持」 ────────────────────────────────────────
+  // Every one defaults to on, matching Markup's previous hard-coded behaviour.
+  // Each gates both the shared render/export pipeline and Milkdown's parser in
+  // 实时预览, so the three views cannot disagree. Some are cheap to apply live;
+  // ones that need the parser rebuilt ask the user to reload (see settings).
+
+  /** `$…$` inline math and `$$…$$` blocks. Default true. */
+  mdInlineMath?: boolean
+  /** ` ```math ` / ` ```latex ` fenced blocks. Default true. */
+  mdCodeBlockMath?: boolean
+  /** `H~2~O`. Default true. */
+  mdSubscript?: boolean
+  /** `X^2^`. Default true. */
+  mdSuperscript?: boolean
+  /** `==key==`. Default true. */
+  mdHighlight?: boolean
+  /** `<u>key</u>`. Default true. */
+  mdUnderline?: boolean
+  /** mermaid / flowchart.js / sequence fences. Default true. */
+  mdDiagrams?: boolean
+  /** `> [!NOTE]` / `> [!TIP]` / `> [!IMPORTANT]` / `> [!WARNING]` / `> [!CAUTION]`. Default true. */
+  mdAlerts?: boolean
+  /** GFM bare-URL autolinks (`https://typora.io` in prose). Default true. */
+  mdAutoLink?: boolean
 }
 
 export interface HostEventMap {

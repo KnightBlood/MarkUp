@@ -112,6 +112,27 @@ struct AppConfig {
     /// omits it would silently drop the setting on every `set_config` write.
     #[serde(default)]
     converter_path: Option<String>,
+    /// Typora 「Markdown ▸ 语法支持」 toggles. Each gates the shared render and
+    /// export pipeline (and 分屏's OverType hook), so an omitted key must stay
+    /// `None` — "absent" means enabled, matching every other shell.
+    #[serde(default)]
+    md_inline_math: Option<bool>,
+    #[serde(default)]
+    md_code_block_math: Option<bool>,
+    #[serde(default)]
+    md_subscript: Option<bool>,
+    #[serde(default)]
+    md_superscript: Option<bool>,
+    #[serde(default)]
+    md_highlight: Option<bool>,
+    #[serde(default)]
+    md_underline: Option<bool>,
+    #[serde(default)]
+    md_alerts: Option<bool>,
+    #[serde(default)]
+    md_diagrams: Option<bool>,
+    #[serde(default)]
+    md_auto_link: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -138,6 +159,15 @@ impl Default for AppConfig {
             open_tabs: None,
             active_tab: None,
             converter_path: None,
+            md_inline_math: None,
+            md_code_block_math: None,
+            md_subscript: None,
+            md_superscript: None,
+            md_highlight: None,
+            md_underline: None,
+            md_alerts: None,
+            md_diagrams: None,
+            md_auto_link: None,
         }
     }
 }

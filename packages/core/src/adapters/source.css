@@ -18,3 +18,23 @@
   vertical-align: text-bottom;
   border-radius: 3px;
 }
+
+/* Typora 语法支持 — subscript / superscript / highlight / underline. Only the
+   marker syntax is replayed here (`overtypeSyntax.ts`), so these are the four
+   elements it can emit. Sized so the line box does not shift: 分屏 aligns
+   preview rows to raw source rows, and a taller inline box would break it. */
+.adapter-source .overtype-preview mark {
+  background: color-mix(in srgb, var(--mk-accent, #0969da) 22%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+.adapter-source .overtype-preview sub,
+.adapter-source .overtype-preview sup {
+  font-size: 0.75em;
+  line-height: 0;
+}
+.adapter-source .overtype-preview u {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}

@@ -41,6 +41,7 @@ let lineNumbers = false
 let showStats = true
 let focusMode = false
 let imagePaste = true
+let mdSubscript = true
 let spellcheck = false
 let restoreSession = true
 let bodyFont: string | undefined
@@ -58,6 +59,7 @@ const settings = createSettings({
     showStats,
     focusMode,
     imagePaste,
+    mdSubscript,
     spellcheck,
     restoreSession,
     bodyFont,
@@ -73,6 +75,7 @@ const settings = createSettings({
     showStats = next.showStats !== false
     focusMode = next.focusMode === true
     imagePaste = next.imagePaste !== false
+    mdSubscript = next.mdSubscript !== false
     spellcheck = next.spellcheck === true
     restoreSession = next.restoreSession !== false
     bodyFont = next.bodyFont
@@ -103,16 +106,17 @@ settings.close()
 registry.run('view.typewriter')
 assert(typewriter === true, 'typewriter toggles via registry')
 
-// 面板顺序对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → 图像 → 导出。
+// 面板顺序对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → Markdown → 图像 → 导出。
 const tabButtons = settings.el.querySelectorAll<HTMLButtonElement>('.settings__tab')
-assert(tabButtons.length === 5, `five tabs: ${tabButtons.length}`)
+assert(tabButtons.length === 6, `six tabs: ${tabButtons.length}`)
 assert(
   tabButtons[0]?.textContent === '通用' &&
     tabButtons[1]?.textContent === '外观' &&
     tabButtons[2]?.textContent === '编辑器' &&
-    tabButtons[3]?.textContent === '图像' &&
-    tabButtons[4]?.textContent === '导出',
-  'tab labels general/appearance/editor/image/export',
+    tabButtons[3]?.textContent === 'Markdown' &&
+    tabButtons[4]?.textContent === '图像' &&
+    tabButtons[5]?.textContent === '导出',
+  'tab labels general/appearance/editor/markdown/image/export',
 )
 assert(settings.getTab() === 'general', 'default tab is general')
 
@@ -156,6 +160,19 @@ const lineNumbersCheck = editorChecks[2]!
 lineNumbersCheck.checked = true
 lineNumbersCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
 assert(lineNumbers === true, 'lineNumbers emitted')
+
+// ---- Markdown：语法支持 ---------------------------------------------------
+settings.setTab('markdown')
+const mdChecks = settings.el.querySelectorAll<HTMLInputElement>(
+  '[data-tab-panel="markdown"] input[type="checkbox"]',
+)
+assert(mdChecks.length === 9, `markdown checkboxes: ${mdChecks.length}`)
+// Subscript carries a cross-view consequence — it is only free because the
+// pipeline opts out of single-tilde strikethrough — so assert it round-trips.
+const mdSubscriptCheck = mdChecks[2]!
+mdSubscriptCheck.checked = false
+mdSubscriptCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(mdSubscript === false, 'mdSubscript emitted')
 
 // ---- 图像：插入图片时 -----------------------------------------------------
 settings.setTab('image')
@@ -271,4 +288,4 @@ assert(!settings.el.querySelector('[data-tab="plugin"]'), 'unsubscribe removes b
 assert(!settings.el.querySelector('.settings__plugin-panel'), 'unsubscribe removes panel')
 assert(settings.getTab() === 'general', 'unsubscribe falls back to the first tab')
 
-console.log('SMOKE UI SETTINGS OK: typora-aligned tabs + general/editor/image/export options + open/close + registry + registerTab')
+console.log('SMOKE UI SETTINGS OK: typora-aligned tabs + general/editor/markdown/image/export options + open/close + registry + registerTab')

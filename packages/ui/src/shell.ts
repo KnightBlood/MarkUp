@@ -12,7 +12,10 @@ import {
   setDiagramEnlargeHandler,
   setMathEditHandler,
   setMathEnlargeHandler,
+  setOvertypeSyntax,
   setPlantumlVisualEditHandler,
+  mdSyntaxOptionsFromConfig,
+  pipelineOptionsFromConfig,
   type BlockFormatId,
   type InlineFormatId,
   type OpenDoc,
@@ -608,7 +611,10 @@ export function renderShell(): ShellHandle {
   const exportAsHtml = async (): Promise<void> => {
     const base = exportBaseName()
     try {
-      const html = await exportHtmlDocument(editor.getMarkdown(), { title: base })
+      const html = await exportHtmlDocument(editor.getMarkdown(), {
+        title: base,
+        pipeline: pipelineOptionsFromConfig(appearance),
+      })
       if (host.platform === 'web') {
         downloadText(`${base}.html`, html, 'text/html;charset=utf-8')
         return
@@ -627,7 +633,10 @@ export function renderShell(): ShellHandle {
   const exportAsPdf = async (): Promise<void> => {
     const base = exportBaseName()
     try {
-      const html = await exportHtmlDocument(editor.getMarkdown(), { title: base })
+      const html = await exportHtmlDocument(editor.getMarkdown(), {
+        title: base,
+        pipeline: pipelineOptionsFromConfig(appearance),
+      })
       if (host.app.exportPdf) {
         const picked = await host.dialog.save({
           defaultPath: `${base}.pdf`,
@@ -792,7 +801,12 @@ export function renderShell(): ShellHandle {
 
   const printDocumentHtml = async (html?: string): Promise<void> => {
     try {
-      const payload = html ?? (await exportHtmlDocument(editor.getMarkdown(), { title: exportBaseName() }))
+      const payload =
+        html ??
+        (await exportHtmlDocument(editor.getMarkdown(), {
+          title: exportBaseName(),
+          pipeline: pipelineOptionsFromConfig(appearance),
+        }))
       const ok = await host.app.print?.(payload)
       if (!ok) await showError('当前平台不支持打印')
     } catch (error) {
@@ -946,6 +960,10 @@ export function renderShell(): ShellHandle {
     italic: '斜体',
     code: '代码',
     strike: '删除线',
+    underline: '下划线',
+    highlight: '高亮',
+    sup: '上标',
+    sub: '下标',
   }
 
   /** Selection as markdown offsets; falls back to the caret (or EOF). */
@@ -1274,6 +1292,9 @@ export function renderShell(): ShellHandle {
     editor.setLineNumbers(next.lineNumbers === true)
     editor.setSpellcheck(next.spellcheck === true)
     editor.setImagePasteEnabled(next.imagePaste !== false)
+    // 分屏 renders through OverType's own parser, so it needs the syntax
+    // extensions installed separately from the remark pipeline.
+    setOvertypeSyntax(mdSyntaxOptionsFromConfig(next))
     statusbar.setShowStats(next.showStats !== false)
     shellEl?.classList.toggle('shell--focus', next.focusMode === true)
     host.app.setConfig(next)
@@ -1435,6 +1456,32 @@ export function renderShell(): ShellHandle {
     id: 'format.inlineCode',
     label: '行内代码',
     run: () => applyInlineFormat('code'),
+  })
+  registry.register({
+    id: 'format.underline',
+    label: '下划线',
+    shortcut: 'Mod+U',
+    run: () => applyInlineFormat('underline'),
+  })
+  registry.register({
+    id: 'format.strike',
+    label: '删除线',
+    run: () => applyInlineFormat('strike'),
+  })
+  registry.register({
+    id: 'format.highlight',
+    label: '高亮',
+    run: () => applyInlineFormat('highlight'),
+  })
+  registry.register({
+    id: 'format.sup',
+    label: '上标',
+    run: () => applyInlineFormat('sup'),
+  })
+  registry.register({
+    id: 'format.sub',
+    label: '下标',
+    run: () => applyInlineFormat('sub'),
   })
   registry.register({
     id: 'format.link',

@@ -24,7 +24,15 @@ export interface TextEdit {
   select?: TextRange
 }
 
-export type InlineFormatId = 'bold' | 'italic' | 'code' | 'strike'
+export type InlineFormatId =
+  | 'bold'
+  | 'italic'
+  | 'code'
+  | 'strike'
+  | 'underline'
+  | 'highlight'
+  | 'sup'
+  | 'sub'
 
 export type BlockFormatId =
   | 'h1'
@@ -40,11 +48,23 @@ export type BlockFormatId =
   | 'ordered'
   | 'task'
 
-const INLINE_MARKERS: Record<InlineFormatId, string> = {
-  bold: '**',
-  italic: '*',
-  code: '`',
-  strike: '~~',
+/**
+ * Open/close pairs rather than a single marker: `<u>`/`</u>` differ, and the
+ * split keeps the table honest for the symmetric forms too.
+ *
+ * `sub`/`sup` borrow the single `~`/`^` forms Typora uses. The renderer is
+ * built with `remark-gfm({ singleTilde: false })`, so `~~x~~` remains the only
+ * strikethrough and the lone tilde is free — see `pipeline.ts`.
+ */
+const INLINE_MARKERS: Record<InlineFormatId, { open: string; close: string }> = {
+  bold: { open: '**', close: '**' },
+  italic: { open: '*', close: '*' },
+  code: { open: '`', close: '`' },
+  strike: { open: '~~', close: '~~' },
+  underline: { open: '<u>', close: '</u>' },
+  highlight: { open: '==', close: '==' },
+  sup: { open: '^', close: '^' },
+  sub: { open: '~', close: '~' },
 }
 
 const clamp = (n: number, min: number, max: number): number =>
@@ -75,17 +95,19 @@ const unpadCode = (inner: string): string =>
 /**
  * Is `text` already wrapped in this format (so the click should unwrap)?
  * `**bold**` never counts as italic — toggling italic there must yield
- * `***bold+italic***` instead of silently stripping the bold.
+ * `***bold+italic***` instead of silently stripping the bold. The same guard
+ * keeps `==x==` from being read as a highlight when it is really two `=` runs.
  */
 function isWrapped(text: string, fence: string, id: InlineFormatId): boolean {
-  if (!fence || text.length < fence.length * 2) return false
+  const { open, close } = INLINE_MARKERS[id]
+  if (!fence || text.length < open.length + close.length) return false
   if (id === 'code') {
     const match = /^(`+)([\s\S]*)\1$/.exec(text)
     if (!match) return false
     const inner = unpadCode(match[2] ?? '')
     return longestBacktickRun(inner) < (match[1] ?? '').length
   }
-  if (!text.startsWith(fence) || !text.endsWith(fence)) return false
+  if (!text.startsWith(open) || !text.endsWith(close)) return false
   if (id === 'italic' && text.startsWith('**') && text.endsWith('**')) return false
   return true
 }
@@ -108,32 +130,35 @@ export function inlineFormatEdit(
   const from = clamp(range.from, 0, markdown.length)
   const to = clamp(range.to, from, markdown.length)
   const bounds: TextRange = { from, to }
-  const marker = INLINE_MARKERS[id]
+  const { open, close } = INLINE_MARKERS[id]
   const text = markdown.slice(from, to)
 
   if (!text) {
     const seed = placeholder
-    const seeded = marker + seed + marker
+    const seeded = open + seed + close
     return {
       range: bounds,
       text: seeded,
-      caret: marker.length,
-      select: { from: marker.length, to: marker.length + seed.length },
+      caret: open.length,
+      select: { from: open.length, to: open.length + seed.length },
     }
   }
 
-  const fence = id === 'code' ? codeFence(text) : marker
+  const fence = id === 'code' ? codeFence(text) : open
   if (isWrapped(text, fence, id)) {
     const inner =
       id === 'code'
         ? unpadCode(text.slice(fence.length, -fence.length))
-        : text.slice(fence.length, -fence.length)
+        : text.slice(open.length, -close.length)
     return { range: bounds, text: inner, select: { from: 0, to: inner.length } }
   }
 
   const body =
     id === 'code' && (text.startsWith('`') || text.endsWith('`')) ? ` ${text} ` : text
-  const wrapped = fence + body + fence
+  // `code` computes a fence long enough to survive any backtick run inside, so
+  // both ends need *that* length — using the single-char close here would emit
+  // ``a ` b` instead of ```a ` b``` and break the fence on re-parse.
+  const wrapped = id === 'code' ? fence + body + fence : open + body + close
   return {
     range: bounds,
     text: wrapped,

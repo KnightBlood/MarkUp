@@ -190,6 +190,38 @@ const find = (md: string, needle: string, from = 0): number => {
   assert(apply(wrapped.md, unwrap!).md === 'alpha\nbeta', 'fence toggles back off')
 }
 
+// ── Typora inline formats: underline / highlight / sup / sub / strike ──
+{
+  // Three symmetric markers toggle exactly like bold. Underline is the only
+  // asymmetric pair, which is why the marker table carries open/close.
+  for (const [id, seed, expected] of [
+    ['highlight', 'key', '==key=='],
+    ['sup', '2', '^2^'],
+    ['sub', '2', '~2~'],
+    ['underline', '文字', '<u>文字</u>'],
+  ] as const) {
+    const wrap = inlineFormatEdit(seed, { from: 0, to: seed.length }, id)
+    assert(wrap.text === expected, `${id} wraps: ${wrap.text}`)
+    const back = inlineFormatEdit(expected, { from: 0, to: expected.length }, id)
+    assert(back.text === seed, `${id} toggles back off: ${back.text}`)
+  }
+
+  // An empty selection seeds a placeholder rather than an empty marker pair:
+  // `~~~~` parses as a thematic break, so bare tildes would become a rule.
+  const empty = inlineFormatEdit('', { from: 0, to: 0 }, 'sub', '文字')
+  assert(empty.text === '~文字~', `empty sub seeds a placeholder: ${empty.text}`)
+  assert(
+    empty.select && empty.text.slice(empty.select.from, empty.select.to) === '文字',
+    'the placeholder is selected for the next keystroke',
+  )
+
+  // 删除线 was already in the engine but nothing ever invoked it.
+  assert(
+    inlineFormatEdit('key', { from: 0, to: 3 }, 'strike').text === '~~key~~',
+    'strike wraps',
+  )
+}
+
 // ── selection bounds helper ─────────────────────────────────────────────
 {
   const md = 'one\ntwo\nthree'

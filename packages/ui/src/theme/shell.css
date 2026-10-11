@@ -1189,6 +1189,131 @@ body {
   background: var(--border);
 }
 
+/* 字数统计浮窗 — bottom-right of the work area, over the editor but under the
+   overlays (context menu 70, palette higher), so it never hides a menu. */
+.stats-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 44px;
+  z-index: 50;
+  min-width: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raise);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+
+.stats-panel[hidden] {
+  display: none;
+}
+
+.stats-panel__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stats-panel__section + .stats-panel__section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.stats-panel__heading {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: none;
+}
+
+.stats-panel__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.stats-panel__label {
+  color: var(--fg-muted);
+}
+
+.stats-panel__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大纲浮窗 — left edge, mirroring the 字数统计 panel on the right. Same z-index
+   band so neither ever covers the context menu. */
+.outline-panel {
+  position: fixed;
+  left: 16px;
+  top: 56px;
+  bottom: 44px;
+  z-index: 50;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raise);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+
+.outline-panel[hidden] {
+  display: none;
+}
+
+.outline-panel__title {
+  margin: 0 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.outline-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.outline-panel__item {
+  display: block;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.outline-panel__item:hover {
+  background: var(--bg-soft);
+}
+
+.outline-panel__item.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.outline-panel__empty {
+  margin: 0 6px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.outline-panel__empty[hidden] {
+  display: none;
+}
+
 .settings__field--off {
   display: none;
 }

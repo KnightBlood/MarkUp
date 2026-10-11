@@ -581,6 +581,41 @@ Check-Needle 'smartinput :: config survives Tauri write-back' "$root\apps\tauri\
 Check-Needle 'smartinput :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"pairedSymbols,omitempty"' -Literal
 Check-Needle 'smartinput :: core smoke wired' "$root\packages\core\package.json" 'pm-smartinput.mts' -Literal
 
+# --- 查找 ▸ 全词匹配 ---
+# `\b` is useless here: in CJK text it treats every character as a boundary, so
+# 猫 would match inside 猫猫咪 — the opposite of what 全词匹配 promises. The
+# lookaround is Unicode-aware instead.
+Check-Needle 'find :: whole-word lookaround' "$root\packages\ui\src\findText.ts" '\\p{L}\\p{N}_' -Literal
+Check-Needle 'find :: flag threaded through' "$root\packages\ui\src\findText.ts" 'wholeWord = false,' -Literal
+Check-Needle 'find :: panel toggle' "$root\packages\ui\src\ui\findPanel.ts" "'全词匹配'" -Literal
+Check-Needle 'find :: panel state' "$root\packages\ui\src\ui\findPanel.ts" 'let wholeWord = false' -Literal
+
+# --- 字数统计浮窗 ---
+Check-Needle 'stats :: panel module' "$root\packages\ui\src\ui\statsPanel.ts" 'export function createStatsPanel(' -Literal
+# Zero words must be zero minutes: "约 1 分钟" for an empty document reads as a bug.
+Check-Needle 'stats :: reading time rounds' "$root\packages\ui\src\ui\statsPanel.ts" 'export function readingMinutes(' -Literal
+Check-Needle 'stats :: empty is a dash' "$root\packages\ui\src\ui\statsPanel.ts" "return minutes === 0 ? '—' : " -Literal
+Check-Needle 'stats :: shell wires it' "$root\packages\ui\src\shell.ts" 'const statsPanel = createStatsPanel()' -Literal
+# Counting the whole document for a hidden panel is pure waste.
+Check-Needle 'stats :: only counts while open' "$root\packages\ui\src\shell.ts" 'if (!statsPanel.visible) return' -Literal
+Check-Needle 'stats :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.stats'," -Literal
+Check-Needle 'stats :: menu entry' "$root\packages\host-api\src\menu.json" '"id": "view.stats"' -Literal
+Check-Needle 'stats :: styles' "$root\packages\ui\src\theme\shell.css" '.stats-panel {' -Literal
+Check-Needle 'stats :: ui smoke wired' "$root\packages\ui\package.json" 'pm-u-stats.mts' -Literal
+
+# --- 大纲浮窗 ---
+# Same `extractOutline` as the sidebar tab, so a heading cannot appear in one and
+# not the other; and the caret→heading lookup is `<=` so a caret exactly on a
+# heading counts as being in it.
+Check-Needle 'outline :: panel module' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function createOutlinePanel(' -Literal
+Check-Needle 'outline :: caret to heading' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function activeOutlineIndex(' -Literal
+Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
+Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
+Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal
+Check-Needle 'outline :: menu entry' "$root\packages\host-api\src\menu.json" '"id": "view.outline"' -Literal
+Check-Needle 'outline :: styles' "$root\packages\ui\src\theme\shell.css" '.outline-panel {' -Literal
+Check-Needle 'outline :: ui smoke wired' "$root\packages\ui\package.json" 'pm-v-outline.mts' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

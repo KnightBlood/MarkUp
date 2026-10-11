@@ -34,6 +34,26 @@ assert(caseHit.length === 1, `case matches: ${caseHit.length}`)
 const regexHit = findDocMatches(md, 'h.llo', false, true)
 assert(regexHit.length === 3, `regex matches: ${regexHit.length}`)
 
+// ---- 全词匹配 --------------------------------------------------------------
+{
+  const doc = 'cat catalog cat. 猫猫咪 猫'
+  assert(findDocMatches(doc, 'cat', false, false).length === 3, 'without it, every substring hits')
+  const whole = findDocMatches(doc, 'cat', false, false, true)
+  // `cat` and `cat.` count; `catalog` must not.
+  assert(whole.length === 2, `whole word finds only standalone words: ${whole.length}`)
+  assert(doc.slice(whole[0]!.start, whole[0]!.end) === 'cat', 'the first is a bare word')
+  assert(doc.slice(whole[1]!.start, whole[1]!.end) === 'cat', 'punctuation still ends a word')
+  // `\b` would treat every CJK character as a boundary and match anywhere; the
+  // Unicode-aware lookaround is what makes 猫 not match inside 猫猫咪.
+  const cjk = findDocMatches('猫猫咪 猫', '猫', false, false, true)
+  assert(cjk.length === 1, `CJK whole-word: ${cjk.length}`)
+  // A whole-word replace must not touch the partial match either.
+  assert(
+    replaceDocAll(doc, 'cat', 'dog', false, false, true) === 'dog catalog dog. 猫猫咪 猫',
+    'replace-all respects 全词匹配',
+  )
+}
+
 assert(lineOfOffset(md, 0) === 1, 'line 1')
 assert(lineOfOffset(md, 12) === 2, 'line 2')
 

@@ -55,6 +55,12 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
     text: '.*',
     title: '正则表达式',
   })
+  const wordBtn = el('button', {
+    class: 'find-panel__toggle',
+    type: 'button',
+    text: 'W',
+    title: '全词匹配',
+  })
   const prevBtn = el('button', { class: 'find-panel__btn', type: 'button', text: '↑', title: '上一个' })
   const nextBtn = el('button', { class: 'find-panel__btn', type: 'button', text: '↓', title: '下一个' })
   const closeBtn = el('button', { class: 'find-panel__btn', type: 'button', text: '×', title: '关闭' })
@@ -63,6 +69,7 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
 
   let caseSensitive = false
   let useRegex = false
+  let wholeWord = false
 
   const replaceRow = el(
     'div',
@@ -82,6 +89,7 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
       countLabel,
       caseBtn,
       regexBtn,
+      wordBtn,
       prevBtn,
       nextBtn,
       closeBtn,
@@ -104,6 +112,7 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
       findInput.value,
       caseSensitive,
       useRegex,
+      wholeWord,
     )
     if (matches.length === 0) current = -1
     else if (current < 0 || current >= matches.length) current = 0
@@ -166,6 +175,7 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
       replaceInput.value,
       caseSensitive,
       useRegex,
+      wholeWord,
     )
     options.replaceInDocument(next)
     recompute()
@@ -182,6 +192,7 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
       replaceInput.value,
       caseSensitive,
       useRegex,
+      wholeWord,
     )
     options.replaceInDocument(next)
     recompute()
@@ -230,6 +241,13 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
   regexBtn.addEventListener('click', () => {
     useRegex = !useRegex
     regexBtn.classList.toggle('is-active', useRegex)
+    current = 0
+    recompute()
+  })
+
+  wordBtn.addEventListener('click', () => {
+    wholeWord = !wholeWord
+    wordBtn.classList.toggle('is-active', wholeWord)
     current = 0
     recompute()
   })

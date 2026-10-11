@@ -22,11 +22,20 @@ export function buildFindRegex(
   caseSensitive: boolean,
   useRegex: boolean,
   global = true,
+  wholeWord = false,
 ): RegExp | null {
   if (!query) return null
   try {
-    const source = useRegex ? query : escapeRegExp(query)
-    const flags = (global ? 'g' : '') + (caseSensitive ? '' : 'i')
+    const base = useRegex ? query : escapeRegExp(query)
+    // Unicode-aware boundaries rather than `\b`. In CJK text `\b` treats every
+    // character as a boundary, so `\b标题\b` would happily match inside a longer
+    // run — which is the opposite of what 全词匹配 promises. The `u` flag is only
+    // added when needed: it also makes some previously-tolerated regexes throw,
+    // and that should not happen just because someone used the find box.
+    const source = wholeWord
+      ? `(?<![\\p{L}\\p{N}_])(?:${base})(?![\\p{L}\\p{N}_])`
+      : base
+    const flags = (global ? 'g' : '') + (caseSensitive ? '' : 'i') + (wholeWord ? 'u' : '')
     return new RegExp(source, flags)
   } catch {
     return null
@@ -38,8 +47,9 @@ export function findDocMatches(
   query: string,
   caseSensitive: boolean,
   useRegex: boolean,
+  wholeWord = false,
 ): DocMatch[] {
-  const re = buildFindRegex(query, caseSensitive, useRegex, true)
+  const re = buildFindRegex(query, caseSensitive, useRegex, true, wholeWord)
   if (!re) return []
   const matches: DocMatch[] = []
   let m: RegExpExecArray | null
@@ -70,12 +80,13 @@ export function replaceDocOnce(
   template: string,
   caseSensitive: boolean,
   useRegex: boolean,
+  wholeWord = false,
 ): string {
   const head = markdown.slice(0, match.start)
   const tail = markdown.slice(match.end)
   if (!useRegex) return head + template + tail
 
-  const re = buildFindRegex(query, caseSensitive, true, false)
+  const re = buildFindRegex(query, caseSensitive, true, false, wholeWord)
   if (!re) return head + template + tail
 
   const sticky = new RegExp(re.source, re.flags + 'y')
@@ -91,8 +102,9 @@ export function replaceDocAll(
   template: string,
   caseSensitive: boolean,
   useRegex: boolean,
+  wholeWord = false,
 ): string {
-  const re = buildFindRegex(query, caseSensitive, useRegex, true)
+  const re = buildFindRegex(query, caseSensitive, useRegex, true, wholeWord)
   if (!re) return markdown
   if (!useRegex) return markdown.replace(re, template.replace(/\$/g, '$$$$'))
   return markdown.replace(re, (...args) => {

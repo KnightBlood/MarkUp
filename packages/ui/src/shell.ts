@@ -73,6 +73,8 @@ import { createSettings, type SettingsApi, type SettingsTabSpec } from './ui/set
 import { createKeybindingsPanel } from './ui/keybindings'
 import { createContextMenu, type ContextMenuItem } from './ui/contextMenu'
 import { createSelectionToolbar } from './ui/selectionToolbar'
+import { createStatsPanel } from './ui/statsPanel'
+import { createOutlinePanel } from './ui/outlinePanel'
 import { showPrompt } from './ui/promptDialog'
 import { createTabBar, type TabSpec } from './ui/tabBar'
 import { createMenuBar } from './ui/menuBar'
@@ -88,7 +90,7 @@ import {
 } from './ui/embeds'
 import { CommandRegistry, attachKeydown, formatShortcut } from './commands'
 import { loadPlugins, type LoadedPlugin, type PluginManifest } from './plugins'
-import { countStats } from './outline'
+import { countStats, extractOutline } from './outline'
 import { parseLineLink } from './mdLinks'
 import { openWorkspaceFolder, walkMarkdownFiles, type WorkspaceState } from './workspace'
 import { attachHostEvents, systemThemeClass } from './hostEvents'
@@ -541,6 +543,37 @@ export function renderShell(): ShellHandle {
   // overlap the mode bar / status bar when a selection sits near an edge.
   const selectionToolbar = createSelectionToolbar((command) => registry.run(command))
   root.appendChild(selectionToolbar.el)
+
+  // 字数统计浮窗. Numbers only refresh while it is open — counting the whole
+  // document on every keystroke for a panel nobody is looking at is pure waste.
+  const statsPanel = createStatsPanel()
+  root.appendChild(statsPanel.el)
+
+  const refreshStatsPanel = (): void => {
+    if (!statsPanel.visible) return
+    const markdown = editor.getMarkdown()
+    const range = editor.getSelectionRange()
+    const selection =
+      range && range.to > range.from ? countStats(markdown.slice(range.from, range.to)) : null
+    statsPanel.update(countStats(markdown), selection)
+  }
+  for (const type of ['keyup', 'mouseup'] as const) {
+    editor.el.addEventListener(type, () => window.setTimeout(refreshStatsPanel, 0))
+  }
+
+  // 大纲浮窗. Same extractor as the sidebar's 大纲 tab, so a heading can never
+  // show up in one and not the other.
+  const outlinePanel = createOutlinePanel((item) => {
+    editor.gotoAnchor({ offset: item.offset, line: item.line })
+    editor.focus()
+  })
+  root.appendChild(outlinePanel.el)
+
+  const refreshOutlinePanel = (): void => {
+    if (!outlinePanel.visible) return
+    outlinePanel.update(extractOutline(editor.getMarkdown()))
+    outlinePanel.setActive(editor.getSelectionRange()?.from ?? null)
+  }
 
   /**
    * 工具栏 visibility.
@@ -2738,6 +2771,22 @@ export function renderShell(): ShellHandle {
     run: () => {
       fullscreen = !fullscreen
       void host.app.setWindowState?.({ fullscreen })
+    },
+  })
+  registry.register({
+    id: 'view.stats',
+    label: '字数统计浮窗',
+    run: () => {
+      statsPanel.toggle()
+      refreshStatsPanel()
+    },
+  })
+  registry.register({
+    id: 'view.outline',
+    label: '大纲浮窗',
+    run: () => {
+      outlinePanel.toggle()
+      refreshOutlinePanel()
     },
   })
   registry.register({

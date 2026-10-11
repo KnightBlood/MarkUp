@@ -297,6 +297,11 @@ body {
   flex: 1;
   overflow: auto;
   padding: 32px 24px;
+  /* 视图 ▸ 放大 / 缩小. `zoom` rather than a transform: it reflows, so the
+     scroll height stays correct instead of the content being scaled inside an
+     unchanged box. Only the document zooms — sidebar, status bar and menus are
+     chrome and keep their size. */
+  zoom: var(--view-zoom, 1);
 }
 
 .adapter-stub {

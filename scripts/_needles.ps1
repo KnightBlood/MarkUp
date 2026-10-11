@@ -411,6 +411,20 @@ Check-Needle 'paragraph :: menu exposes the heading steps' "$root\packages\host-
 Check-Needle 'paragraph :: menu exposes the toc' "$root\packages\host-api\src\menu.json" 'insert.toc' -Literal
 Check-Needle 'paragraph :: export styles the toc' "$root\packages\core\src\exportHtml.ts" '.md-toc {' -Literal
 
+# --- 视图 ▸ 放大 / 缩小 (zoom ladder + Ctrl 滚轮) ---
+Check-Needle 'zoom :: ladder' "$root\packages\ui\src\zoom.ts" 'export const ZOOM_STEPS: readonly number[]' -Literal
+Check-Needle 'zoom :: snaps onto the ladder' "$root\packages\ui\src\zoom.ts" 'export function clampZoom(' -Literal
+Check-Needle 'zoom :: wheel delta maps to a step' "$root\packages\ui\src\zoom.ts" 'export function zoomFromWheelDelta(' -Literal
+Check-Needle 'zoom :: config field' "$root\packages\host-api\src\types.ts" 'viewZoom?: number' -Literal
+Check-Needle 'zoom :: applied as a css var' "$root\packages\ui\src\shell.ts" "root.style.setProperty('--view-zoom', zoomCss(config.viewZoom))" -Literal
+Check-Needle 'zoom :: css consumes it' "$root\packages\ui\src\theme\shell.css" 'zoom: var(--view-zoom, 1);' -Literal
+Check-Needle 'zoom :: menu items' "$root\packages\host-api\src\menu.json" 'view.zoomIn' -Literal
+Check-Needle 'zoom :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.zoomReset'" -Literal
+# A passive wheel listener cannot preventDefault, so the option is load-bearing.
+Check-Needle 'zoom :: wheel listener is non-passive' "$root\packages\ui\src\shell.ts" '{ passive: false },' -Literal
+Check-Needle 'zoom :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'view_zoom: Option<f64>' -Literal
+Check-Needle 'zoom :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"viewZoom,omitempty"' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

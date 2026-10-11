@@ -73,6 +73,7 @@ import { parseLineLink } from './mdLinks'
 import { openWorkspaceFolder, walkMarkdownFiles, type WorkspaceState } from './workspace'
 import { attachHostEvents, systemThemeClass } from './hostEvents'
 import { THEME_CLASSES, THEME_LABELS, THEME_ORDER, fontVars, themeClass } from './appearance'
+import { clampZoom, stepZoom, zoomCss, zoomFromWheelDelta, ZOOM_DEFAULT } from './zoom'
 import './theme/shell.css'
 
 function basename(path: string): string {
@@ -162,6 +163,10 @@ function applyAppearance(config: AppConfig): void {
   }
   root.style.setProperty('--font-size', `${config.fontSize || 16}px`)
   root.style.setProperty('--editor-line-width', `${config.lineWidth || 780}px`)
+  // 视图 ▸ 放大 / 缩小. A CSS variable rather than an inline style on one
+  // element, so the zoom survives a view switch (the adapters rebuild their
+  // own DOM) without the shell having to re-apply it.
+  root.style.setProperty('--view-zoom', zoomCss(config.viewZoom))
   // Optional font overrides (settings → 外观 → 字体); absent = CSS defaults.
   for (const { name, value } of fontVars(config)) {
     if (value) root.style.setProperty(name, value)
@@ -1448,6 +1453,51 @@ export function renderShell(): ShellHandle {
     sidebar.refreshRecents()
   }
 
+  let zoomPersistTimer: ReturnType<typeof setTimeout> | null = null
+
+  /**
+   * 视图 ▸ 放大 / 缩小.
+   *
+   * The CSS variable is set straight away so Ctrl+滚轮 feels attached to the
+   * document, but the config write is debounced: one wheel gesture fires dozens
+   * of events, and each would otherwise rewrite the config file.
+   */
+  const setViewZoom = (value: number, immediate: boolean): void => {
+    const next = clampZoom(value)
+    if (next === clampZoom(appearance.viewZoom)) return
+    appearance = { ...appearance, viewZoom: next }
+    document.documentElement.style.setProperty('--view-zoom', zoomCss(next))
+    if (immediate) {
+      host.app.setConfig(appearance)
+      return
+    }
+    if (zoomPersistTimer !== null) clearTimeout(zoomPersistTimer)
+    zoomPersistTimer = setTimeout(() => {
+      zoomPersistTimer = null
+      host.app.setConfig(appearance)
+    }, 400)
+  }
+
+  /**
+   * Ctrl/⌘ + wheel zooms, as in Typora. Bound to the editor pane rather than
+   * the window so it does not fight the sidebar's own scrolling.
+   */
+  editor.el.addEventListener(
+    'wheel',
+    (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return
+      const next = zoomFromWheelDelta(appearance.viewZoom, event.deltaY)
+      // At either end of the ladder, leave the gesture alone so it still
+      // scrolls instead of swallowing the event for nothing.
+      if (next === clampZoom(appearance.viewZoom)) return
+      event.preventDefault()
+      setViewZoom(next, false)
+    },
+    // Required: wheel listeners are passive by default, and a passive listener
+    // cannot preventDefault the browser's own page zoom.
+    { passive: false },
+  )
+
   const findPanel = createFindPanel({
     getMarkdown: () => editor.getMarkdown(),
     gotoAnchor: (anchor) => {
@@ -2025,6 +2075,24 @@ export function renderShell(): ShellHandle {
     id: 'view.showStats',
     label: '切换状态栏字数统计',
     run: () => applyAppearanceConfig({ ...appearance, showStats: appearance.showStats === false }),
+  })
+  registry.register({
+    id: 'view.zoomIn',
+    label: '放大',
+    shortcut: 'Mod+Shift+=',
+    run: () => setViewZoom(stepZoom(appearance.viewZoom, 'in'), true),
+  })
+  registry.register({
+    id: 'view.zoomOut',
+    label: '缩小',
+    shortcut: 'Mod+Shift+-',
+    run: () => setViewZoom(stepZoom(appearance.viewZoom, 'out'), true),
+  })
+  registry.register({
+    id: 'view.zoomReset',
+    label: '实际大小',
+    shortcut: 'Mod+Shift+0',
+    run: () => setViewZoom(ZOOM_DEFAULT, true),
   })
   registry.register({
     id: 'settings.open',

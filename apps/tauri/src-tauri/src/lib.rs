@@ -89,6 +89,9 @@ struct AppConfig {
     show_stats: Option<bool>,
     #[serde(default)]
     focus_mode: Option<bool>,
+    /// 视图 ▸ 放大 / 缩小. Absent means 1 (100%).
+    #[serde(default)]
+    view_zoom: Option<f64>,
     #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
@@ -164,6 +167,7 @@ impl Default for AppConfig {
             line_numbers: None,
             show_stats: None,
             focus_mode: None,
+            view_zoom: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

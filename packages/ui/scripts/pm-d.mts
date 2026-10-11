@@ -318,6 +318,38 @@ assert(
 const colorInputs = settings.el.querySelectorAll<HTMLInputElement>('input[type="color"]')
 assert(colorInputs.length === 10, `color fields: ${colorInputs.length}`)
 
+// ---- 视图缩放 (视图 ▸ 放大 / 缩小 + Ctrl 滚轮) ---------------------------
+{
+  const { clampZoom, stepZoom, zoomFromWheelDelta, zoomCss, ZOOM_DEFAULT, ZOOM_MAX, ZOOM_MIN } =
+    await import('../src/zoom')
+  // Absent/garbage config must land on 100%, not NaN — the value comes from a
+  // hand-editable JSON file.
+  assert(clampZoom(undefined) === ZOOM_DEFAULT, 'absent zoom is 100%')
+  assert(clampZoom(Number.NaN) === ZOOM_DEFAULT, 'NaN zoom is 100%')
+  assert(clampZoom('1.5') === ZOOM_DEFAULT, 'a non-number is ignored')
+  assert(clampZoom(0.1) === ZOOM_MIN, 'below the ladder clamps to the smallest')
+  assert(clampZoom(99) === ZOOM_MAX, 'above the ladder clamps to the largest')
+  assert(clampZoom(1.23) === 1.25, 'an off-ladder value snaps to the nearest step')
+
+  assert(stepZoom(ZOOM_DEFAULT, 'in') === 1.1, '放大 from 100%')
+  assert(stepZoom(1.25, 'out') === 1.1, '缩小 from 125%')
+  // Ends are sticky, and the caller uses that to let the gesture scroll instead.
+  assert(stepZoom(ZOOM_MAX, 'in') === ZOOM_MAX, '放大 stops at the top')
+  assert(stepZoom(ZOOM_MIN, 'out') === ZOOM_MIN, '缩小 stops at the bottom')
+  assert(zoomFromWheelDelta(1, 0) === 1, 'a zero delta changes nothing')
+  assert(zoomFromWheelDelta(1, -1) === 1.1, 'wheel up zooms in')
+  assert(zoomFromWheelDelta(1, 1) === 0.9, 'wheel down zooms out')
+  // The ladder exists so a gesture out and back cannot drift off 100%. (Equal
+  // step counts: more than the ladder holds would clamp at both ends and land
+  // somewhere else entirely.)
+  let z: number = ZOOM_DEFAULT
+  for (let i = 0; i < 4; i += 1) z = stepZoom(z, 'in')
+  assert(z > ZOOM_DEFAULT, 'four steps in actually moved')
+  for (let i = 0; i < 4; i += 1) z = stepZoom(z, 'out')
+  assert(z === ZOOM_DEFAULT, `zoom is reversible, landed on ${z}`)
+  assert(zoomCss(1.25) === '1.25', 'the CSS value is the plain number')
+}
+
 // registration surface: registerTab appends button + panel, unsubscribe restores previous tab
 const pluginTab = settings.registerTab({
   id: 'plugin',

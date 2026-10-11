@@ -168,6 +168,11 @@ export interface AppConfig {
   showStats?: boolean
   /** Distraction-free layout (hide sidebar / mode bar / status bar). Default false. */
   focusMode?: boolean
+  /**
+   * View zoom (视图 ▸ 放大 / 缩小), 0.5–3. Absent means 1 (100%), which is what
+   * every shell did before zoom existed. Values snap to a fixed ladder.
+   */
+  viewZoom?: number
   /** Insert pasted clipboard images as markdown images. Default true. */
   imagePaste?: boolean
   /**

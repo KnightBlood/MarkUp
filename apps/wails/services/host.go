@@ -53,6 +53,7 @@ type AppConfig struct {
 	LineNumbers     *bool             `json:"lineNumbers,omitempty"`
 	ShowStats       *bool             `json:"showStats,omitempty"`
 	FocusMode       *bool             `json:"focusMode,omitempty"`
+	ViewZoom        *float64          `json:"viewZoom,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

@@ -14,6 +14,10 @@ const {
   clampIndentSize,
   deleteBlockEdit,
   insertParagraphEdit,
+  referenceLabel,
+  referenceLinkInline,
+  referenceLinkDefinition,
+  hasReferenceDefinition,
   taskStatusEdit,
 } = await import('../src/textFormat')
 
@@ -279,6 +283,36 @@ const find = (md: string, needle: string, from = 0): number => {
   const added = ins(md, 0, 'after')!
   assert(added === 'one\n\n\ntwo', `inserted: ${JSON.stringify(added)}`)
   assert(del(added, 0) === '\ntwo', `delete takes one separator, leaving the empty one: ${JSON.stringify(del(added, 0))}`)
+}
+
+// ── 链接引用 ────────────────────────────────────────────────────────────────
+{
+  // A reference label is an identifier, so the same text has to always produce
+  // the same label — including case and surrounding punctuation.
+  assert(referenceLabel('Hello World') === 'hello-world', 'lowercased, slugified')
+  assert(referenceLabel('  Spaced  ') === 'spaced', 'trimmed')
+  assert(referenceLabel('a/b.c') === 'a-b-c', 'punctuation becomes a separator')
+  assert(referenceLabel('中文标题') === '中文标题', 'CJK survives')
+  assert(referenceLabel('!!!') === 'ref', 'a label with nothing in it falls back')
+  assert(referenceLabel('') === 'ref', 'and so does an empty one')
+
+  // The visible text keeps its own brackets out — markdown would end the link.
+  assert(referenceLinkInline('a[b]c', 'a-b-c') === '[abc][a-b-c]', 'brackets stripped from the text')
+  assert(referenceLinkInline('  pad  ', 'pad') === '[pad][pad]', 'trimmed')
+  assert(referenceLinkDefinition('id', 'https://x/y') === '[id]: https://x/y', 'plain destination')
+  // A destination with a space has to be wrapped, or markdown ends it early.
+  assert(
+    referenceLinkDefinition('id', 'a b.png') === '[id]: <a b.png>',
+    'a spaced destination is wrapped',
+  )
+
+  // Definitions are matched case-insensitively, because CommonMark does.
+  const md = 'text\n\n[ID]: https://x\n'
+  assert(hasReferenceDefinition(md, 'id'), 'an existing definition is found regardless of case')
+  assert(hasReferenceDefinition('[id]:https://x', 'id'), 'no space after the colon is still one')
+  assert(!hasReferenceDefinition('text [id]: not-a-def', 'id'), 'a definition is at line start')
+  assert(!hasReferenceDefinition('text', 'id'), 'none present')
+  assert(!hasReferenceDefinition('[other]: https://x', 'id'), 'a different label is not a match')
 }
 
 // ── selection bounds helper ─────────────────────────────────────────────

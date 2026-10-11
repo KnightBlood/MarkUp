@@ -763,6 +763,48 @@ Check-Needle 'blockops :: delete takes a separator' "$root\packages\core\src\tex
 Check-Needle 'blockops :: insert paragraph' "$root\packages\core\src\textFormat.ts" 'export function insertParagraphEdit(' -Literal
 Check-Needle 'blockops :: commands registered' "$root\packages\ui\src\shell.ts" "id: 'format.deleteBlock'," -Literal
 Check-Needle 'blockops :: menu entries' "$root\packages\host-api\src\menu.json" 'format.insertParagraphAfter' -Literal
+
+# --- 链接引用 ---
+# A reference label is an identifier, so the same text always has to produce the
+# same label — including case. And a second definition for a label is a document
+# error, not a duplicate convenience.
+Check-Needle 'linkref :: label is a slug' "$root\packages\core\src\textFormat.ts" 'export function referenceLabel(' -Literal
+Check-Needle 'linkref :: spaced destination is wrapped' "$root\packages\core\src\textFormat.ts" 'const destination = /\s/.test(url)' -Literal
+Check-Needle 'linkref :: existing definition detected' "$root\packages\core\src\textFormat.ts" 'export function hasReferenceDefinition(' -Literal
+Check-Needle 'linkref :: command registered' "$root\packages\ui\src\shell.ts" "id: 'format.linkReference'," -Literal
+Check-Needle 'linkref :: definition written once' "$root\packages\ui\src\shell.ts" 'if (hasReferenceDefinition(after, label)) return' -Literal
+Check-Needle 'linkref :: menu entry' "$root\packages\host-api\src\menu.json" 'format.linkReference' -Literal
+
+# --- HTML 内容块 / 创建副本 ---
+# Markdown passes raw HTML through, so the block only needs opening; and a
+# duplicate comes from the *buffer*, not from disk — duplicating a document you
+# have been editing should carry the edits.
+Check-Needle 'htmlblock :: command registered' "$root\packages\ui\src\shell.ts" "id: 'insert.htmlBlock'," -Literal
+Check-Needle 'duplicate :: command registered' "$root\packages\ui\src\shell.ts" "id: 'file.duplicate'," -Literal
+Check-Needle 'duplicate :: copies the buffer' "$root\packages\ui\src\shell.ts" 'await host.fs.write(target, current.content)' -Literal
+# A duplicate that eats an existing document is not recoverable.
+Check-Needle 'duplicate :: refuses to overwrite' "$root\packages\ui\src\shell.ts" 'if (exists) {' -Literal
+Check-Needle 'duplicate :: menu entry' "$root\packages\host-api\src\menu.json" 'file.duplicate' -Literal
+
+# --- 重命名 / 移动到 ---
+# Order matters: write the new copy first, remove the original second. The other
+# way round would lose the document whenever the write failed.
+Check-Needle 'rename :: command registered' "$root\packages\ui\src\shell.ts" "id: 'file.rename'," -Literal
+Check-Needle 'rename :: write before delete' "$root\packages\ui\src\shell.ts" 'await doc.save(target)' -Literal
+# `doc.save(target)` also repoints the tab and recents, so nothing else has to
+# learn about the new path.
+Check-Needle 'rename :: a leftover original is not a failed move' "$root\packages\ui\src\shell.ts" '已移动到新位置，但原文件未能删除' -Literal
+Check-Needle 'rename :: menu entry' "$root\packages\host-api\src\menu.json" 'file.rename' -Literal
+
+# --- 选择编码重新打开 ---
+# Decoding in the renderer through `TextDecoder` means no new host API: readBase64
+# already hands over the bytes, and the platform is the authority on encodings.
+# `fatal: true` on purpose — a wrong encoding must report rather than quietly fill
+# the document with replacement characters the next save would write back.
+Check-Needle 'encoding :: command registered' "$root\packages\ui\src\shell.ts" "id: 'file.reopenEncoding'," -Literal
+Check-Needle 'encoding :: fatal decode' "$root\packages\ui\src\shell.ts" 'new TextDecoder(label, { fatal: true })' -Literal
+Check-Needle 'encoding :: reuses readBase64' "$root\packages\ui\src\shell.ts" 'dataUrlBytes(await host.fs.readBase64(current.path))' -Literal
+Check-Needle 'encoding :: menu entry' "$root\packages\host-api\src\menu.json" 'file.reopenEncoding' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal

@@ -725,7 +725,53 @@ export function lineEdge(markdown: string, offset: number, edge: 'start' | 'end'
   return edge === 'start' ? { from: line.from, to: line.from } : { from: line.to, to: line.to }
 }
 
-// ── 删除块 / 在上下方插入段落 ──────────────────────────────────────────────
+// ── 链接引用 ────────────────────────────────────────────────────────────────
+
+/**
+ * The label a reference link uses for `text`.
+ *
+ * Lowercased and slugified because a reference label is an *identifier*: two
+ * links to the same place should produce the same label, and `Hello World` and
+ * `hello world` have to agree. Letters and digits survive, including CJK.
+ */
+export function referenceLabel(text: string): string {
+  const slug = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'ref'
+}
+
+/** The inline half of a reference link: `[text][label]`. */
+export function referenceLinkInline(text: string, label: string): string {
+  // The visible text keeps its own brackets out of the way — markdown would
+  // otherwise end the link early.
+  const safe = text.trim().replace(/[[\]]/g, '')
+  return `[${safe}][${label}]`
+}
+
+/** The definition half: `[label]: url`. */
+export function referenceLinkDefinition(label: string, url: string): string {
+  // A destination with spaces has to be wrapped, or markdown ends it at the
+  // first space.
+  const destination = /\s/.test(url) ? `<${url}>` : url
+  return `[${label}]: ${destination}`
+}
+
+/**
+ * True when a definition for `label` already exists. Reference labels are
+ * case-insensitive in CommonMark, so this compares that way too — otherwise a
+ * second definition would be appended for what is really the same label.
+ */
+export function hasReferenceDefinition(markdown: string, label: string): boolean {
+  const wanted = label.toLowerCase()
+  for (const line of markdown.split('\n')) {
+    const match = /^ {0,3}\[([^\]]+)\]:\s*\S/.exec(line)
+    if (match && match[1]!.trim().toLowerCase() === wanted) return true
+  }
+  return false
+}
 
 /**
  * 删除块 — remove the paragraph (or the whole block) the range sits in.

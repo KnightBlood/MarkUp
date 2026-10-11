@@ -20,6 +20,9 @@
         { "kind": "command", "id": "file.reopenClosed", "label": "重新打开关闭的文件" },
         { "kind": "command", "id": "file.revealInFolder", "label": "打开文件位置" },
         { "kind": "command", "id": "file.revealInSidebar", "label": "在文件树中显示" },
+        { "kind": "command", "id": "file.duplicate", "label": "创建副本" },
+        { "kind": "command", "id": "file.rename", "label": "重命名 / 移动到…" },
+        { "kind": "command", "id": "file.reopenEncoding", "label": "选择编码重新打开…" },
         { "kind": "command", "id": "file.quickOpen", "label": "快速打开" },
         { "kind": "separator" },
         { "kind": "command", "id": "file.import", "label": "导入文档…" },
@@ -114,6 +117,7 @@
         { "kind": "command", "id": "insert.footnote", "label": "脚注" },
         { "kind": "command", "id": "insert.hr", "label": "水平分割线" },
         { "kind": "command", "id": "insert.toc", "label": "内容目录" },
+        { "kind": "command", "id": "insert.htmlBlock", "label": "HTML 内容块" },
         { "kind": "command", "id": "insert.frontmatter", "label": "YAML Front Matter" }
       ]
     },
@@ -129,7 +133,8 @@
         { "kind": "command", "id": "format.sup", "label": "上标" },
         { "kind": "command", "id": "format.sub", "label": "下标" },
         { "kind": "separator" },
-        { "kind": "command", "id": "format.link", "label": "超链接…" }
+        { "kind": "command", "id": "format.link", "label": "超链接…" },
+        { "kind": "command", "id": "format.linkReference", "label": "链接引用…" }
       ]
     },
     {

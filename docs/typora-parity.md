@@ -163,8 +163,8 @@
 | 增加缩进 / 减少缩进 | ✅ `format.listIndent`（Ctrl+[）/ `format.listOutdent`（Ctrl+]） |
 | 内容目录 `[TOC]` | 🔶 导出/打印已渲染；应用内三个视图暂显原样标记，见下 |
 | YAML Front Matter | ✅ `insert.frontmatter` |
-| 链接引用 | ⬜ |
-| HTML 内容块 | ⬜ |
+| 链接引用 | ✅ `format.linkReference`（标识由所选文字生成；已存在定义时不重复追加） |
+| HTML 内容块 | ✅ `insert.htmlBlock`（插入一对标签，光标在中间） |
 | 在上方 / 下方插入段落 | ✅ `format.insertParagraphBefore` / `format.insertParagraphAfter` |
 | 删除块 | ✅ `format.deleteBlock`（连带一个分隔符，否则每删一次都会多留一个空行） |
 | 选择段落或块 | ⬜ |
@@ -281,9 +281,9 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | 重新打开关闭的文件 | ✅ `file.reopenClosed`（Ctrl+Shift+T） |
 | 最近使用的目录 | ⬜ |
 | 从磁盘重新加载 | 🔶 `app.reload` 重载整窗，非单文档 |
-| 选择编码重新打开 | ⬜ |
+| 选择编码重新打开 | ✅ `file.reopenEncoding`（渲染层 `TextDecoder`；`fatal` 解码，错编码报错而非塞满替换字符） |
 | 打开文件位置 | ✅ 见 `file.revealInFolder` |
-| 创建副本 / 重命名 / 移动到 / 恢复 | ⬜ |
+| 创建副本 / 重命名 / 移动到 / 恢复 | 🔶 创建副本 ✅ `file.duplicate`；重命名/移动到 ✅ `file.rename`；恢复 未做 |
 | 新建窗口 | ⬜ |
 | 拖入 Markdown 文件 → 打开 | ✅ 有路径则开标签页；web 无路径则按未命名文档打开其文本 |
 | 拖入文件夹 → 打开 / 插入链接 | ⬜ |

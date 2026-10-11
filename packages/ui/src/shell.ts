@@ -15,8 +15,12 @@ import {
   deleteBlockEdit,
   filterPaths,
   formatTableSource,
+  hasReferenceDefinition,
   insertParagraphEdit,
   parseGlobList,
+  referenceLabel,
+  referenceLinkDefinition,
+  referenceLinkInline,
   stripHtmlFormatting,
   headingLevelAt,
   headingLevelEdit,
@@ -1741,6 +1745,192 @@ export function renderShell(): ShellHandle {
     editor.insertMarkdown(`${FRONTMATTER_TEMPLATE}\n`)
   }
 
+  /**
+   * 链接引用 — a reference-style link: the visible text keeps its own form and
+   * the URL lives in a single definition. The label comes from the selected text
+   * so two links that read the same share one definition.
+   */
+  /**
+   * 创建副本 — write a second copy of this document next to it and open it.
+   *
+   * The copy comes from the *buffer*, not from disk: duplicating a document you
+   * have been editing should carry the edits, which is usually the whole point.
+   */
+  const duplicateDocument = async (): Promise<void> => {
+    const current = doc.getDocument()
+    if (!current?.path) {
+      toastHost.show('请先保存文档', { level: 'warn' })
+      return
+    }
+    const suggested = basename(current.path).replace(/\.(md|markdown)$/i, ' 副本.md')
+    const name = await showPrompt({
+      title: '创建副本',
+      message: '相对路径按文档所在目录解析，也可以填绝对路径。',
+      value: suggested,
+      confirmText: '创建',
+    })
+    const trimmed = name?.trim()
+    if (!trimmed) return
+    const style = pathStyleFor(current.path)
+    // The same path resolution images use: it is about paths, not pictures.
+    const target = resolveImagePath(trimmed, current.path, style) ?? trimmed
+    try {
+      // Refuse to overwrite — a duplicate that eats an existing document is not
+      // recoverable.
+      let exists = false
+      try {
+        await host.fs.read(target)
+        exists = true
+      } catch {
+        /* absent — safe to create */
+      }
+      if (exists) {
+        await showError(`「${trimmed}」已存在`)
+        return
+      }
+      await host.fs.write(target, current.content)
+    } catch (error) {
+      await showError(`创建副本失败：${String(error)}`)
+      return
+    }
+    await openPath(target)
+  }
+
+  /**
+   * 重命名 / 移动到 — write the document at a new path, then drop the old file.
+   *
+   * Order matters: the new copy is written first and only then is the original
+   * removed. The other way round would lose the document whenever the write
+   * failed — and a file operation that can destroy a document is not one to be
+   * clever about.
+   */
+  const renameDocument = async (): Promise<void> => {
+    const current = doc.getDocument()
+    if (!current?.path) {
+      toastHost.show('请先保存文档', { level: 'warn' })
+      return
+    }
+    const oldPath = current.path
+    const style = pathStyleFor(oldPath)
+    const name = await showPrompt({
+      title: '重命名 / 移动到',
+      message: '相对路径按文档所在目录解析，也可以填绝对路径。',
+      value: basename(oldPath),
+      confirmText: '移动',
+    })
+    const trimmed = name?.trim()
+    if (!trimmed) return
+    const target = resolveImagePath(trimmed, oldPath, style) ?? trimmed
+    if (target === oldPath) return
+    try {
+      let exists = false
+      try {
+        await host.fs.read(target)
+        exists = true
+      } catch {
+        /* absent — safe to move onto */
+      }
+      if (exists) {
+        await showError(`「${trimmed}」已存在`)
+        return
+      }
+      // `doc.save(target)` writes the buffer *and* repoints the tab + recents,
+      // so there is no second place that has to learn about the new path.
+      await doc.save(target)
+    } catch (error) {
+      await showError(`移动失败：${String(error)}`)
+      return
+    }
+    try {
+      await host.fs.remove?.(oldPath)
+    } catch (error) {
+      // The document is safely at its new path; a leftover original is untidy,
+      // not a loss — so say that rather than pretending the move failed.
+      toastHost.show(`已移动到新位置，但原文件未能删除：${String(error)}`, { level: 'warn' })
+    }
+    sidebar.refreshRecents()
+  }
+
+  /** Decode a `data:` URL's payload to bytes — the inverse of `readBase64`. */
+  const dataUrlBytes = (dataUrl: string): Uint8Array => {
+    const comma = dataUrl.indexOf(',')
+    if (comma < 0) throw new Error('不是 data URL')
+    const binary = atob(dataUrl.slice(comma + 1))
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+    return bytes
+  }
+
+  /**
+   * 选择编码重新打开.
+   *
+   * Decoding happens in the renderer through `TextDecoder`, which means no new
+   * host API: `readBase64` already hands over the bytes, and the platform is the
+   * authority on which encodings exist.
+   *
+   * `fatal: true` on purpose — a wrong encoding must report, not quietly fill the
+   * document with replacement characters that the next save would write back.
+   */
+  const reopenWithEncoding = async (): Promise<void> => {
+    const current = doc.getDocument()
+    if (!current?.path) {
+      toastHost.show('请先保存文档', { level: 'warn' })
+      return
+    }
+    const typed = await showPrompt({
+      title: '选择编码重新打开',
+      message: '例如 utf-8、gbk、shift_jis、utf-16le',
+      value: 'utf-8',
+      confirmText: '重新打开',
+    })
+    const label = typed?.trim().toLowerCase()
+    if (!label) return
+    let text: string
+    try {
+      text = new TextDecoder(label, { fatal: true }).decode(
+        dataUrlBytes(await host.fs.readBase64(current.path)),
+      )
+    } catch (error) {
+      await showError(`无法用 ${label} 读取：${String(error)}`)
+      return
+    }
+    // Replaces the tab's content without marking it modified: decoding is how the
+    // file reads, not an edit to it.
+    doc.setDocument(current.path, text)
+    sidebar.refreshRecents()
+    statusbar.refresh()
+  }
+
+  const insertLinkReference = async (): Promise<void> => {
+    // Capture the range up front — the prompt is modal and steals focus.
+    const markdown = editor.getMarkdown()
+    const range = selectionRange()
+    const selected = markdown.slice(range.from, range.to).trim()
+    if (!selected) {
+      toastHost.show('请先选中要作为链接文字的文本', { level: 'warn' })
+      return
+    }
+    const label = referenceLabel(selected)
+    const url = await showPrompt({
+      title: '链接引用',
+      message: `引用标识：${label}`,
+      placeholder: 'https://',
+      confirmText: '插入',
+    })
+    if (!url?.trim()) return
+    const inline = referenceLinkInline(selected, label)
+    applyTextEdit({ range, text: inline, caret: range.from + inline.length })
+    // The definition goes at the end, and only once: a second definition for the
+    // same label is a document error, not a duplicate convenience.
+    const after = editor.getMarkdown()
+    if (hasReferenceDefinition(after, label)) return
+    const separator = after.endsWith('\n\n') ? '' : after.endsWith('\n') ? '\n' : '\n\n'
+    applyTextEdit({
+      range: { from: after.length, to: after.length },
+      text: `${separator}${referenceLinkDefinition(label, url.trim())}\n`,
+    })
+  }
+
   const insertLink = async (): Promise<void> => {
     // Capture the document/range up front — the prompt is modal and steals
     // focus, so re-reading afterwards could see a moved caret.
@@ -2444,6 +2634,11 @@ export function renderShell(): ShellHandle {
     run: () => void insertLink(),
   })
   registry.register({
+    id: 'format.linkReference',
+    label: '链接引用…',
+    run: () => void insertLinkReference(),
+  })
+  registry.register({
     id: 'format.bullet',
     label: '无序列表',
     run: () => applyBlockFormat('bullet'),
@@ -2685,6 +2880,29 @@ export function renderShell(): ShellHandle {
     // The marker is expanded by the render pipeline into a nested list of
     // links to every heading, and each heading carries the matching anchor.
     run: () => editor.insertMarkdown(`${TOC_MARKER}\n\n`),
+  })
+  registry.register({
+    id: 'insert.htmlBlock',
+    label: 'HTML 内容块',
+    // A pair of tags with an empty line between them, caret inside: markdown
+    // passes raw HTML through, so an editor that wants to write some only needs
+    // the block opened.
+    run: () => editor.insertMarkdown('<div>\n\n</div>\n\n'),
+  })
+  registry.register({
+    id: 'file.duplicate',
+    label: '创建副本',
+    run: () => void duplicateDocument(),
+  })
+  registry.register({
+    id: 'file.rename',
+    label: '重命名 / 移动到…',
+    run: () => void renameDocument(),
+  })
+  registry.register({
+    id: 'file.reopenEncoding',
+    label: '选择编码重新打开…',
+    run: () => void reopenWithEncoding(),
   })
   registry.register({
     id: 'insert.frontmatter',

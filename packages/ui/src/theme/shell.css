@@ -1056,7 +1056,7 @@ body {
  * 这正是偏好设置这个界面存在的意义。收起时宽度 0，展开时滑入。
  * 纯 DOM + CSS，不调用任何宿主 API，四个壳零差异。 */
 .settings {
-  flex: 0 0 0;
+  flex: none;
   width: 0;
   overflow: hidden;
   z-index: 120;
@@ -1064,7 +1064,7 @@ body {
 }
 
 .settings.is-open {
-  flex: 0 0;
+  flex: none;
   width: var(--settings-width, min(420px, 26vw));
 }
 

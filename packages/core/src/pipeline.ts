@@ -14,6 +14,7 @@ import { normalizeMathLang } from './math'
 import { mdAlerts } from './mdAlerts'
 import { mdSyntax } from './mdSyntax'
 import { TOC_MARKER } from './textFormat'
+import { remapUnicodePunctuation } from './unicodePunct'
 
 export interface TocEntry {
   text: string
@@ -61,6 +62,12 @@ export interface PipelineOptions {
    * view), so the document reads the same way in all of them.
    */
   preserveLineBreaks?: boolean
+  /**
+   * 解析时识别 Unicode 标点 — read `「title」`, `》`, `＃` … as their ASCII
+   * equivalents while parsing. The document is untouched; the rendered output
+   * shows the remapped form, which is the point of the option.
+   */
+  remapUnicodePunctuation?: boolean
 }
 
 interface MdastNode {
@@ -315,6 +322,9 @@ export function createSharedPipeline(options: PipelineOptions = {}): Pipeline {
   return {
     async render(markdown: string): Promise<RenderResult> {
       const { body } = splitFrontmatter(markdown)
+      // 解析时识别 Unicode 标点 rewrites the *input*, before parsing — there is no
+      // mdast node for `》` to recognise afterwards, so this cannot be a transform.
+      const source = options.remapUnicodePunctuation ? remapUnicodePunctuation(body) : body
       const ctx: TransformCtx = { toc: [], seen: new Map(), options }
       const processor = unified()
         .use(remarkParse)
@@ -345,7 +355,7 @@ export function createSharedPipeline(options: PipelineOptions = {}): Pipeline {
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeKatex, { strict: false })
         .use(rehypeStringify, { allowDangerousHtml: true })
-        .process(body)
+        .process(source)
       return { html: String(file), toc: ctx.toc }
     },
   }
@@ -371,5 +381,6 @@ export function pipelineOptionsFromConfig(config?: AppConfig): PipelineOptions {
     alerts: config.mdAlerts,
     autoLink: config.mdAutoLink,
     preserveLineBreaks: config.preserveLineBreaks === true,
+    remapUnicodePunctuation: config.remapUnicodePunctuation === true,
   }
 }

@@ -81,6 +81,7 @@ type AppConfig struct {
 	CodeBlockWrap         *bool   `json:"codeBlockWrap,omitempty"`
 	ListIndentSize        *int    `json:"listIndentSize,omitempty"`
 	PreserveLineBreaks    *bool   `json:"preserveLineBreaks,omitempty"`
+	RemapUnicodePunctuation *bool `json:"remapUnicodePunctuation,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

@@ -245,6 +245,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const firstLineIndentCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const codeBlockWrapCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const preserveLineBreaksCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const remapUnicodePunctuationCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const listIndentInput = el('input', {
     class: 'settings__input',
     type: 'number',
@@ -597,6 +598,16 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '只影响渲染与导出：源码里那个换行不会被改写。代码块内的换行是内容，不受影响。',
       }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        remapUnicodePunctuationCheck,
+        el('span', { class: 'settings__label', text: '解析时识别 Unicode 标点' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '把 Unicode 标点的替代形式当作 ASCII 来读：「title」/«title» 当作链接标题，》当作引用，全角 ＃＊－ 当作 Markdown 标记 —— 适合输入法打不出 ASCII 标点的情况。源文件不改写，但渲染结果会是重映射后的形式。',
+      }),
     ),
   )
 
@@ -871,6 +882,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     firstLineIndentCheck.checked = config.firstLineIndent === true
     codeBlockWrapCheck.checked = config.codeBlockWrap === true
     preserveLineBreaksCheck.checked = config.preserveLineBreaks === true
+    remapUnicodePunctuationCheck.checked = config.remapUnicodePunctuation === true
     listIndentInput.value = String(config.listIndentSize ?? 2)
     exportFolderInput.value = config.exportFolder ?? ''
     exportAfterSelect.value = config.exportAfter ?? 'none'
@@ -949,6 +961,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       // 2 is the default, so it never has to be stored.
       listIndentSize: Number(listIndentInput.value) === 2 ? undefined : Number(listIndentInput.value),
       preserveLineBreaks: checked(preserveLineBreaksCheck),
+      remapUnicodePunctuation: checked(remapUnicodePunctuationCheck),
       exportFolder: exportFolderInput.value.trim() || undefined,
       // Absent means "do nothing", so the default never has to be stored.
       exportAfter:
@@ -1012,6 +1025,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     firstLineIndentCheck,
     codeBlockWrapCheck,
     preserveLineBreaksCheck,
+    remapUnicodePunctuationCheck,
     smartQuotesCheck,
     smartDashesCheck,
     pairedSymbolsCheck,

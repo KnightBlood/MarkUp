@@ -274,6 +274,12 @@ export interface AppConfig {
    */
   preserveLineBreaks?: boolean
   /**
+   * 解析时识别 Unicode 标点 — read Unicode forms of markdown punctuation as their
+   * ASCII equivalents while parsing. The document is not rewritten; the rendered
+   * output shows the remapped form. Default false.
+   */
+  remapUnicodePunctuation?: boolean
+  /**
    * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
    * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
    */

@@ -152,6 +152,8 @@ struct AppConfig {
     #[serde(default)]
     preserve_line_breaks: Option<bool>,
     #[serde(default)]
+    remap_unicode_punctuation: Option<bool>,
+    #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
     spellcheck: Option<bool>,
@@ -254,6 +256,7 @@ impl Default for AppConfig {
             code_block_wrap: None,
             list_indent_size: None,
             preserve_line_breaks: None,
+            remap_unicode_punctuation: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

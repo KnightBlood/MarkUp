@@ -313,7 +313,7 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | 智能破折号 | ✅ `smartDashes`（`--` → `—`，`...` → `…`） |
 | 使用成对的符号（括号/引号） | ✅ `pairedSymbols`（含「敲右括号跳过去」；Markdown 标记字符未做） |
 | 输入时转换 / 渲染时转换 | ⬜ |
-| 解析时识别 Unicode 标点 | ⬜ |
+| 解析时识别 Unicode 标点 | ✅ `remapUnicodePunctuation`（解析前重写输入；源文件不改，渲染结果用 ASCII 形式） |
 | 默认缩进（引用/列表） | ✅ `listIndentSize`（1–8，默认 2；缩进与反缩进都按它算） |
 | 代码缩进 / 代码块自动换行 | 🔶 代码块自动换行 ✅ `codeBlockWrap`；代码缩进未做 |
 | 默认的代码块语言 | ✅ `codeBlockLanguage`（只取第一个词，空格会提前结束 info string） |

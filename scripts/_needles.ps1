@@ -848,6 +848,22 @@ Check-Needle 'emoji :: config field' "$root\packages\host-api\src\types.ts" 'emo
 Check-Needle 'emoji :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'emoji_autocomplete: Option<bool>' -Literal
 Check-Needle 'emoji :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"emojiAutocomplete,omitempty"' -Literal
 Check-Needle 'emoji :: core smoke wired' "$root\packages\core\package.json" 'pm-emoji.mts' -Literal
+
+# --- 解析时识别 Unicode 标点 ---
+# Deliberately narrow: only the Unicode forms that *are* markdown somewhere. A
+# full-width comma or full stop is ordinary CJK prose with no markdown role, so
+# rewriting it would change what the document says rather than help it parse.
+Check-Needle 'unicodepunct :: remap table' "$root\packages\core\src\unicodePunct.ts" 'export const PUNCTUATION_REMAP' -Literal
+Check-Needle 'unicodepunct :: escapes win' "$root\packages\core\src\unicodePunct.ts" 'escaped ? escaped : (PUNCTUATION_REMAP[char] ?? char)' -Literal
+# It rewrites the *input* before parsing: there is no mdast node for `》` to
+# recognise afterwards, so this cannot be a transform.
+Check-Needle 'unicodepunct :: applied before parsing' "$root\packages\core\src\pipeline.ts" 'options.remapUnicodePunctuation ? remapUnicodePunctuation(body) : body' -Literal
+Check-Needle 'unicodepunct :: config maps onto options' "$root\packages\core\src\pipeline.ts" 'remapUnicodePunctuation: config.remapUnicodePunctuation === true' -Literal
+Check-Needle 'unicodepunct :: config field' "$root\packages\host-api\src\types.ts" 'remapUnicodePunctuation?: boolean' -Literal
+Check-Needle 'unicodepunct :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'解析时识别 Unicode 标点'" -Literal
+Check-Needle 'unicodepunct :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'remap_unicode_punctuation: Option<bool>' -Literal
+Check-Needle 'unicodepunct :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"remapUnicodePunctuation,omitempty"' -Literal
+Check-Needle 'unicodepunct :: core smoke wired' "$root\packages\core\package.json" 'pm-unicodepunct.mts' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal

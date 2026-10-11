@@ -861,6 +861,51 @@ Check-Needle 'unicodepunct :: applied before parsing' "$root\packages\core\src\p
 Check-Needle 'unicodepunct :: config maps onto options' "$root\packages\core\src\pipeline.ts" 'remapUnicodePunctuation: config.remapUnicodePunctuation === true' -Literal
 Check-Needle 'unicodepunct :: config field' "$root\packages\host-api\src\types.ts" 'remapUnicodePunctuation?: boolean' -Literal
 Check-Needle 'unicodepunct :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'解析时识别 Unicode 标点'" -Literal
+
+# --- Typora 偏好设置补齐（除 license 外全量） ---
+# Typora「Markdown ▸ 语法偏好」.
+Check-Needle 'mdstrict :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'严格模式（更贴近 GFM 标准）'" -Literal
+Check-Needle 'mdheadingstyle :: settings select' "$root\packages\ui\src\ui\settings.ts" "'标题样式'" -Literal
+Check-Needle 'mdbulletchar :: settings select' "$root\packages\ui\src\ui\settings.ts" "'无序列表标记'" -Literal
+Check-Needle 'mdorderedchar :: settings select' "$root\packages\ui\src\ui\settings.ts" "'有序列表标记'" -Literal
+Check-Needle 'mdcodelinenumbers :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'代码块显示行号'" -Literal
+Check-Needle 'mdcodeindent :: settings input' "$root\packages\ui\src\ui\settings.ts" "'代码缩进（空格数）'" -Literal
+Check-Needle 'mdautonumbermath :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'自动添加公式序号'" -Literal
+Check-Needle 'mdamsnumbering :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'根据 AMS 规则编号'" -Literal
+# Typora「编辑器」.
+Check-Needle 'editorliverendering :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'即时渲染（边打字边解析，而非手动刷新）'" -Literal
+Check-Needle 'editorblocksource :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'悬停简单块时显示其 Markdown 源码'" -Literal
+# Typora「外观 ▸ 窗口样式」.
+Check-Needle 'windowstyle :: settings select' "$root\packages\ui\src\ui\settings.ts" "'窗口样式'" -Literal
+Check-Needle 'darkseparate :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'深色模式下使用独立主题'" -Literal
+# Typora「侧边栏」.
+Check-Needle 'sidebaroutline :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'默认显示大纲视图'" -Literal
+Check-Needle 'sidebarcollapsible :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'允许折叠和展开侧边栏的大纲视图'" -Literal
+# Typora「导出」.
+Check-Needle 'exporttheme :: settings input' "$root\packages\ui\src\ui\settings.ts" "'导出时使用的主题（留空则用当前主题）'" -Literal
+Check-Needle 'exportincludeoutline :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'保留大纲侧边栏'" -Literal
+Check-Needle 'exportextensions :: settings input' "$root\packages\ui\src\ui\settings.ts" "'导出文件扩展名（留空则按目标格式自动判）'" -Literal
+Check-Needle 'exportargs :: settings input' "$root\packages\ui\src\ui\settings.ts" "'pandoc 额外参数'" -Literal
+Check-Needle 'exportyamloverride :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'允许 YAML front matter 覆盖当前设置'" -Literal
+# Typora「通用 ▸ 启动」.
+Check-Needle 'launchnewfile :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'启动时打开新文件'" -Literal
+Check-Needle 'launchrestorefolders :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'重新打开上次使用的目录'" -Literal
+Check-Needle 'launchcustomfolder :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'打开指定目录'" -Literal
+Check-Needle 'launchcustomfolderpath :: settings input' "$root\packages\ui\src\ui\settings.ts" "'指定目录路径'" -Literal
+# Typora「保存 & 恢复」.
+Check-Needle 'saverecoverdrafts :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'恢复未保存的草稿'" -Literal
+# Typora「图像 ▸ 上传服务」.
+Check-Needle 'imagequality :: settings select' "$root\packages\ui\src\ui\settings.ts" "'图片质量'" -Literal
+Check-Needle 'imageuploadcommand :: settings input' "$root\packages\ui\src\ui\settings.ts" "'上传图片命令'" -Literal
+Check-Needle 'imagepicgopath :: settings input' "$root\packages\ui\src\ui\settings.ts" "'PicGo 可执行文件路径'" -Literal
+# Typora「文件」.
+Check-Needle 'filedefaultext :: settings input' "$root\packages\ui\src\ui\settings.ts" "placeholder: '.md'" -Literal
+Check-Needle 'filedropaction :: settings select' "$root\packages\ui\src\ui\settings.ts" "'在应用中打开'" -Literal
+# 右侧滑入面板（不是居中弹窗）.
+Check-Needle 'settings :: right slide-in panel' "$root\packages\ui\src\theme\shell.css" '.settings.is-open' -Literal
+Check-Needle 'settings :: panel shares shell-body row' "$root\packages\ui\src\shell.ts" '右侧滑入面板：与侧栏/编辑器同一 flex 行，收起时宽度 0。' -Literal
+Check-Needle 'settings :: no backdrop, Esc closes' "$root\packages\ui\src\ui\settings.ts" 'No backdrop: the panel shares the shell-body row with the editor' -Literal
+Check-Needle 'settings :: not a modal dialog' "$root\packages\ui\src\ui\settings.ts" "role: 'region'" -Literal
 Check-Needle 'unicodepunct :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'remap_unicode_punctuation: Option<bool>' -Literal
 Check-Needle 'unicodepunct :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"remapUnicodePunctuation,omitempty"' -Literal
 Check-Needle 'unicodepunct :: core smoke wired' "$root\packages\core\package.json" 'pm-unicodepunct.mts' -Literal

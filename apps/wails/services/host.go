@@ -114,6 +114,45 @@ type AppConfig struct {
 	ImageDotPrefix      *bool   `json:"imageDotPrefix,omitempty"`
 	ImageEscapeUrl      *bool   `json:"imageEscapeUrl,omitempty"`
 	ImageApplyLocal     *bool   `json:"imageApplyLocal,omitempty"`
+	// Typora 「Markdown ▸ 语法偏好」. nil means the default.
+	MdStrict          *bool   `json:"mdStrict,omitempty"`
+	MdHeadingStyle    *string `json:"mdHeadingStyle,omitempty"`
+	MdBulletChar      *string `json:"mdBulletChar,omitempty"`
+	MdOrderedChar     *string `json:"mdOrderedChar,omitempty"`
+	MdCodeLineNumbers *bool   `json:"mdCodeLineNumbers,omitempty"`
+	MdCodeIndent      *int    `json:"mdCodeIndent,omitempty"`
+	// Typora 「编辑器」.
+	EditorLiveRendering    *bool   `json:"editorLiveRendering,omitempty"`
+	EditorShowBlockSource  *bool   `json:"editorShowBlockSource,omitempty"`
+	// Typora 「外观」.
+	AppearanceWindowStyle   *string `json:"appearanceWindowStyle,omitempty"`
+	AppearanceDarkSeparate *bool   `json:"appearanceDarkSeparate,omitempty"`
+	// Typora 「侧边栏」.
+	SidebarShowOutline        *bool `json:"sidebarShowOutline,omitempty"`
+	SidebarCollapsibleOutline *bool `json:"sidebarCollapsibleOutline,omitempty"`
+	// Typora 「导出」.
+	ExportTheme        *string `json:"exportTheme,omitempty"`
+	ExportIncludeOutline *bool `json:"exportIncludeOutline,omitempty"`
+	ExportExtensions   *string `json:"exportExtensions,omitempty"`
+	ExportArgs         *string `json:"exportArgs,omitempty"`
+	ExportYamlOverride *bool   `json:"exportYamlOverride,omitempty"`
+	// Typora 「启动」.
+	LaunchNewFile       *bool   `json:"launchNewFile,omitempty"`
+	LaunchRestoreFolders *bool `json:"launchRestoreFolders,omitempty"`
+	LaunchCustomFolder  *bool   `json:"launchCustomFolder,omitempty"`
+	LaunchCustomFolderPath *string `json:"launchCustomFolderPath,omitempty"`
+	// Typora 「保存 & 恢复」.
+	SaveRecoverDrafts *bool `json:"saveRecoverDrafts,omitempty"`
+	// Typora 「Markdown ▸ 公式」.
+	MdAutoNumberMath *bool `json:"mdAutoNumberMath,omitempty"`
+	MdAmsNumbering   *bool `json:"mdAmsNumbering,omitempty"`
+	// Typora 「图像」.
+	ImageQuality       *string `json:"imageQuality,omitempty"`
+	ImageUploadCommand *string `json:"imageUploadCommand,omitempty"`
+	ImagePicgoPath     *string `json:"imagePicgoPath,omitempty"`
+	// Typora 「文件」.
+	FileDefaultExt *string `json:"fileDefaultExt,omitempty"`
+	FileDropAction *string `json:"fileDropAction,omitempty"`
 }
 
 func defaultConfig() *AppConfig {

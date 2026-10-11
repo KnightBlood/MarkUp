@@ -293,6 +293,134 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     { key: 'mdAutoLink', label: '自动识别链接', hint: '正文里的裸 URL' },
   ]
 
+  // Typora「Markdown ▸ 语法偏好」—— 严格模式 / 标题样式 / 列表标记 / 代码块。
+  const mdStrictCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const mdHeadingStyleSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'atx', text: 'ATX（# 标题）' }),
+    el('option', { value: 'setext', text: 'Setext（=== / ---）' }),
+  )
+  const mdBulletCharSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: '-', text: '-' }),
+    el('option', { value: '*', text: '*' }),
+    el('option', { value: '+', text: '+' }),
+  )
+  const mdOrderedCharSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: '1.', text: '1.' }),
+    el('option', { value: '1)', text: '1)' }),
+  )
+  const mdCodeLineNumbersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const mdCodeIndentInput = el('input', {
+    class: 'settings__input',
+    type: 'number',
+    min: '2',
+    max: '8',
+    step: '1',
+  })
+  const editorLiveRenderingCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const editorShowBlockSourceCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「外观 ▸ 窗口样式」.
+  const appearanceWindowStyleSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'classic', text: '经典（显示标题栏）' }),
+    el('option', { value: 'seamless', text: 'Seamless（隐藏标题栏）' }),
+  )
+  const appearanceDarkSeparateCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「侧边栏」.
+  const sidebarShowOutlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const sidebarCollapsibleOutlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「导出 ▸ 页面设置 / HTML / 导出后」.
+  const exportThemeInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '留空则用当前主题',
+  })
+  const exportIncludeOutlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const exportExtensionsInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '.md（留空则按目标格式自动判）',
+  })
+  const exportArgsInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: 'pandoc 额外参数',
+  })
+  const exportYamlOverrideCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「通用 ▸ 启动」.
+  const launchNewFileCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const launchRestoreFoldersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const launchCustomFolderCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const launchCustomFolderPathInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '指定目录路径',
+  })
+
+  // Typora「保存 & 恢复」.
+  const saveRecoverDraftsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「Markdown ▸ 公式」.
+  const mdAutoNumberMathCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const mdAmsNumberingCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「图像 ▸ 上传服务」.
+  const imageQualitySelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'medium', text: '中等' }),
+    el('option', { value: 'high', text: '高' }),
+    el('option', { value: 'best', text: '极高' }),
+  )
+  const imageUploadCommandInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '上传图片命令（留空则不上传）',
+  })
+  const imagePicgoPathInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: 'PicGo 可执行文件路径',
+  })
+
+  // Typora「文件」.
+  const fileDefaultExtInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '.md',
+  })
+  const fileDropActionSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'open', text: '在应用中打开' }),
+    el('option', { value: 'link', text: '插入链接' }),
+    el('option', { value: 'import', text: '导入' }),
+  )
+
   const colorRow = el('div', { class: 'settings__colors' })
   const colorInputs = new Map<keyof CustomTheme, HTMLInputElement>()
   for (const field of COLOR_FIELDS) {
@@ -330,6 +458,30 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         restoreSessionCheck,
         el('span', { class: 'settings__label', text: '重启后恢复上次打开的标签页' }),
       ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        launchNewFileCheck,
+        el('span', { class: 'settings__label', text: '启动时打开新文件' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        launchRestoreFoldersCheck,
+        el('span', { class: 'settings__label', text: '重新打开上次使用的目录' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        launchCustomFolderCheck,
+        el('span', { class: 'settings__label', text: '打开指定目录' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '指定目录路径' }),
+        launchCustomFolderPathInput,
+      ),
     ),
     el(
       'section',
@@ -346,6 +498,29 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         { class: 'settings__field' },
         el('span', { class: 'settings__label', text: '自动保存延时 (ms)' }),
         autoSaveDelayInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        saveRecoverDraftsCheck,
+        el('span', { class: 'settings__label', text: '恢复未保存的草稿' }),
+      ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'sidebar' },
+      el('h3', { class: 'settings__heading', text: '侧边栏' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        sidebarShowOutlineCheck,
+        el('span', { class: 'settings__label', text: '默认显示大纲视图' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        sidebarCollapsibleOutlineCheck,
+        el('span', { class: 'settings__label', text: '允许折叠和展开侧边栏的大纲视图' }),
       ),
     ),
     el(
@@ -409,10 +584,27 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         el('span', { class: 'settings__label', text: '代码字体（源码视图与代码块）' }),
         codeFontInput,
       ),
-      el('p', {
-        class: 'settings__label',
-        text: '留空即恢复系统默认字体；可填 “Georgia, serif”、“JetBrains Mono” 等字体族。',
-      }),
+      el(
+        'p',
+        { class: 'settings__label', text: '留空即恢复系统默认字体；可填 "Georgia, serif"、"JetBrains Mono" 等字体族。' },
+      ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'window-style' },
+      el('h3', { class: 'settings__heading', text: '窗口样式' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '窗口样式' }),
+        appearanceWindowStyleSelect,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        appearanceDarkSeparateCheck,
+        el('span', { class: 'settings__label', text: '深色模式下使用独立主题' }),
+      ),
     ),
     colorSection,
   )
@@ -441,6 +633,18 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         { class: 'settings__field settings__field--row' },
         lineNumbersCheck,
         el('span', { class: 'settings__label', text: '分屏/源码视图显示行号' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        editorLiveRenderingCheck,
+        el('span', { class: 'settings__label', text: '即时渲染（边打字边解析，而非手动刷新）' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        editorShowBlockSourceCheck,
+        el('span', { class: 'settings__label', text: '悬停简单块时显示其 Markdown 源码' }),
       ),
     ),
     el(
@@ -608,6 +812,63 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '把 Unicode 标点的替代形式当作 ASCII 来读：「title」/«title» 当作链接标题，》当作引用，全角 ＃＊－ 当作 Markdown 标记 —— 适合输入法打不出 ASCII 标点的情况。源文件不改写，但渲染结果会是重映射后的形式。',
       }),
+      el(
+        'section',
+        { class: 'settings__section', 'data-section': 'syntax-preference' },
+        el('h3', { class: 'settings__heading', text: '语法偏好' }),
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          mdStrictCheck,
+          el('span', { class: 'settings__label', text: '严格模式（更贴近 GFM 标准）' }),
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '标题样式' }),
+          mdHeadingStyleSelect,
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '无序列表标记' }),
+          mdBulletCharSelect,
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '有序列表标记' }),
+          mdOrderedCharSelect,
+        ),
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          mdCodeLineNumbersCheck,
+          el('span', { class: 'settings__label', text: '代码块显示行号' }),
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '代码缩进（空格数）' }),
+          mdCodeIndentInput,
+        ),
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          mdAutoNumberMathCheck,
+          el('span', { class: 'settings__label', text: '自动添加公式序号' }),
+        ),
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          mdAmsNumberingCheck,
+          el('span', { class: 'settings__label', text: '根据 AMS 规则编号' }),
+        ),
+        el('p', {
+          class: 'settings__label',
+          text: '以上只影响通过菜单栏或快捷键生成的样式（Typora 原话）；直接敲进去的源码不受影响。',
+        }),
+      ),
     ),
   )
 
@@ -675,6 +936,33 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         { class: 'settings__field settings__field--row' },
         imageApplyLocalCheck,
         el('span', { class: 'settings__label', text: '对本地位置的图片应用上述规则' }),
+      ),
+      el(
+        'section',
+        { class: 'settings__section', 'data-section': 'image-upload' },
+        el('h3', { class: 'settings__heading', text: '上传服务' }),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '图片质量' }),
+          imageQualitySelect,
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: '上传图片命令' }),
+          imageUploadCommandInput,
+        ),
+        el(
+          'label',
+          { class: 'settings__field' },
+          el('span', { class: 'settings__label', text: 'PicGo 可执行文件路径' }),
+          imagePicgoPathInput,
+        ),
+        el('p', {
+          class: 'settings__label',
+          text: '上传命令与导出项列表同一阻塞点：执行外部命令需要新增 app.runCommand 并在五壳实现，本机无法验证，故留空即不上传。',
+        }),
       ),
     ),
   )
@@ -785,6 +1073,36 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         { class: 'settings__field' },
         el('span', { class: 'settings__label', text: '追加到 <body>' }),
         exportBodyHtmlInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '导出时使用的主题（留空则用当前主题）' }),
+        exportThemeInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        exportIncludeOutlineCheck,
+        el('span', { class: 'settings__label', text: '保留大纲侧边栏' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '导出文件扩展名（留空则按目标格式自动判）' }),
+        exportExtensionsInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: 'pandoc 额外参数' }),
+        exportArgsInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        exportYamlOverrideCheck,
+        el('span', { class: 'settings__label', text: '允许 YAML front matter 覆盖当前设置' }),
       ),
     ),
   )
@@ -902,6 +1220,35 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       // Absent key means enabled — same default the pipeline and 分屏 use.
       mdSyntaxChecks[field.key].checked = config[field.key] !== false
     }
+    mdStrictCheck.checked = config.mdStrict !== false
+    mdHeadingStyleSelect.value = config.mdHeadingStyle ?? 'atx'
+    mdBulletCharSelect.value = config.mdBulletChar ?? '-'
+    mdOrderedCharSelect.value = config.mdOrderedChar ?? '1.'
+    mdCodeLineNumbersCheck.checked = config.mdCodeLineNumbers === true
+    mdCodeIndentInput.value = String(config.mdCodeIndent ?? 4)
+    mdAutoNumberMathCheck.checked = config.mdAutoNumberMath === true
+    mdAmsNumberingCheck.checked = config.mdAmsNumbering === true
+    editorLiveRenderingCheck.checked = config.editorLiveRendering !== false
+    editorShowBlockSourceCheck.checked = config.editorShowBlockSource === true
+    appearanceWindowStyleSelect.value = config.appearanceWindowStyle ?? 'classic'
+    appearanceDarkSeparateCheck.checked = config.appearanceDarkSeparate === true
+    sidebarShowOutlineCheck.checked = config.sidebarShowOutline !== false
+    sidebarCollapsibleOutlineCheck.checked = config.sidebarCollapsibleOutline !== false
+    exportThemeInput.value = config.exportTheme ?? ''
+    exportIncludeOutlineCheck.checked = config.exportIncludeOutline === true
+    exportExtensionsInput.value = config.exportExtensions ?? ''
+    exportArgsInput.value = config.exportArgs ?? ''
+    exportYamlOverrideCheck.checked = config.exportYamlOverride === true
+    launchNewFileCheck.checked = config.launchNewFile === true
+    launchRestoreFoldersCheck.checked = config.launchRestoreFolders !== false
+    launchCustomFolderCheck.checked = config.launchCustomFolder === true
+    launchCustomFolderPathInput.value = config.launchCustomFolderPath ?? ''
+    saveRecoverDraftsCheck.checked = config.saveRecoverDrafts !== false
+    imageQualitySelect.value = config.imageQuality ?? 'high'
+    imageUploadCommandInput.value = config.imageUploadCommand ?? ''
+    imagePicgoPathInput.value = config.imagePicgoPath ?? ''
+    fileDefaultExtInput.value = config.fileDefaultExt ?? '.md'
+    fileDropActionSelect.value = config.fileDropAction ?? 'open'
     colorSection.hidden =
       activeTab !== 'appearance' || config.theme !== 'custom' || colorSectionHiddenBySearch
     for (const field of COLOR_FIELDS) {
@@ -980,6 +1327,41 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       lineNumbers: checked(lineNumbersCheck),
       showStats: checked(showStatsCheck),
       focusMode: checked(focusModeCheck),
+      mdStrict: checked(mdStrictCheck),
+      mdHeadingStyle:
+        mdHeadingStyleSelect.value === 'atx' ? undefined : (mdHeadingStyleSelect.value as AppConfig['mdHeadingStyle']),
+      mdBulletChar: mdBulletCharSelect.value === '-' ? undefined : (mdBulletCharSelect.value as AppConfig['mdBulletChar']),
+      mdOrderedChar: mdOrderedCharSelect.value === '1.' ? undefined : (mdOrderedCharSelect.value as AppConfig['mdOrderedChar']),
+      mdCodeLineNumbers: checked(mdCodeLineNumbersCheck),
+      mdCodeIndent: Number(mdCodeIndentInput.value) === 4 ? undefined : Number(mdCodeIndentInput.value),
+      mdAutoNumberMath: checked(mdAutoNumberMathCheck),
+      mdAmsNumbering: checked(mdAmsNumberingCheck),
+      editorLiveRendering: checked(editorLiveRenderingCheck),
+      editorShowBlockSource: checked(editorShowBlockSourceCheck),
+      appearanceWindowStyle:
+        appearanceWindowStyleSelect.value === 'classic'
+          ? undefined
+          : (appearanceWindowStyleSelect.value as AppConfig['appearanceWindowStyle']),
+      appearanceDarkSeparate: checked(appearanceDarkSeparateCheck),
+      sidebarShowOutline: checked(sidebarShowOutlineCheck),
+      sidebarCollapsibleOutline: checked(sidebarCollapsibleOutlineCheck),
+      exportTheme: exportThemeInput.value.trim() || undefined,
+      exportIncludeOutline: checked(exportIncludeOutlineCheck),
+      exportExtensions: exportExtensionsInput.value.trim() || undefined,
+      exportArgs: exportArgsInput.value.trim() || undefined,
+      exportYamlOverride: checked(exportYamlOverrideCheck),
+      launchNewFile: checked(launchNewFileCheck),
+      launchRestoreFolders: checked(launchRestoreFoldersCheck),
+      launchCustomFolder: checked(launchCustomFolderCheck),
+      launchCustomFolderPath: launchCustomFolderPathInput.value.trim() || undefined,
+      saveRecoverDrafts: checked(saveRecoverDraftsCheck),
+      imageQuality:
+        imageQualitySelect.value === 'high' ? undefined : (imageQualitySelect.value as AppConfig['imageQuality']),
+      imageUploadCommand: imageUploadCommandInput.value.trim() || undefined,
+      imagePicgoPath: imagePicgoPathInput.value.trim() || undefined,
+      fileDefaultExt: fileDefaultExtInput.value.trim() || undefined,
+      fileDropAction:
+        fileDropActionSelect.value === 'open' ? undefined : (fileDropActionSelect.value as AppConfig['fileDropAction']),
       ...mdSyntaxPatch(),
     }
     autoSaveDelayInput.disabled = !autoSaveOn
@@ -1158,7 +1540,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   )
   const panel = el(
     'div',
-    { class: 'settings__panel', role: 'dialog', 'aria-label': '设置' },
+    // Not a dialog: there is no backdrop, so it is not modal — clicking the editor
+  // is just editing, same as Typora. A region is the honest role.
+  { class: 'settings__panel', role: 'region', 'aria-label': '设置' },
     el(
       'header',
       { class: 'settings__header' },
@@ -1176,7 +1560,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     tabNav,
     body,
   )
-  const root = el('div', { class: 'settings', hidden: true }, panel)
+  // Visibility is the `is-open` class only — width 0 when closed, so the editor
+  // keeps the whole row. No `hidden` attribute: there is no backdrop to hide.
+  const root = el('div', { class: 'settings' }, panel)
 
   const registerTab = (spec: SettingsTabSpec): (() => void) => {
     if (tabButtons.has(spec.id)) throw new Error(`settings tab already registered: ${spec.id}`)
@@ -1209,11 +1595,13 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     applyFilter()
     if (tab) setTab(tab)
     else setTab(activeTab)
+    root.classList.add('is-open')
     root.hidden = false
     themeSelect.focus()
   }
 
   const close = (): void => {
+    root.classList.remove('is-open')
     root.hidden = true
     callbacks.onClose?.()
     // A stale query would hide fields on the next open — reset it here.
@@ -1224,14 +1612,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   }
 
   const toggle = (): void => {
-    if (root.hidden) open()
-    else close()
+    if (root.classList.contains('is-open')) close()
+    else open()
   }
 
-  root.addEventListener('click', (event) => {
-    if (event.target === root) close()
-  })
-
+  // No backdrop: the panel shares the shell-body row with the editor, so clicking
+  // the editor is just editing — same as Typora. Esc still closes.
   root.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.stopPropagation()
@@ -1247,7 +1633,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     open,
     close,
     toggle,
-    isOpen: () => !root.hidden,
+    isOpen: () => root.classList.contains('is-open'),
     getTab: () => activeTab,
     setTab,
     registerTab,

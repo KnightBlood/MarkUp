@@ -354,6 +354,76 @@ export interface AppConfig {
   mdAlerts?: boolean
   /** GFM bare-URL autolinks (`https://typora.io` in prose). Default true. */
   mdAutoLink?: boolean
+  // ── Typora 「Markdown ▸ 语法偏好」 ──────────────────────────────────────────
+  // 严格模式 / 标题样式 / 列表标记 / 代码块语言 —— only apply to styles created
+  // from menubar or hybrid view, per Typora's own hint.
+  /** 严格模式 — closer to GFM than pandoc's markdown. Default false. */
+  mdStrict?: boolean
+  /** 标题样式 — ATX (`#`) or setext (`===`/`---`). Default atx. */
+  mdHeadingStyle?: 'atx' | 'setext'
+  /** 无序列表标记 — `-`/`*`/`+`. Default `-`. */
+  mdBulletChar?: '-' | '*' | '+'
+  /** 有序列表标记 — `1.`/`1)`. Default `1.`. */
+  mdOrderedChar?: '1.' | '1)'
+  /** 代码块显示行号（源码视图 / 分屏）. Default false. */
+  mdCodeLineNumbers?: boolean
+  /** 代码缩进 — spaces per tab in code blocks. Default 4. */
+  mdCodeIndent?: number
+  // ── Typora 「编辑器」 ──────────────────────────────────────────────────────
+  /** 即时渲染 — parse and render as you type (vs. explicit refresh). Default true. */
+  editorLiveRendering?: boolean
+  /** 显示当前块元素的 Markdown 源码 — hovering a simple block shows its source. Default false. */
+  editorShowBlockSource?: boolean
+  // ── Typora 「外观」 ────────────────────────────────────────────────────────
+  /** 窗口样式 — classic (titlebar) or seamless (hidden). Default classic. */
+  appearanceWindowStyle?: 'classic' | 'seamless'
+  /** 深色模式下使用独立主题. Default false. */
+  appearanceDarkSeparate?: boolean
+  // ── Typora 「侧边栏」 ──────────────────────────────────────────────────────
+  /** 默认显示大纲视图. Default true. */
+  sidebarShowOutline?: boolean
+  /** 允许折叠和展开侧边栏的大纲视图. Default true. */
+  sidebarCollapsibleOutline?: boolean
+  // ── Typora 「导出」 ────────────────────────────────────────────────────────
+  /** 导出时使用独立主题. Default false. */
+  exportTheme?: string
+  /** 保留大纲侧边栏. Default false. */
+  exportIncludeOutline?: boolean
+  /** 导出文件扩展名. Default `''` (auto from target format). */
+  exportExtensions?: string
+  /** 导出参数（pandoc arguments）. Default `''`. */
+  exportArgs?: string
+  /** 允许 YAML front matter 覆盖当前设置. Default false. */
+  exportYamlOverride?: boolean
+  // ── Typora 「启动」 ────────────────────────────────────────────────────────
+  /** 启动时打开新文件. Default false. */
+  launchNewFile?: boolean
+  /** 重新打开上次使用的目录. Default true. */
+  launchRestoreFolders?: boolean
+  /** 打开指定目录. Default false. */
+  launchCustomFolder?: boolean
+  /** 指定目录路径. Default `''`. */
+  launchCustomFolderPath?: string
+  // ── Typora 「保存 & 恢复」 ──────────────────────────────────────────────────
+  /** 恢复未保存的草稿. Default true. */
+  saveRecoverDrafts?: boolean
+  // ── Typora 「Markdown ▸ 公式」 ──────────────────────────────────────────────
+  /** 自动添加公式序号. Default false. */
+  mdAutoNumberMath?: boolean
+  /** 根据 AMS 规则编号. Default false. */
+  mdAmsNumbering?: boolean
+  // ── Typora 「图像」 ────────────────────────────────────────────────────────
+  /** 图片质量（中/高/极高）. Default 'high'. */
+  imageQuality?: 'medium' | 'high' | 'best'
+  /** 上传图片命令. Default `''`. */
+  imageUploadCommand?: string
+  /** PicGo 路径. Default `''`. */
+  imagePicgoPath?: string
+  // ── Typora 「文件」 ────────────────────────────────────────────────────────
+  /** 默认文件类型 / 扩展名. Default `'.md'`. */
+  fileDefaultExt?: string
+  /** 拖入文件/文件夹时的行为. Default 'open'. */
+  fileDropAction?: 'open' | 'link' | 'import'
 }
 
 export interface HostEventMap {

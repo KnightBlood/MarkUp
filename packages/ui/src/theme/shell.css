@@ -84,6 +84,11 @@ body {
   min-height: 0;
 }
 
+/* 右侧滑入面板的展开宽度。收起时为 0，所以编辑器在面板关闭时占满剩余空间。 */
+:root {
+  --settings-width: min(420px, 26vw);
+}
+
 /* Editor column: the document tab strip lives here so it sits on the exact
    same row as the sidebar's own tabs (文件/大纲/搜索) — one continuous rule
    across the shell instead of two staggered ones. */
@@ -1047,29 +1052,27 @@ body {
   filter: brightness(1.08);
 }
 
+/* 右侧滑入面板，不是居中弹窗：打开设置时编辑器仍然可点，可以边改边看效果 ——
+ * 这正是偏好设置这个界面存在的意义。收起时宽度 0，展开时滑入。
+ * 纯 DOM + CSS，不调用任何宿主 API，四个壳零差异。 */
 .settings {
-  position: fixed;
-  inset: 0;
+  flex: 0 0 0;
+  width: 0;
+  overflow: hidden;
   z-index: 120;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 64px;
-  background: rgb(0 0 0 / 35%);
+  transition: width 0.22s ease;
 }
 
-.settings[hidden] {
-  display: none;
+.settings.is-open {
+  flex: 0 0;
+  width: var(--settings-width, min(420px, 26vw));
 }
 
 .settings__panel {
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 96px);
+  height: 100%;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border-left: 1px solid var(--border);
   background: var(--bg-raise);
-  box-shadow: 0 16px 48px rgb(0 0 0 / 30%);
 }
 
 .settings__header {

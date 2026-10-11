@@ -154,6 +154,64 @@ struct AppConfig {
     #[serde(default)]
     remap_unicode_punctuation: Option<bool>,
     #[serde(default)]
+    md_strict: Option<bool>,
+    #[serde(default)]
+    md_heading_style: Option<String>,
+    #[serde(default)]
+    md_bullet_char: Option<String>,
+    #[serde(default)]
+    md_ordered_char: Option<String>,
+    #[serde(default)]
+    md_code_line_numbers: Option<bool>,
+    #[serde(default)]
+    md_code_indent: Option<i64>,
+    #[serde(default)]
+    editor_live_rendering: Option<bool>,
+    #[serde(default)]
+    editor_show_block_source: Option<bool>,
+    #[serde(default)]
+    appearance_window_style: Option<String>,
+    #[serde(default)]
+    appearance_dark_separate: Option<bool>,
+    #[serde(default)]
+    sidebar_show_outline: Option<bool>,
+    #[serde(default)]
+    sidebar_collapsible_outline: Option<bool>,
+    #[serde(default)]
+    export_theme: Option<String>,
+    #[serde(default)]
+    export_include_outline: Option<bool>,
+    #[serde(default)]
+    export_extensions: Option<String>,
+    #[serde(default)]
+    export_args: Option<String>,
+    #[serde(default)]
+    export_yaml_override: Option<bool>,
+    #[serde(default)]
+    launch_new_file: Option<bool>,
+    #[serde(default)]
+    launch_restore_folders: Option<bool>,
+    #[serde(default)]
+    launch_custom_folder: Option<bool>,
+    #[serde(default)]
+    launch_custom_folder_path: Option<String>,
+    #[serde(default)]
+    save_recover_drafts: Option<bool>,
+    #[serde(default)]
+    md_auto_number_math: Option<bool>,
+    #[serde(default)]
+    md_ams_numbering: Option<bool>,
+    #[serde(default)]
+    image_quality: Option<String>,
+    #[serde(default)]
+    image_upload_command: Option<String>,
+    #[serde(default)]
+    image_picgo_path: Option<String>,
+    #[serde(default)]
+    file_default_ext: Option<String>,
+    #[serde(default)]
+    file_drop_action: Option<String>,
+    #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
     spellcheck: Option<bool>,
@@ -276,6 +334,35 @@ impl Default for AppConfig {
             md_alerts: None,
             md_diagrams: None,
             md_auto_link: None,
+            md_strict: None,
+            md_heading_style: None,
+            md_bullet_char: None,
+            md_ordered_char: None,
+            md_code_line_numbers: None,
+            md_code_indent: None,
+            editor_live_rendering: None,
+            editor_show_block_source: None,
+            appearance_window_style: None,
+            appearance_dark_separate: None,
+            sidebar_show_outline: None,
+            sidebar_collapsible_outline: None,
+            export_theme: None,
+            export_include_outline: None,
+            export_extensions: None,
+            export_args: None,
+            export_yaml_override: None,
+            launch_new_file: None,
+            launch_restore_folders: None,
+            launch_custom_folder: None,
+            launch_custom_folder_path: None,
+            save_recover_drafts: None,
+            md_auto_number_math: None,
+            md_ams_numbering: None,
+            image_quality: None,
+            image_upload_command: None,
+            image_picgo_path: None,
+            file_default_ext: None,
+            file_drop_action: None,
             image_copy_mode: None,
             image_copy_custom_path: None,
             image_prefer_relative: None,

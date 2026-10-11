@@ -3564,6 +3564,8 @@ export function renderShell(): ShellHandle {
       sidebar.el,
       // Document tabs share the sidebar's tab row — same height, same rule.
       el('div', { class: 'shell-main' }, tabbar.el, editor.el),
+      // 右侧滑入面板：与侧栏/编辑器同一 flex 行，收起时宽度 0。
+      settings.el,
     ),
     statusbar.el,
   )
@@ -3572,7 +3574,6 @@ export function renderShell(): ShellHandle {
 
   root.replaceChildren(
     shell,
-    settings.el,
     contextMenu.el,
     formulaEditor.el,
     diagramEditor.el,

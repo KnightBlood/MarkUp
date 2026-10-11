@@ -151,8 +151,8 @@ settings.setTab('general')
 const generalChecks = settings.el.querySelectorAll<HTMLInputElement>(
   '[data-tab-panel="general"] input[type="checkbox"]',
 )
-assert(generalChecks.length === 4, `general checkboxes: ${generalChecks.length}`)
-const [restoreSessionCheck, autoSaveCheck, showStatsCheck, spellcheckCheck] = generalChecks
+assert(generalChecks.length === 10, `general checkboxes: ${generalChecks.length}`)
+const [restoreSessionCheck, , , , autoSaveCheck, , , , showStatsCheck, spellcheckCheck] = generalChecks
 assert(
   restoreSessionCheck && autoSaveCheck && showStatsCheck && spellcheckCheck,
   'restoreSession + autoSave + showStats + spellcheck checkboxes',
@@ -177,7 +177,7 @@ const editorChecks = settings.el.querySelectorAll<HTMLInputElement>(
   '[data-tab-panel="editor"] input[type="checkbox"]',
 )
 const lineNumbersCheckRef = editorChecks[2]!
-assert(editorChecks.length === 11, `editor checkboxes: ${editorChecks.length}`)
+assert(editorChecks.length === 13, `editor checkboxes: ${editorChecks.length}`)
 // 打字机 / 专注 / 行号 / 智能引号 / 智能破折号 / 成对符号 / Emoji 补全 / 文末空行 / 纯文本复制 / 代码块换行 / 显示隐藏文件
 const lineNumbersCheck = editorChecks[2]!
 lineNumbersCheck.checked = true
@@ -189,7 +189,7 @@ settings.setTab('markdown')
 const mdChecks = settings.el.querySelectorAll<HTMLInputElement>(
   '[data-tab-panel="markdown"] input[type="checkbox"]',
 )
-assert(mdChecks.length === 11, `markdown checkboxes: ${mdChecks.length}`)
+assert(mdChecks.length === 15, `markdown checkboxes: ${mdChecks.length}`)
 // 九个语法开关 + 保留单换行符 + 解析时识别 Unicode 标点
 // Subscript carries a cross-view consequence — it is only free because the
 // pipeline opts out of single-tilde strikethrough — so assert it round-trips.

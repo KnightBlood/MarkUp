@@ -256,6 +256,16 @@ export interface AppConfig {
    */
   codeBlockWrap?: boolean
   /**
+   * 默认缩进 — spaces per list/quote level (插入缩进 / Ctrl+[). Clamped to 1–8.
+   * Absent means 2, which is what it was before it was configurable.
+   */
+  listIndentSize?: number
+  /**
+   * 保留单换行符 — treat a single newline in a paragraph as a line break rather
+   * than a space, matching Typora's 「空格与换行 ▸ 保留单换行符」. Default false.
+   */
+  preserveLineBreaks?: boolean
+  /**
    * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
    * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
    */

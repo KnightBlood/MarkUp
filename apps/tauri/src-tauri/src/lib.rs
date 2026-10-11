@@ -144,6 +144,10 @@ struct AppConfig {
     #[serde(default)]
     code_block_wrap: Option<bool>,
     #[serde(default)]
+    list_indent_size: Option<u8>,
+    #[serde(default)]
+    preserve_line_breaks: Option<bool>,
+    #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
     spellcheck: Option<bool>,
@@ -242,6 +246,8 @@ impl Default for AppConfig {
             outline_max_level: None,
             first_line_indent: None,
             code_block_wrap: None,
+            list_indent_size: None,
+            preserve_line_breaks: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

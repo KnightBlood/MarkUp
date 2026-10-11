@@ -189,7 +189,8 @@ settings.setTab('markdown')
 const mdChecks = settings.el.querySelectorAll<HTMLInputElement>(
   '[data-tab-panel="markdown"] input[type="checkbox"]',
 )
-assert(mdChecks.length === 9, `markdown checkboxes: ${mdChecks.length}`)
+assert(mdChecks.length === 10, `markdown checkboxes: ${mdChecks.length}`)
+// 九个语法开关 + 保留单换行符
 // Subscript carries a cross-view consequence — it is only free because the
 // pipeline opts out of single-tilde strikethrough — so assert it round-trips.
 const mdSubscriptCheck = mdChecks[2]!

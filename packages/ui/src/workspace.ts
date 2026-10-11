@@ -44,6 +44,71 @@ const IGNORE_DIRS = new Set([
 
 const MD_EXT = /\.(md|markdown|mdx)$/i
 
+export interface FileTreeNode {
+  name: string
+  kind: 'dir' | 'file'
+  /** Absolute path — what a click hands back to the shell. */
+  path: string
+  /** Empty for a file. */
+  children: FileTreeNode[]
+}
+
+/**
+ * Group workspace paths into a directory tree.
+ *
+ * Every directory in the result exists because some markdown file lives below
+ * it — the walk only ever produced markdown paths, so there is no such thing as
+ * an empty directory here, and inventing one would show a folder that cannot be
+ * opened to anything.
+ *
+ * Directories sort before files, then case-insensitively by name: that is how
+ * every other file tree behaves, and mixing the two makes a deep tree hard to
+ * scan.
+ */
+export function buildFileTree(root: string, paths: string[]): FileTreeNode[] {
+  const normRoot = root.replace(/[\\/]+$/, '')
+  const dirs = new Map<string, FileTreeNode>()
+  const roots: FileTreeNode[] = []
+
+  const segmentOf = (path: string): string[] => {
+    const rest = path.startsWith(normRoot) ? path.slice(normRoot.length) : path
+    return rest.split(/[\\/]+/).filter((part) => part.length > 0)
+  }
+
+  for (const path of paths) {
+    const segments = segmentOf(path)
+    if (segments.length === 0) continue
+    let siblings = roots
+    let prefix = normRoot
+    for (let i = 0; i < segments.length; i += 1) {
+      const name = segments[i]!
+      prefix = `${prefix}/${name}`
+      const last = i === segments.length - 1
+      if (last) {
+        siblings.push({ name, kind: 'file', path, children: [] })
+        break
+      }
+      let dir = dirs.get(prefix)
+      if (!dir) {
+        dir = { name, kind: 'dir', path: prefix, children: [] }
+        dirs.set(prefix, dir)
+        siblings.push(dir)
+      }
+      siblings = dir.children
+    }
+  }
+
+  const sort = (nodes: FileTreeNode[]): void => {
+    nodes.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    })
+    for (const node of nodes) sort(node.children)
+  }
+  sort(roots)
+  return roots
+}
+
 const MAX_WALK_FILES = 4000
 const MAX_SEARCH_FILES = 600
 const MAX_SEARCH_HITS = 400

@@ -235,6 +235,14 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const showHiddenFilesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const firstLineIndentCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const codeBlockWrapCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const preserveLineBreaksCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const listIndentInput = el('input', {
+    class: 'settings__input',
+    type: 'number',
+    min: '1',
+    max: '8',
+    step: '1',
+  })
   const outlineMaxLevelSelect = el(
     'select',
     { class: 'settings__input' },
@@ -462,16 +470,22 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         el('span', { class: 'settings__label', text: '新建代码块的默认语言' }),
         codeBlockLanguageInput,
       ),
-      el('p', {
-        class: 'settings__label',
-        text: '只取第一个词：空格会提前结束围栏的 info string，后面会变成围栏元数据。',
-      }),
       el(
         'label',
         { class: 'settings__field settings__field--row' },
         codeBlockWrapCheck,
         el('span', { class: 'settings__label', text: '代码块自动换行' }),
       ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '默认缩进（空格数，1–8）' }),
+        listIndentInput,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '只取第一个词：空格会提前结束围栏的 info string，后面会变成围栏元数据。',
+      }),
     ),
     el(
       'section',
@@ -557,6 +571,16 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       el('p', {
         class: 'settings__label',
         text: '关闭后，对应的语法按普通文本显示与导出；文档内容不受影响，重新开启即可恢复。',
+      }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        preserveLineBreaksCheck,
+        el('span', { class: 'settings__label', text: '保留单换行符（段落内换行渲染为换行）' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '只影响渲染与导出：源码里那个换行不会被改写。代码块内的换行是内容，不受影响。',
       }),
     ),
   )
@@ -819,6 +843,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     outlineMaxLevelSelect.value = String(config.outlineMaxLevel ?? 0)
     firstLineIndentCheck.checked = config.firstLineIndent === true
     codeBlockWrapCheck.checked = config.codeBlockWrap === true
+    preserveLineBreaksCheck.checked = config.preserveLineBreaks === true
+    listIndentInput.value = String(config.listIndentSize ?? 2)
     exportFolderInput.value = config.exportFolder ?? ''
     exportAfterSelect.value = config.exportAfter ?? 'none'
     exportPageSizeInput.value = config.exportPageSize ?? ''
@@ -889,6 +915,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       outlineMaxLevel: Number(outlineMaxLevelSelect.value) || undefined,
       firstLineIndent: checked(firstLineIndentCheck),
       codeBlockWrap: checked(codeBlockWrapCheck),
+      // 2 is the default, so it never has to be stored.
+      listIndentSize: Number(listIndentInput.value) === 2 ? undefined : Number(listIndentInput.value),
+      preserveLineBreaks: checked(preserveLineBreaksCheck),
       exportFolder: exportFolderInput.value.trim() || undefined,
       // Absent means "do nothing", so the default never has to be stored.
       exportAfter:
@@ -931,6 +960,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   codeFontInput.addEventListener('change', () => emit({}))
   converterPathInput.addEventListener('change', () => emit({}))
   autoSaveDelayInput.addEventListener('change', () => emit({}))
+  listIndentInput.addEventListener('change', () => emit({}))
   for (const input of [
     autoSaveCheck,
     typewriterCheck,
@@ -949,6 +979,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     exportOutlineCheck,
     firstLineIndentCheck,
     codeBlockWrapCheck,
+    preserveLineBreaksCheck,
     smartQuotesCheck,
     smartDashesCheck,
     pairedSymbolsCheck,

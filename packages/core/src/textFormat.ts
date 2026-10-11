@@ -537,6 +537,16 @@ export function headingLevelEdit(
 
 export type ListIndentStep = 'in' | 'out'
 
+/** 默认缩进的允许范围 — beyond this a stray config value stops being an indent. */
+const MIN_INDENT = 1
+const MAX_INDENT = 8
+
+/** Clamp 默认缩进 to something that is still an indent. */
+export function clampIndentSize(size: unknown): number {
+  if (typeof size !== 'number' || !Number.isFinite(size)) return 2
+  return Math.min(Math.max(Math.round(size), MIN_INDENT), MAX_INDENT)
+}
+
 /**
  * Split off any leading `>` run so an indent lands *inside* a blockquote
  * instead of turning the quote itself into an indented block.
@@ -550,15 +560,19 @@ export function listIndentEdit(
   markdown: string,
   range: TextRange,
   step: ListIndentStep,
+  /** 默认缩进 — spaces per level. Defaults to 2, clamped to 1–8. */
+  indentSize = 2,
 ): TextEdit | null {
+  const size = clampIndentSize(indentSize)
+  const indentRe = new RegExp(`^[ \\t]{1,${size}}`)
   const sel = selectLines(markdown, range)
   if (!sel) return null
   return rewriteLines(sel, sel.first, sel.last, (parts, line) => {
     // 列表缩进 only means something on a list item.
     if (!parts.bullet && !parts.ordered) return null
     const { prefix, rest } = splitQuotePrefix(line)
-    if (step === 'in') return `${prefix}  ${rest}`
-    const indent = /^[ \t]{1,2}/.exec(rest)?.[0]
+    if (step === 'in') return `${prefix}${' '.repeat(size)}${rest}`
+    const indent = indentRe.exec(rest)?.[0]
     if (indent) return prefix + rest.slice(indent.length)
     // Nothing left to outdent, so the item leaves the list — Typora turns it
     // into a paragraph here rather than quietly doing nothing.
@@ -709,4 +723,60 @@ export function lineEdge(markdown: string, offset: number, edge: 'start' | 'end'
   const line = lineRangeAt(markdown, offset)
   if (!line) return { from: 0, to: 0 }
   return edge === 'start' ? { from: line.from, to: line.from } : { from: line.to, to: line.to }
+}
+
+// ── 删除块 / 在上下方插入段落 ──────────────────────────────────────────────
+
+/**
+ * 删除块 — remove the paragraph (or the whole block) the range sits in.
+ *
+ * One adjacent separator goes with it. Deleting only the text would leave the
+ * blank line that separated it from its neighbour, so repeatedly deleting blocks
+ * would grow a gap instead of shrinking the document.
+ */
+export function deleteBlockEdit(markdown: string, range: TextRange): TextEdit | null {
+  const block = selectScope(markdown, range.from, 'block')
+  if (!block) return null
+  // The block scope never includes its trailing newline; take one separator.
+  const afterEnd = block.to
+  const trailing = markdown.slice(afterEnd).match(/^\n\n/)
+  if (trailing) {
+    return { range: { from: block.from, to: afterEnd + trailing[0].length }, text: '', caret: block.from }
+  }
+  const leading = markdown.slice(0, block.from).match(/\n\n$/)
+  if (leading) {
+    return { range: { from: block.from - leading[0].length, to: block.to }, text: '', caret: block.from - leading[0].length }
+  }
+  // The only block in the document: it goes, and a blank paragraph remains so the
+  // caret has somewhere to be.
+  return { range: { from: block.from, to: block.to }, text: '', caret: block.from }
+}
+
+/**
+ * 在上方 / 下方插入段落 — open a new empty paragraph next to the one at `range`.
+ *
+ * Markdown has no empty paragraph, so "a new paragraph" means one more blank
+ * line; the caret lands on it so typing goes straight into the new block.
+ */
+export function insertParagraphEdit(
+  markdown: string,
+  range: TextRange,
+  where: 'before' | 'after',
+): TextEdit | null {
+  const block = selectScope(markdown, range.from, 'block')
+  if (!block) return null
+  if (where === 'before') {
+    if (block.from === 0) {
+      // Nothing above, so both newlines are the new paragraph's own separator.
+      return { range: { from: 0, to: 0 }, text: '\n\n', caret: 1 }
+    }
+    // A block always has a separator above it; one more newline opens the empty
+    // paragraph between them.
+    return { range: { from: block.from, to: block.from }, text: '\n', caret: block.from + 1 }
+  }
+  const at = block.to
+  // A block is followed by either a blank line or the end of the document, so
+  // only the latter still needs the separator written.
+  const text = at >= markdown.length ? '\n\n' : '\n'
+  return { range: { from: at, to: at }, text, caret: at + 1 }
 }

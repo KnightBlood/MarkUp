@@ -717,6 +717,52 @@ Check-Needle 'codewrap :: shell sets it' "$root\packages\ui\src\shell.ts" "'--mk
 Check-Needle 'codewrap :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'代码块自动换行'" -Literal
 Check-Needle 'codewrap :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'code_block_wrap: Option<bool>' -Literal
 Check-Needle 'codewrap :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"codeBlockWrap,omitempty"' -Literal
+
+# --- 文件树 / 文件库（列表）---
+# The 文件 tab was already a *flat list*, so the unimplemented half was the tree,
+# not the list. Directories in the derived tree exist only because a markdown
+# file is below them — inventing an empty folder would show something that
+# cannot be opened to anything.
+Check-Needle 'filetree :: deriver' "$root\packages\ui\src\workspace.ts" 'export function buildFileTree(' -Literal
+Check-Needle 'filetree :: dirs sort before files' "$root\packages\ui\src\workspace.ts" "if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1" -Literal
+Check-Needle 'filetree :: sidebar branch' "$root\packages\ui\src\ui\sidebar.ts" 'renderTreeNodes(buildFileTree(workspace.root, workspace.files), 0)' -Literal
+Check-Needle 'filetree :: toggle' "$root\packages\ui\src\ui\sidebar.ts" "class: 'sidebar__view-toggle'," -Literal
+Check-Needle 'filetree :: styles' "$root\packages\ui\src\theme\shell.css" '.file-tree__dir {' -Literal
+
+# --- 默认缩进（引用/列表）---
+# Clamped rather than trusted: a stray config value would otherwise indent by a
+# negative or absurd amount, and the outdent side has to remove as much *as
+# configured* — a fixed two leaves a 4-space level half-outdented forever.
+Check-Needle 'indentsize :: clamp' "$root\packages\core\src\textFormat.ts" 'export function clampIndentSize(' -Literal
+Check-Needle 'indentsize :: outdent follows the setting' "$root\packages\core\src\textFormat.ts" 'const indentRe = new RegExp(' -Literal
+Check-Needle 'indentsize :: shell passes it' "$root\packages\ui\src\shell.ts" 'appearance.listIndentSize ?? 2' -Literal
+Check-Needle 'indentsize :: config field' "$root\packages\host-api\src\types.ts" 'listIndentSize?: number' -Literal
+Check-Needle 'indentsize :: settings input' "$root\packages\ui\src\ui\settings.ts" "'默认缩进（空格数，1–8）'" -Literal
+Check-Needle 'indentsize :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'list_indent_size: Option<u8>' -Literal
+Check-Needle 'indentsize :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"listIndentSize,omitempty"' -Literal
+
+# --- 保留单换行符 ---
+# remark-parse keeps a soft break as a literal `\n` inside the text node, so this
+# is a matter of splitting those nodes. Code blocks are untouched *by
+# construction*: their newlines live in `code.value`, not in a text node.
+Check-Needle 'linebreaks :: mdast transform' "$root\packages\core\src\pipeline.ts" 'function applyLineBreaks(' -Literal
+Check-Needle 'linebreaks :: runs before transform' "$root\packages\core\src\pipeline.ts" 'if (options.preserveLineBreaks) applyLineBreaks(tree)' -Literal
+Check-Needle 'linebreaks :: config maps onto options' "$root\packages\core\src\pipeline.ts" 'preserveLineBreaks: config.preserveLineBreaks === true' -Literal
+Check-Needle 'linebreaks :: config field' "$root\packages\host-api\src\types.ts" 'preserveLineBreaks?: boolean' -Literal
+Check-Needle 'linebreaks :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'保留单换行符（段落内换行渲染为换行）'" -Literal
+Check-Needle 'linebreaks :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'preserve_line_breaks: Option<bool>' -Literal
+Check-Needle 'linebreaks :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"preserveLineBreaks,omitempty"' -Literal
+
+# --- 删除块 / 在上下方插入段落 ---
+# 删除块 takes one separator with it: deleting only the text would leave the
+# blank line behind, so repeatedly deleting blocks would grow a gap instead of
+# shrinking the document.
+Check-Needle 'blockops :: delete' "$root\packages\core\src\textFormat.ts" 'export function deleteBlockEdit(' -Literal
+Check-Needle 'blockops :: delete takes a separator' "$root\packages\core\src\textFormat.ts" 'const trailing = markdown.slice(afterEnd).match(/^\n\n/)' -Literal
+# Markdown has no empty paragraph, so "a new paragraph" is one more blank line.
+Check-Needle 'blockops :: insert paragraph' "$root\packages\core\src\textFormat.ts" 'export function insertParagraphEdit(' -Literal
+Check-Needle 'blockops :: commands registered' "$root\packages\ui\src\shell.ts" "id: 'format.deleteBlock'," -Literal
+Check-Needle 'blockops :: menu entries' "$root\packages\host-api\src\menu.json" 'format.insertParagraphAfter' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal

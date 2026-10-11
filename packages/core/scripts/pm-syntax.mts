@@ -204,4 +204,25 @@ assert(!noHeads.includes('[TOC]'), 'the marker is consumed even with no headings
 const inline = await render('see [TOC] for the outline')
 assert(inline.includes('[TOC]'), 'only a marker-only paragraph expands')
 
+// ---- 保留单换行符 ----------------------------------------------------------
+// Off (the default): a single newline inside a paragraph renders as a space,
+// which is CommonMark. On: it becomes a hard break.
+{
+  const md = '第一行\n第二行'
+  const off = await render(md)
+  assert(!off.includes('<br'), 'off leaves a soft break soft')
+  assert(off.includes('第一行') && off.includes('第二行'), 'and keeps both lines')
+  const on = await render(md, createSharedPipeline({ preserveLineBreaks: true }))
+  assert(on.includes('<br'), 'on turns it into a hard break')
+  assert(on.includes('第一行<br') || on.includes('第一行\n<br'), 'placed between the two lines')
+  // A code block's newlines are its *content* — they must stay untouched, or the
+  // code would be rewritten into something that no longer runs.
+  const code = await render('```\na\nb\n```', createSharedPipeline({ preserveLineBreaks: true }))
+  assert(!code.includes('<br'), 'code blocks are not converted')
+  assert(code.includes('a\nb'), 'and their newlines survive verbatim')
+  // A blank line is a paragraph break, not a line break.
+  const paras = await render('一段\n\n二段', createSharedPipeline({ preserveLineBreaks: true }))
+  assert((paras.match(/<p>/g) ?? []).length === 2, 'a blank line still separates paragraphs')
+}
+
 console.log('SMOKE CORE MARKDOWN SYNTAX OK: sub/sup/highlight/underline + alerts + overtype hook')

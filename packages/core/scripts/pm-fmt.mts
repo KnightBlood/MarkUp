@@ -11,6 +11,9 @@ const {
   headingLevelAt,
   stepHeadingLevel,
   listIndentEdit,
+  clampIndentSize,
+  deleteBlockEdit,
+  insertParagraphEdit,
   taskStatusEdit,
 } = await import('../src/textFormat')
 
@@ -238,6 +241,46 @@ const find = (md: string, needle: string, from = 0): number => {
   )
 }
 
+// ── 删除块 / 在上下方插入段落 ──────────────────────────────────────────────
+{
+  const del = (md: string, at: number): string | null => {
+    const edit = deleteBlockEdit(md, { from: at, to: at })
+    return edit ? apply(md, edit).md : null
+  }
+  const ins = (md: string, at: number, where: 'before' | 'after'): string | null => {
+    const edit = insertParagraphEdit(md, { from: at, to: at }, where)
+    return edit ? apply(md, edit).md : null
+  }
+
+  // 删除块 takes one separator with it: otherwise every delete would leave the
+  // blank line behind and the document would grow a gap instead of shrinking.
+  assert(del('one\n\ntwo\n\nthree', 0) === 'two\n\nthree', 'deletes the first block and its gap')
+  assert(del('one\n\ntwo\n\nthree', 6) === 'one\n\nthree', 'deletes a middle block')
+  assert(del('one\n\ntwo', 6) === 'one', 'deletes the last block off the end')
+  // A multi-line paragraph goes as a whole.
+  assert(del('a\nb\n\nc', 2) === 'c', 'a wrapped paragraph is one block')
+  // The only block: it goes, and an empty line is left for the caret.
+  assert(del('only', 0) === '', 'the last remaining block is removed')
+  assert(deleteBlockEdit('', 0) === null, 'an empty document has no block')
+
+  // 在上方/下方插入段落 opens an empty paragraph — in markdown that is one more
+  // blank line, and the caret lands on it so typing goes into the new block.
+  assert(ins('one\n\ntwo', 0, 'before') === '\n\none\n\ntwo', 'before, at the top of the doc')
+  assert(ins('one\n\ntwo', 6, 'before') === 'one\n\n\ntwo', 'before, with a separator already there')
+  assert(ins('one\n\ntwo', 0, 'after') === 'one\n\n\ntwo', 'after')
+  assert(ins('one', 0, 'after') === 'one\n\n', 'after needs both newlines at the end')
+  assert(ins('one', 0, 'before') === '\n\none', 'before needs both at the top')
+  assert(insertParagraphEdit('', 0, 'after') === null, 'nothing to insert next to')
+
+  // Insert adds one separator and delete takes one, but they are not inverses:
+  // the empty paragraph the insert opened is a *paragraph*, so deleting the
+  // block next to it leaves that separator behind rather than removing both.
+  const md = 'one\n\ntwo'
+  const added = ins(md, 0, 'after')!
+  assert(added === 'one\n\n\ntwo', `inserted: ${JSON.stringify(added)}`)
+  assert(del(added, 0) === '\ntwo', `delete takes one separator, leaving the empty one: ${JSON.stringify(del(added, 0))}`)
+}
+
 // ── selection bounds helper ─────────────────────────────────────────────
 {
   const md = 'one\ntwo\nthree'
@@ -295,6 +338,31 @@ const find = (md: string, needle: string, from = 0): number => {
   // Past level 0 there is nothing to outdent, so the item leaves the list.
   assert(outdent('- item') === 'item', '减少缩进 past level 0 makes it a paragraph')
   assert(outdent('plain') === null, '减少缩进 ignores non-list lines')
+
+  // ---- 默认缩进（可配置，1–8）----
+  {
+    const indentWith = (md: string, size: number): string | null => {
+      const edit = listIndentEdit(md, { from: 0, to: 0 }, 'in', size)
+      return edit ? apply(md, edit).md : null
+    }
+    const outdentWith = (md: string, size: number): string | null => {
+      const edit = listIndentEdit(md, { from: 0, to: 0 }, 'out', size)
+      return edit ? apply(md, edit).md : null
+    }
+    assert(indentWith('- item', 2) === '  - item', 'the default is 2 spaces')
+    assert(indentWith('- item', 4) === '    - item', '4 spaces when configured')
+    assert(indentWith('- item', 1) === ' - item', '1 space is allowed')
+    // Outdent removes as much *as configured*, not a fixed two.
+    assert(outdentWith('    - item', 4) === '- item', 'outdent removes a full 4-space level')
+    assert(outdentWith('  - item', 4) === '- item', 'and a partial one without over-reaching')
+    // A nonsense config value must not produce a nonsense indent.
+    assert(clampIndentSize(0) === 1, 'zero clamps up')
+    assert(clampIndentSize(99) === 8, 'and a huge value clamps down')
+    assert(clampIndentSize(-3) === 1, 'negatives clamp up')
+    assert(clampIndentSize(Number.NaN) === 2, 'NaN falls back to the default')
+    assert(clampIndentSize('4') === 2, 'a non-number falls back too')
+    assert(clampIndentSize(3.6) === 4, 'fractions round')
+  }
 
   // 任务状态 applies to the whole list, like Typora, not just the caret line.
   const tasks = '- [ ] a\n- [x] b\n- [ ] c'

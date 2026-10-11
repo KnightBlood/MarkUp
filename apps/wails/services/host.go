@@ -77,6 +77,8 @@ type AppConfig struct {
 	OutlineMaxLevel       *int    `json:"outlineMaxLevel,omitempty"`
 	FirstLineIndent       *bool   `json:"firstLineIndent,omitempty"`
 	CodeBlockWrap         *bool   `json:"codeBlockWrap,omitempty"`
+	ListIndentSize        *int    `json:"listIndentSize,omitempty"`
+	PreserveLineBreaks    *bool   `json:"preserveLineBreaks,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

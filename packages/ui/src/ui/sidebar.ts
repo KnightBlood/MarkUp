@@ -2,6 +2,7 @@ import { getHost } from '@markup/host-api'
 import type { Anchor } from '@markup/core'
 import { el } from '../dom'
 import { extractOutline, filterOutlineLevel, type OutlineItem } from '../outline'
+import { buildFileTree, type FileTreeNode } from '../workspace'
 import type { ContextMenuItem } from './contextMenu'
 import {
   basename,
@@ -96,6 +97,21 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
 
   const fileList = el('ul', { class: 'file-tree' })
   const workspaceLabel = el('div', { class: 'sidebar__workspace', hidden: true })
+  // 文件树 / 文件库: the same paths, grouped or flat. In-memory only — how you are
+  // browsing this session, not a property of the workspace.
+  let treeMode = false
+  const viewToggleBtn = el('button', {
+    class: 'sidebar__view-toggle',
+    type: 'button',
+    text: '树',
+    title: '切换列表 / 树',
+  })
+  viewToggleBtn.addEventListener('click', () => {
+    treeMode = !treeMode
+    viewToggleBtn.textContent = treeMode ? '列表' : '树'
+    viewToggleBtn.classList.toggle('is-active', treeMode)
+    refreshWorkspaceFiles()
+  })
   // 打开入口收敛到菜单栏（文件▸）与面板空白区右键，顶部不再放两个按钮。
   const openFileWithPicker = (): void => {
     void (async () => {
@@ -106,7 +122,7 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
   const openFolderWithPicker = (): void => {
     void handlers.onOpenFolder()
   }
-  const filePanel = el('div', { class: 'sidebar__panel' }, workspaceLabel, fileList)
+  const filePanel = el('div', { class: 'sidebar__panel' }, workspaceLabel, viewToggleBtn, fileList)
 
   const outlineList = el('ul', { class: 'outline' })
   const outlinePanel = el('div', { class: 'sidebar__panel', hidden: true }, outlineList)
@@ -173,6 +189,39 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
   /** Absolute path of the document the tree should mark as open. */
   let activePath: string | null = null
 
+  /**
+   * Render a level of the file tree. Directories become a labelled row plus a
+   * nested list rather than a twisty: the tree exists to show structure at a
+   * glance, and collapsing every folder by default would hide exactly that.
+   */
+  const renderTreeNodes = (nodes: FileTreeNode[], depth: number): HTMLElement[] =>
+    nodes.map((node) =>
+      node.kind === 'dir'
+        ? el(
+            'li',
+            {},
+            el('div', {
+              class: 'file-tree__dir',
+              text: node.name,
+              title: node.path,
+              style: `padding-left: ${8 + depth * 12}px`,
+            }),
+            el('ul', { class: 'file-tree__group' }, ...renderTreeNodes(node.children, depth + 1)),
+          )
+        : el(
+            'li',
+            {},
+            el('button', {
+              class: `file-tree__recent${node.path === activePath ? ' is-active' : ''}`,
+              type: 'button',
+              text: node.name,
+              title: node.path,
+              style: `padding-left: ${8 + depth * 12}px`,
+              onclick: () => openWorkspaceFile(node.path),
+            }),
+          ),
+    )
+
   const refreshWorkspaceFiles = (): void => {
     const workspace = handlers.getWorkspace()
     if (!workspace.root) {
@@ -189,6 +238,10 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
       fileList.replaceChildren(
         el('li', { class: 'file-tree__empty', text: '工作区内暂无 Markdown 文件' }),
       )
+      return
+    }
+    if (treeMode) {
+      fileList.replaceChildren(...renderTreeNodes(buildFileTree(workspace.root, workspace.files), 0))
       return
     }
     fileList.replaceChildren(

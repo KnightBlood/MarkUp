@@ -12,8 +12,10 @@ import {
   exportHtmlDocument,
   exportOptionsFromConfig,
   fileToDataUrl,
+  deleteBlockEdit,
   filterPaths,
   formatTableSource,
+  insertParagraphEdit,
   parseGlobList,
   stripHtmlFormatting,
   headingLevelAt,
@@ -1707,10 +1709,11 @@ export function renderShell(): ShellHandle {
   }
 
   const applyListIndent = (step: ListIndentStep): void => {
+    const size = appearance.listIndentSize ?? 2
     // Prefer the view's own command — nesting a list is a structure change the
     // markdown-text rewrite cannot express in the wysiwyg view.
     if (editor.setListIndent?.(step)) return
-    applyTextEdit(listIndentEdit(editor.getMarkdown(), selectionRange(), step))
+    applyTextEdit(listIndentEdit(editor.getMarkdown(), selectionRange(), step, size))
   }
 
   const applyTaskStatus = (status: TaskStatus): void => {
@@ -2515,6 +2518,21 @@ export function renderShell(): ShellHandle {
     // Aligns the columns of the table the caret is in, in the source text. Only
     // the *source* can be aligned; the rendered table is already aligned by CSS.
     run: () => applyTextEdit(formatTableSource(editor.getMarkdown(), selectionRange())),
+  })
+  registry.register({
+    id: 'format.deleteBlock',
+    label: '删除块',
+    run: () => applyTextEdit(deleteBlockEdit(editor.getMarkdown(), selectionRange())),
+  })
+  registry.register({
+    id: 'format.insertParagraphBefore',
+    label: '在上方插入段落',
+    run: () => applyTextEdit(insertParagraphEdit(editor.getMarkdown(), selectionRange(), 'before')),
+  })
+  registry.register({
+    id: 'format.insertParagraphAfter',
+    label: '在下方插入段落',
+    run: () => applyTextEdit(insertParagraphEdit(editor.getMarkdown(), selectionRange(), 'after')),
   })
   registry.register({
     id: 'format.headingUp',

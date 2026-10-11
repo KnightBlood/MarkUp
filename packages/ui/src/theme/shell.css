@@ -1377,6 +1377,41 @@ body {
   text-indent: var(--mk-first-line-indent, 0px);
 }
 
+.file-tree__dir {
+  padding: 3px 8px;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree__group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 文件树 / 文件库 toggle, sitting with the workspace label. */
+.sidebar__view-toggle {
+  margin: 0 6px 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sidebar__view-toggle:hover,
+.sidebar__view-toggle.is-active {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+
 .settings__field--off {
   display: none;
 }

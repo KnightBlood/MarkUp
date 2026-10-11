@@ -55,6 +55,12 @@ export interface PipelineOptions {
   alerts?: boolean
   /** GFM bare-URL autolinks. */
   autoLink?: boolean
+  /**
+   * 保留单换行符 — a single newline inside a paragraph becomes a hard break
+   * instead of a space. Applies wherever the pipeline renders (export, split
+   * view), so the document reads the same way in all of them.
+   */
+  preserveLineBreaks?: boolean
 }
 
 interface MdastNode {
@@ -224,6 +230,34 @@ function isAutoLink(node: MdastNode): boolean {
   return Array.isArray(className) && className.includes('auto')
 }
 
+/**
+ * 保留单换行符 — turn soft line breaks inside a paragraph into hard breaks.
+ *
+ * `remark-parse` keeps a soft break as a literal `\n` inside the text node (the
+ * HTML step is what normally turns it into a space), so this is a matter of
+ * splitting those nodes. Code blocks are untouched by construction: their
+ * newlines live in `code.value`, not in a text node, and a code block's line
+ * breaks are its content rather than formatting.
+ */
+function applyLineBreaks(parent: MdastNode): void {
+  if (!parent.children) return
+  const next: MdastNode[] = []
+  for (const child of parent.children) {
+    if (child.type === 'text' && child.value?.includes('\n')) {
+      child.value.split('\n').forEach((part, index) => {
+        if (index > 0) next.push({ type: 'break' })
+        // An empty part would render as nothing; skip it rather than emit a
+        // text node with no content.
+        if (part) next.push({ type: 'text', value: part })
+      })
+      continue
+    }
+    applyLineBreaks(child)
+    next.push(child)
+  }
+  parent.children = next
+}
+
 function transform(parent: MdastNode, ctx: TransformCtx): void {
   if (!parent.children) return
   const next: MdastNode[] = []
@@ -303,6 +337,9 @@ export function createSharedPipeline(options: PipelineOptions = {}): Pipeline {
         .use(remarkMath, options.inlineMath === false ? { singleDollarTextMath: false } : {})
         .use(() => (tree: MdastNode) => {
           collectToc(tree, ctx)
+          // Before `transform`, so the `break` nodes are already in place when
+          // the html/auto-link passes walk the tree.
+          if (options.preserveLineBreaks) applyLineBreaks(tree)
           transform(tree, ctx)
         })
         .use(remarkRehype, { allowDangerousHtml: true })
@@ -333,5 +370,6 @@ export function pipelineOptionsFromConfig(config?: AppConfig): PipelineOptions {
     diagrams: config.mdDiagrams,
     alerts: config.mdAlerts,
     autoLink: config.mdAutoLink,
+    preserveLineBreaks: config.preserveLineBreaks === true,
   }
 }

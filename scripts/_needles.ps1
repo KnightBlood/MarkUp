@@ -342,6 +342,42 @@ Check-Needle 'plantuml :: core smoke wired' "$root\packages\core\package.json" '
 Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s-plantuml.mts' -Literal
 Check-Needle 'mdsyntax :: core smoke wired' "$root\packages\core\package.json" 'pm-syntax.mts' -Literal
 
+# --- 图像 ▸ 插入图片时 (image persistence: inline data URL or a copy on disk) ---
+# One resolver decides where the bytes go, so the three views cannot drift; and
+# `writeBase64`/`mkdirp` must exist together in every host that can write at all
+# (web deliberately has neither, which is what keeps its images inline).
+Check-Needle 'imagepersist :: resolver' "$root\packages\core\src\imagePersist.ts" 'export async function resolveImageInsert(' -Literal
+Check-Needle 'imagepersist :: five copy modes' "$root\packages\host-api\src\types.ts" "export const IMAGE_COPY_MODES" -Literal
+# `export *` cannot carry a runtime value through the CJS interop the smokes run
+# on, so this named re-export is load-bearing, not decoration.
+Check-Needle 'imagepersist :: value re-exported by name' "$root\packages\host-api\src\index.ts" "export { IMAGE_COPY_MODES } from './types'" -Literal
+Check-Needle 'imagepersist :: config maps onto options' "$root\packages\core\src\imagePersist.ts" 'export function imagePersistOptionsFromConfig' -Literal
+Check-Needle 'imagepersist :: ${filename} substitution' "$root\packages\core\src\imagePersist.ts" 'export function substitute(' -Literal
+# The five targets live on the host-api side so the settings panel can render the
+# radio group without dragging core (and its CSS) into a host context.
+Check-Absent 'imagepersist :: settings does not import core' "$root\packages\ui\src\ui\settings.ts" "from '@markup/core'"
+Check-Needle 'imagepersist :: host API (write bytes)' "$root\packages\host-api\src\types.ts" 'writeBase64?(path: string, dataUrl: string): Promise<void>' -Literal
+Check-Needle 'imagepersist :: host API (mkdir -p)' "$root\packages\host-api\src\types.ts" 'mkdirp?(dir: string): Promise<void>' -Literal
+Check-Needle 'imagepersist :: capability pairing verified' "$root\packages\host-api\src\verify.ts" 'required alongside fs.writeBase64' -Literal
+# The view no longer reads the File — it splices a resolved {alt, url}.
+Check-Needle 'imagepersist :: view contract' "$root\packages\core\src\adapters\types.ts" 'insertImage?(image: InsertedImage): boolean' -Literal
+Check-Needle 'imagepersist :: wysiwyg splices it' "$root\packages\core\src\adapters\wysiwyg.ts" 'insertImage(image: InsertedImage): boolean' -Literal
+Check-Needle 'imagepersist :: source splices it' "$root\packages\core\src\adapters\source.ts" 'insertImage(image: InsertedImage): boolean' -Literal
+Check-Needle 'imagepersist :: hybrid splices it' "$root\packages\core\src\adapters\hybrid.ts" 'insertImage(image: InsertedImage): boolean' -Literal
+Check-Needle 'imagepersist :: shell owns the decision' "$root\packages\ui\src\shell.ts" 'const persistImage = async (' -Literal
+Check-Needle 'imagepersist :: pane routes through it' "$root\packages\ui\src\ui\editor.ts" 'hooks.persistImage?.(file, source)' -Literal
+Check-Needle 'imagepersist :: settings radio group' "$root\packages\ui\src\ui\settings.ts" "'image-copy-mode'" -Literal
+Check-Needle 'imagepersist :: settings hides the path row by class' "$root\packages\ui\src\ui\settings.ts" "'settings__field--off'" -Literal
+Check-Needle 'imagepersist :: electron writeBase64' "$root\apps\electron\shared\ipc.ts" 'fsWriteBase64' -Literal
+Check-Needle 'imagepersist :: tauri writeBase64' "$root\apps\tauri\src-tauri\src\lib.rs" 'async fn write_base64(' -Literal
+Check-Needle 'imagepersist :: tauri mkdirp' "$root\apps\tauri\src-tauri\src\lib.rs" 'async fn mkdirp(' -Literal
+Check-Needle 'imagepersist :: wails writeBase64' "$root\apps\wails\services\host.go" 'func (s *HostService) WriteBase64(' -Literal
+Check-Needle 'imagepersist :: electrobun writeBase64' "$root\apps\electrobun\shared\rpc.ts" 'fsWriteBase64' -Literal
+Check-Needle 'imagepersist :: web has neither, on purpose' "$root\apps\web\src\main.ts" 'deliberately absent, not forgotten' -Literal
+Check-Needle 'imagepersist :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'image_copy_mode: Option<String>' -Literal
+Check-Needle 'imagepersist :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"imageCopyMode,omitempty"' -Literal
+Check-Needle 'imagepersist :: core smoke wired' "$root\packages\core\package.json" 'pm-imgpersist.mts' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

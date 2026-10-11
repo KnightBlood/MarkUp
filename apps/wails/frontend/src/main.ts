@@ -31,6 +31,9 @@ function createWailsHost(): HostAPI {
       write: (path: string, content: string): Promise<void> => Call.ByName(`${HOST}.WriteFile`, path, content),
       readDir: (path: string): Promise<DirEntry[]> => Call.ByName(`${HOST}.ReadDir`, path),
       readBase64: (path: string): Promise<string> => Call.ByName(`${HOST}.ReadBase64`, path),
+      writeBase64: (path: string, dataUrl: string): Promise<void> =>
+        Call.ByName(`${HOST}.WriteBase64`, path, dataUrl),
+      mkdirp: (dir: string): Promise<void> => Call.ByName(`${HOST}.Mkdirp`, dir),
       watch: (path: string, listener: (event: FsEvent) => void): (() => void) => {
         // Go polls the directory (services.HostService.Watch) and emits fs-changed.
         void Call.ByName(`${HOST}.Watch`, path).catch((error) => {

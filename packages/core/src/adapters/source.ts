@@ -6,24 +6,12 @@ import {
   type PlantumlTarget,
 } from '../plantumlEditBridge'
 import {
-  imageAltText,
-  isImageFile,
+  type InsertedImage,
   type Anchor,
   type InsertMarkdownOptions,
   type LineAt,
   type ViewAdapter,
 } from './types'
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => resolve(String(reader.result ?? '')), { once: true })
-    reader.addEventListener('error', () => reject(reader.error ?? new Error('read failed')), {
-      once: true,
-    })
-    reader.readAsDataURL(file)
-  })
-}
 
 const decodeEntities = (text: string): string =>
   text
@@ -255,14 +243,12 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       onChange?.(next)
     },
 
-    async insertImage(file: File): Promise<boolean> {
-      if (!isImageFile(file)) return false
-      const dataUrl = await readFileAsDataUrl(file)
+    insertImage(image: InsertedImage): boolean {
       const textarea = instance?.textarea
       if (!textarea) return false
       const start = textarea.selectionStart ?? value.length
       const end = textarea.selectionEnd ?? start
-      const md = `![${imageAltText(file)}](${dataUrl})`
+      const md = `![${image.alt}](${image.url})`
       const next = value.slice(0, start) + md + value.slice(end)
       value = next
       instance?.setValue(next)

@@ -41,6 +41,9 @@ let lineNumbers = false
 let showStats = true
 let focusMode = false
 let imagePaste = true
+let imageCopyMode: string | undefined
+let imageCopyCustomPath: string | undefined
+let imagePreferRelative: boolean | undefined
 let mdSubscript = true
 let spellcheck = false
 let restoreSession = true
@@ -59,6 +62,9 @@ const settings = createSettings({
     showStats,
     focusMode,
     imagePaste,
+    imageCopyMode,
+    imageCopyCustomPath,
+    imagePreferRelative,
     mdSubscript,
     spellcheck,
     restoreSession,
@@ -75,6 +81,9 @@ const settings = createSettings({
     showStats = next.showStats !== false
     focusMode = next.focusMode === true
     imagePaste = next.imagePaste !== false
+    imageCopyMode = next.imageCopyMode
+    imageCopyCustomPath = next.imageCopyCustomPath
+    imagePreferRelative = next.imagePreferRelative
     mdSubscript = next.mdSubscript !== false
     spellcheck = next.spellcheck === true
     restoreSession = next.restoreSession !== false
@@ -174,7 +183,7 @@ mdSubscriptCheck.checked = false
 mdSubscriptCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
 assert(mdSubscript === false, 'mdSubscript emitted')
 
-// ---- 图像：插入图片时 -----------------------------------------------------
+// ---- 图像：粘贴图片 / 插入图片时 ------------------------------------------
 settings.setTab('image')
 const imagePasteCheck = settings.el.querySelector<HTMLInputElement>(
   '[data-tab-panel="image"] input[type="checkbox"]',
@@ -183,6 +192,57 @@ assert(imagePasteCheck, 'imagePaste checkbox exists')
 imagePasteCheck.checked = false
 imagePasteCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
 assert(imagePaste === false, 'imagePaste emitted')
+
+// Typora「插入图片时」—— five mutually exclusive targets, in Typora's order.
+const modeRadios = [
+  ...settings.el.querySelectorAll<HTMLInputElement>('[data-tab-panel="image"] input[type="radio"]'),
+]
+assert(modeRadios.length === 5, `image copy mode radios: ${modeRadios.length}`)
+assert(
+  modeRadios.every((radio) => radio.name === 'image-copy-mode'),
+  'the five targets share one radio group',
+)
+assert(modeRadios[0]?.checked, '无特殊操作 is the default — nothing is copied')
+// The 目标路径 row is dead weight until 复制到指定路径 is chosen.
+const customPathInput = settings.el.querySelector<HTMLInputElement>(
+  '[data-section="image-insert"] input[type="text"]',
+)
+assert(customPathInput, 'custom path input exists')
+const offClass = 'settings__field--off'
+const customRowOff = (): boolean => customPathInput.closest('label')!.classList.contains(offClass)
+assert(customRowOff(), 'path row hidden by default')
+modeRadios[4]!.checked = true
+modeRadios[4]!.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(imageCopyMode === 'custom', `custom mode emitted: ${imageCopyMode}`)
+assert(!customRowOff(), 'path row revealed for 复制到指定路径')
+customPathInput.value = './${filename}.img'
+customPathInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(imageCopyCustomPath === './${filename}.img', `custom path emitted: ${imageCopyCustomPath}`)
+// Back to a preset: the row must collapse again, or a stale path lingers on screen.
+modeRadios[2]!.checked = true
+modeRadios[2]!.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(imageCopyMode === 'assets', `assets mode emitted: ${imageCopyMode}`)
+assert(customRowOff(), 'path row hidden again')
+// The search writes `hidden` on every field; that must not uncover the row.
+const searchBox = settings.el.querySelector<HTMLInputElement>('.settings__search')
+assert(searchBox, 'settings search exists')
+searchBox.value = '目标路径'
+searchBox.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+assert(customRowOff(), 'searching must not reveal the conditional row')
+searchBox.value = ''
+searchBox.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+assert(customRowOff(), 'clearing the search must not reveal it either')
+
+const optionChecks = [
+  ...settings.el.querySelectorAll<HTMLInputElement>('[data-section="image-insert"] input[type="checkbox"]'),
+]
+assert(optionChecks.length === 4, `image option checkboxes: ${optionChecks.length}`)
+// 优先使用相对路径 ships on (Typora's default); the rest ship off.
+assert(optionChecks[0]?.checked, '优先使用相对路径 defaults to on')
+assert(!optionChecks[1]?.checked && !optionChecks[2]?.checked, 'dot-prefix and escaping default to off')
+optionChecks[0]!.checked = false
+optionChecks[0]!.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(imagePreferRelative === false, 'imagePreferRelative emitted')
 
 // ---- 导出：转换器路径 -----------------------------------------------------
 registry.run('settings.export')

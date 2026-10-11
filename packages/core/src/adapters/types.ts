@@ -21,6 +21,19 @@ export function imageAltText(file: { name?: string }): string {
   return (file.name || 'image').replace(/[[\]()]/g, '_')
 }
 
+/**
+ * A resolved image ready to splice into the document.
+ *
+ * A view never sees the `File`: deciding where the bytes live (an inline
+ * `data:` URL, or a copy on disk with a relative reference) is Typora's
+ * 「插入图片时」 and belongs to the shell, so all three views get one answer
+ * instead of three drifting ones. See `imagePersist.ts`.
+ */
+export interface InsertedImage {
+  alt: string
+  url: string
+}
+
 export interface Anchor {
   offset: number
   line: number
@@ -87,7 +100,8 @@ export interface ViewAdapter {
   captureAnchor(): Anchor
   restoreAnchor(anchor: Anchor): void
   insertMarkdown?(options: InsertMarkdownOptions): void
-  insertImage?(file: File): Promise<boolean>
+  /** Splice a resolved image in; the shell decided its URL (see `InsertedImage`). */
+  insertImage?(image: InsertedImage): boolean
   insertTable?(rows?: number, cols?: number): void
   /** Run a table edit command (wysiwyg only). False when unsupported/no-op. */
   runTableCommand?(id: TableCommandId): boolean

@@ -5,8 +5,15 @@ import {
   TABLE_COMMAND_LABELS,
   blockFormatEdit,
   exportHtmlDocument,
+  fileToDataUrl,
+  imageAltText,
+  imageNameFor,
+  imagePersistOptionsFromConfig,
+  imageTargetDir,
   inlineFormatEdit,
   linkEdit,
+  pathStyleFor,
+  resolveImageInsert,
   resolvePlantumlTarget,
   setDiagramEditHandler,
   setDiagramEnlargeHandler,
@@ -18,6 +25,7 @@ import {
   pipelineOptionsFromConfig,
   type BlockFormatId,
   type InlineFormatId,
+  type InsertedImage,
   type OpenDoc,
   type PlantumlTarget,
   type TableCommandId,
@@ -219,9 +227,64 @@ export function renderShell(): ShellHandle {
     }
   }
 
+  /**
+   * 图像 ▸ 插入图片时 — where a pasted or picked image goes.
+   *
+   * Lives here rather than inside a view so all three views agree, and so the
+   * answer does not depend on whether the image arrived by paste or by
+   * 插入图片. Returning null means "keep it inline" — which is also what a host
+   * without a writable filesystem (web) gets.
+   */
+  const persistImage = async (
+    file: File,
+    source: 'paste' | 'local',
+  ): Promise<InsertedImage | null> => {
+    const { writeBase64, mkdirp, readDir } = host.fs
+    if (!writeBase64 || !mkdirp) return null
+    // 对本地位置的图片应用上述规则 — a picked file the user deliberately
+    // chose is left where it is unless they asked otherwise. A paste always
+    // goes through the rules: an inline bitmap has no home of its own.
+    if (source === 'local' && appearance.imageApplyLocal === false) return null
+    const docPath = doc.getDocument()?.path || null
+    const options = imagePersistOptionsFromConfig(appearance)
+    const style = pathStyleFor(docPath ?? '')
+    // 无特殊操作 (the default) and an unsaved document both mean "inline".
+    // Bailing before the read matters: base64-encoding a full-screen
+    // screenshot only to throw it away is real work on every paste.
+    if (imageTargetDir(options, docPath, style.sep) === null) return null
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      const { url } = await resolveImageInsert(
+        { dataUrl, name: imageNameFor(file) },
+        options,
+        {
+          mkdirp,
+          writeDataUrl: (path, data) => writeBase64(path, data),
+          // A missing directory just means there is nothing to collide with.
+          listNames: async (dir) => {
+            try {
+              return (await readDir(dir)).map((entry) => entry.name)
+            } catch {
+              return []
+            }
+          },
+          docPath: () => docPath,
+        },
+        style,
+      )
+      return { alt: imageAltText(file), url }
+    } catch (error) {
+      // A host-side failure must not eat the paste — the caller falls back to
+      // the inline data URL, which is still valid markdown.
+      console.error('[markup] 图片落盘失败，改为内联 data URL', error)
+      return null
+    }
+  }
+
   const editor: EditorPaneApi = renderEditorPane(doc, {
     onContentChanged: () => refreshSidePanel?.(),
     onContextMenu: (event, context) => showEditorContextMenu(event, context),
+    persistImage,
   })
 
   const statusbar = createStatusbar({

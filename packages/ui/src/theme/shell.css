@@ -1131,6 +1131,13 @@ body {
   display: none;
 }
 
+/* Conditionally irrelevant rows (e.g. the 目标路径 input until 复制到指定路径 is
+   picked). A class, not `hidden`, so the settings search — which writes
+   `hidden` on every field — cannot reveal it by accident. */
+.settings__field--off {
+  display: none;
+}
+
 .settings__tab[hidden] {
   display: none;
 }
@@ -1197,7 +1204,8 @@ body {
   color: var(--fg-muted);
 }
 
-.settings__check {
+.settings__check,
+.settings__radio {
   width: 14px;
   height: 14px;
   margin: 0;

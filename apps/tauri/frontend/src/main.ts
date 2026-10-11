@@ -28,6 +28,9 @@ function createTauriHost(): HostAPI {
       write: (path: string, content: string): Promise<void> => invoke('write_file', { path, content }),
       readDir: (path: string): Promise<DirEntry[]> => invoke('read_dir', { path }),
       readBase64: (path: string): Promise<string> => invoke('read_base64', { path }),
+      writeBase64: (path: string, dataUrl: string): Promise<void> =>
+        invoke('write_base64', { path, dataUrl }),
+      mkdirp: (dir: string): Promise<void> => invoke('mkdirp', { dir }),
       watch: (path: string, listener: (event: FsEvent) => void): (() => void) => {
         let off: (() => void) | null = null
         void listen<HostMessage>('host-event', (event) => {

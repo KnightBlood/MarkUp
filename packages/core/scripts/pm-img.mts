@@ -44,6 +44,7 @@ console.error = (...args: unknown[]): void => {
 const { createWysiwygAdapter } = await import('../src/adapters/wysiwyg')
 const { createSourceAdapter } = await import('../src/adapters/source')
 const { imageAltText, isImageFile } = await import('../src/adapters/types')
+const { fileToDataUrl } = await import('../src/imagePersist')
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 const waitFor = async (probe: () => unknown, label: string): Promise<void> => {
@@ -74,7 +75,10 @@ await waitFor(() => root.querySelector('.ProseMirror'), 'wysiwyg mount')
 
 {
   const before = errors.length
-  const ok = await wy.insertImage(file)
+  // The adapter no longer reads the `File` — the shell resolves where the bytes
+  // live and hands over `{alt, url}` (see `imagePersist.ts`). So the smoke
+  // performs that step itself and asserts the splice.
+  const ok = wy.insertImage({ alt: 'shot', url: await fileToDataUrl(file) })
   assert(ok, 'insertImage should succeed')
   assert(
     wy.getValue().includes('data:image/png'),

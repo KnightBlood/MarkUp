@@ -4,9 +4,13 @@ import {
   createHybridAdapter,
   createSourceAdapter,
   createWysiwygAdapter,
+  fileToDataUrl,
+  imageAltText,
   isImageFile,
   type Anchor,
   type BlockFormatId,
+  type InsertedImage,
+  type ImageSourceKind,
   type LineAt,
   type TableCommandId,
   type ViewKind,
@@ -28,7 +32,8 @@ export interface EditorPaneApi {
   gotoAnchor(anchor: Anchor): void
   setView(kind: ViewKind): void
   insertMarkdown(markdown: string, caretOffset?: number): void
-  insertImage(file: File): Promise<boolean>
+  /** Resolve `file` through the shell's image rules, then splice it in. */
+  insertImage(file: File, source?: ImageSourceKind): Promise<boolean>
   insertTable(rows?: number, cols?: number): void
   /** Run a wysiwyg table edit command; false when unsupported/guarded/no-op. */
   runTableCommand(id: TableCommandId): boolean
@@ -79,6 +84,12 @@ export function renderEditorPane(
   hooks: {
     onContentChanged?: () => void
     onContextMenu?: (event: MouseEvent, context: EditorContextMenuContext) => void
+    /**
+     * Hand a pasted or picked image to the shell, which applies 图像 ▸
+     * 插入图片时 (copy to disk, relative reference…) and returns the resolved
+     * image. Absent, or resolving to null, keeps the bitmap inline.
+     */
+    persistImage?: (file: File, source: ImageSourceKind) => Promise<InsertedImage | null>
   } = {},
 ): EditorPaneApi {
   const sidebarRefresh = hooks.onContentChanged
@@ -169,7 +180,7 @@ export function renderEditorPane(
     const file = extractImageFile(event)
     if (!file) return
     event.preventDefault()
-    void editorPane.insertImage(file)
+    void editorPane.insertImage(file, 'paste')
   })
 
   const setView = (kind: ViewKind): void => {
@@ -226,10 +237,18 @@ export function renderEditorPane(
       doc.setContent(active.getValue())
       sidebarRefresh?.()
     },
-    insertImage: async (file) => {
+    insertImage: async (file, source = 'local') => {
       const active = sync.getActive()
       if (!active?.insertImage) return false
-      const ok = await active.insertImage(file)
+      // Where the bytes live is the shell's call (see `imagePersist.ts`); the
+      // view just splices the finished reference. Without a resolver, or when
+      // it declines (unsaved document, 无特殊操作), the bitmap stays inline —
+      // still valid markdown, so a paste is never silently lost.
+      const image = (await hooks.persistImage?.(file, source)) ?? {
+        alt: imageAltText(file),
+        url: await fileToDataUrl(file),
+      }
+      const ok = active.insertImage(image)
       if (ok) {
         doc.setContent(active.getValue())
         sidebarRefresh?.()

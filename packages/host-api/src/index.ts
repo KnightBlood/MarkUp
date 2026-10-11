@@ -10,6 +10,13 @@ export * from './types'
 export * from './verify'
 export * from './mime'
 
+// A runtime value cannot rely on `export *`: the CJS interop some runtimes use
+// (tsx under `node --import tsx`, which each package's smoke runs on) analyses
+// re-exports statically and does not follow a star, so the named export would
+// come back undefined. Named re-exports are the ones it can see. Types are
+// unaffected — they are erased before then.
+export { IMAGE_COPY_MODES } from './types'
+
 export function setHost(host: HostAPI): void {
   // contextBridge.exposeInMainWorld (Electron preload) defines a read-only
   // window.__HOST__; only assign when the host was not injected by the shell.

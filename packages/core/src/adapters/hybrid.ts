@@ -16,24 +16,12 @@ import {
   type PlantumlTarget,
 } from '../plantumlEditBridge'
 import {
-  imageAltText,
-  isImageFile,
+  type InsertedImage,
   type Anchor,
   type InsertMarkdownOptions,
   type LineAt,
   type ViewAdapter,
 } from './types'
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => resolve(String(reader.result ?? '')), { once: true })
-    reader.addEventListener('error', () => reject(reader.error ?? new Error('read failed')), {
-      once: true,
-    })
-    reader.readAsDataURL(file)
-  })
-}
 
 export interface HybridAdapterOptions {
   onChange?: (markdown: string) => void
@@ -248,12 +236,10 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
       view.focus()
     },
 
-    async insertImage(file: File): Promise<boolean> {
-      if (!isImageFile(file)) return false
-      const dataUrl = await readFileAsDataUrl(file)
+    insertImage(image: InsertedImage): boolean {
       if (!view) return false
       const { from, to } = view.state.selection.main
-      const insert = `![${imageAltText(file)}](${dataUrl})`
+      const insert = `![${image.alt}](${image.url})`
       view.dispatch({
         changes: { from, to, insert },
         selection: EditorSelection.cursor(from + insert.length),

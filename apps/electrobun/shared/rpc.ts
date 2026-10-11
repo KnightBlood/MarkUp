@@ -37,6 +37,8 @@ export type HostRequests = {
   fsWatch: { params: string; response: void }
   fsUnwatch: { params: string; response: void }
   fsReadBase64: { params: string; response: string }
+  fsWriteBase64: { params: { path: string; dataUrl: string }; response: void }
+  fsMkdirp: { params: string; response: void }
   dialogOpen: { params: OpenDialogOptions; response: PathInfo[] }
   dialogSave: { params: SaveDialogOptions; response: PathInfo | null }
   appOpenExternal: { params: string; response: void }

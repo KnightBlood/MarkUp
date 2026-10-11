@@ -54,7 +54,7 @@ export function createStubAdapter(kind: ViewKind): ViewAdapter {
       const pre = host?.querySelector<HTMLElement>('.adapter-stub__content')
       if (pre) pre.textContent = value
     },
-    async insertImage(): Promise<boolean> {
+    insertImage(): boolean {
       return false
     },
     insertTable(rows = 3, cols = 3): void {

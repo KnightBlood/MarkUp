@@ -168,6 +168,16 @@ function registerHandlers(): void {
     const buffer = await readFile(path)
     return `data:${embedMimeForPath(path)};base64,${buffer.toString('base64')}`
   })
+  ipcMain.handle(IPC_CHANNELS.fsMkdirp, (_event, dir: string) => {
+    mkdirSync(dir, { recursive: true })
+  })
+  ipcMain.handle(IPC_CHANNELS.fsWriteBase64, async (_event, path: string, dataUrl: string) => {
+    // `data:<mime>;base64,<payload>` — only the payload after the first comma
+    // is base64; a mime parameter could itself contain a comma.
+    const comma = dataUrl.indexOf(',')
+    if (comma < 0) throw new Error(`not a data URL: ${dataUrl.slice(0, 32)}`)
+    await writeFile(path, Buffer.from(dataUrl.slice(comma + 1), 'base64'))
+  })
   ipcMain.handle(IPC_CHANNELS.fsWatch, (_event, dir: string) => {
     const watcher = fsWatch(dir, { recursive: false }, (eventKind, filename) => {
       const event: FsEvent = {

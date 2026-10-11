@@ -133,6 +133,21 @@ struct AppConfig {
     md_diagrams: Option<bool>,
     #[serde(default)]
     md_auto_link: Option<bool>,
+    /// Typora 「图像 ▸ 插入图片时」. `image_copy_mode` is a string union
+    /// (`none` / `folder` / `assets` / `docAssets` / `custom`); the Rust side
+    /// only has to preserve it, so a plain String keeps the write-back lossless.
+    #[serde(default)]
+    image_copy_mode: Option<String>,
+    #[serde(default)]
+    image_copy_custom_path: Option<String>,
+    #[serde(default)]
+    image_prefer_relative: Option<bool>,
+    #[serde(default)]
+    image_dot_prefix: Option<bool>,
+    #[serde(default)]
+    image_escape_url: Option<bool>,
+    #[serde(default)]
+    image_apply_local: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -168,6 +183,12 @@ impl Default for AppConfig {
             md_alerts: None,
             md_diagrams: None,
             md_auto_link: None,
+            image_copy_mode: None,
+            image_copy_custom_path: None,
+            image_prefer_relative: None,
+            image_dot_prefix: None,
+            image_escape_url: None,
+            image_apply_local: None,
         }
     }
 }
@@ -190,6 +211,27 @@ async fn read_file(path: String) -> Result<FileResult, String> {
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn mkdirp(dir: String) -> Result<(), String> {
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())
+}
+
+/// Inverse of `read_base64`. Only the payload after the first comma is base64,
+/// so a mime parameter containing a comma cannot shift the split.
+#[tauri::command]
+async fn write_base64(path: String, data_url: String) -> Result<(), String> {
+    use base64::Engine as _;
+    let payload = data_url.split_once(',').map(|(_, rest)| rest).ok_or_else(|| {
+        // `&data_url[..n]` panics on a multi-byte boundary, so truncate by char.
+        let head: String = data_url.chars().take(32).collect();
+        format!("not a data URL: {}", head)
+    })?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|e| e.to_string())?;
+    fs::write(&path, bytes).map_err(|e| e.to_string())
 }
 
 fn embed_mime_for_path(path: &str) -> &'static str {
@@ -694,6 +736,8 @@ pub fn run() {
             read_file,
             write_file,
             read_base64,
+            write_base64,
+            mkdirp,
             read_dir,
             fs_watch,
             open_dialog,

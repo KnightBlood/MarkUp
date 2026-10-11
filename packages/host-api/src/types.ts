@@ -128,6 +128,27 @@ export interface CustomTheme {
   bad?: string
 }
 
+/**
+ * Typora「图像 ▸ 插入图片时」radio group, in Typora's order.
+ *
+ * Lives here rather than in `@markup/core` because `core` depends on this
+ * package, not the other way round — and both need the same union.
+ */
+export type ImageCopyMode = 'none' | 'folder' | 'assets' | 'docAssets' | 'custom'
+
+/**
+ * The same five targets, in Typora's order. Kept beside the union (and in this
+ * package rather than `@markup/core`) so the settings panel can render the
+ * radio group without pulling core — and its CSS — into a host-only context.
+ */
+export const IMAGE_COPY_MODES: readonly ImageCopyMode[] = [
+  'none',
+  'folder',
+  'assets',
+  'docAssets',
+  'custom',
+]
+
 export interface AppConfig {
   theme: 'light' | 'dark' | 'system' | 'custom' | 'github' | 'github-dark'
   fontSize: number
@@ -147,8 +168,25 @@ export interface AppConfig {
   showStats?: boolean
   /** Distraction-free layout (hide sidebar / mode bar / status bar). Default false. */
   focusMode?: boolean
-  /** Insert pasted clipboard images as markdown data-URL images. Default true. */
+  /** Insert pasted clipboard images as markdown images. Default true. */
   imagePaste?: boolean
+  /**
+   * Typora「图像 ▸ 插入图片时」— where a newly inserted image is put.
+   * `none` (the default) keeps the bitmap inline as a `data:` URL; the other
+   * four copy the file next to the document and reference the copy. Absent
+   * means `none`, which is what every shell did before this existed.
+   */
+  imageCopyMode?: ImageCopyMode
+  /** `imageCopyMode: 'custom'` destination; supports `${filename}` / `${filepath}`. */
+  imageCopyCustomPath?: string
+  /** 优先使用相对路径 — reference a copied image relative to the document. Default true. */
+  imagePreferRelative?: boolean
+  /** 图片语法偏好 — write `./assets/x.png` rather than `assets/x.png`. Default false. */
+  imageDotPrefix?: boolean
+  /** 插入时自动转义图片 URL — percent-encode spaces and parentheses. Default false. */
+  imageEscapeUrl?: boolean
+  /** Apply the copy rules to images picked from disk. Default true. */
+  imageApplyLocal?: boolean
   /** Browser spellcheck in editable surfaces. Default false. */
   spellcheck?: boolean
   /** Plugin ids the user turned off — dirs still scanned (manifest shown in settings) but never executed. */
@@ -328,6 +366,22 @@ export interface HostAPI {
      * Web resolves its virtual `web:`/`webfs:` paths through the picked File.
      */
     readBase64(path: string): Promise<string>
+    /**
+     * Inverse of `readBase64`: decode a full `data:` URL and write its bytes to
+     * `path`, creating nothing along the way (call `mkdirp` first). Used by
+     * 图像 ▸ 插入图片时 to put a pasted bitmap on disk.
+     *
+     * Optional — web has no writable filesystem, and a host that omits it makes
+     * image persistence fall back to inline data URLs rather than fail.
+     */
+    writeBase64?(path: string, dataUrl: string): Promise<void>
+    /**
+     * Create `dir` and any missing parent, like `mkdir -p`. A no-op when the
+     * directory already exists.
+     *
+     * Optional, paired with `writeBase64`.
+     */
+    mkdirp?(dir: string): Promise<void>
   }
   dialog: {
     open(options: OpenDialogOptions): Promise<PathInfo[]>

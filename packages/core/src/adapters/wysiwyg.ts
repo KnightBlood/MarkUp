@@ -79,8 +79,7 @@ import {
 import type { BlockFormatId } from '../textFormat'
 import {
   TABLE_COMMAND_LABELS,
-  imageAltText,
-  isImageFile,
+  type InsertedImage,
   type Anchor,
   type InsertMarkdownOptions,
   type TableCommandId,
@@ -145,17 +144,6 @@ function taskCheckboxPlugin(onToggled: (view: EditorView) => void): ProsePlugin 
         },
       },
     },
-  })
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.addEventListener('load', () => resolve(String(reader.result ?? '')), { once: true })
-    reader.addEventListener('error', () => reject(reader.error ?? new Error('read failed')), {
-      once: true,
-    })
-    reader.readAsDataURL(file)
   })
 }
 
@@ -1452,10 +1440,8 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       insertMarkdownAtCursor(options.markdown, options.caretOffset)
     },
 
-    async insertImage(file: File): Promise<boolean> {
-      if (!isImageFile(file)) return false
-      const dataUrl = await readFileAsDataUrl(file)
-      insertMarkdownAtCursor(`![${imageAltText(file)}](${dataUrl})`)
+    insertImage(image: InsertedImage): boolean {
+      insertMarkdownAtCursor(`![${image.alt}](${image.url})`)
       return true
     },
 

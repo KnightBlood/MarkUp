@@ -150,6 +150,10 @@ function createWebHost(): HostAPI {
         }
         return `data:${embedMimeForPath(path)};base64,${btoa(binary)}`
       },
+      // `writeBase64` / `mkdirp` are deliberately absent, not forgotten: the
+      // browser has no writable filesystem. Their absence is what makes
+      // 图像 ▸ 插入图片时 fall back to keeping pasted bitmaps inline here
+      // instead of failing — see `resolveImageInsert`.
     },
     dialog: {
       open: (options: OpenDialogOptions): Promise<PathInfo[]> => pickFiles(options),

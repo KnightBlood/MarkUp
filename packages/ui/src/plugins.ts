@@ -252,6 +252,8 @@ export async function loadPlugins(options: LoadPluginsOptions): Promise<LoadPlug
                   readDir: deny('fs'),
                   watch: deny('fs'),
                   readBase64: deny('fs'),
+                  writeBase64: deny('fs'),
+                  mkdirp: deny('fs'),
                 },
             dialog: granted.has('dialog')
               ? host.dialog

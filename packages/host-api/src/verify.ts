@@ -55,5 +55,10 @@ export async function verifyHost(host: HostAPI | undefined): Promise<VerifyRepor
   } catch (error) {
     issues.push({ name: 'app.getConfig()', reason: `round-trip failed: ${String(error)}` })
   }
+  // 图像 ▸ 插入图片时 uses both or neither: a host that can write bytes but
+  // not create the target directory would only ever fail at the mkdir step.
+  if (typeof host.fs.writeBase64 === 'function' && typeof host.fs.mkdirp !== 'function') {
+    issues.push({ name: 'fs.mkdirp', reason: 'required alongside fs.writeBase64' })
+  }
   return { ok: issues.length === 0, platform: host.platform, issues }
 }

@@ -1,4 +1,5 @@
-import type { AppConfig, CustomTheme } from '@markup/host-api'
+import type { AppConfig, CustomTheme, ImageCopyMode } from '@markup/host-api'
+import { IMAGE_COPY_MODES } from '@markup/host-api'
 import { el } from '../dom'
 import { THEME_OPTIONS } from '../appearance'
 
@@ -97,6 +98,39 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const typewriterCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const restoreSessionCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const imagePasteCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // Typora「图像 ▸ 插入图片时」。五个目标按 Typora 的顺序（与
+  // `IMAGE_COPY_MODES` 一一对应），选中 custom 时才显示路径输入框。
+  const IMAGE_MODE_LABELS: Array<{ mode: ImageCopyMode; label: string }> = [
+    { mode: 'none', label: '无特殊操作' },
+    { mode: 'folder', label: '复制图片到当前文件夹（./）' },
+    { mode: 'assets', label: '复制图片到 ./assets 文件夹' },
+    { mode: 'docAssets', label: '复制图片到 ./${filename}.assets 文件夹' },
+    { mode: 'custom', label: '复制到指定路径' },
+  ]
+  const imageModeInputs = new Map<ImageCopyMode, HTMLInputElement>(
+    IMAGE_COPY_MODES.map((mode) => [
+      mode,
+      el('input', { class: 'settings__radio', type: 'radio', name: 'image-copy-mode' }),
+    ]),
+  )
+  const imageCustomPathInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: './${filename}.assets',
+  })
+  const imageCustomRow = el(
+    'label',
+    { class: 'settings__field' },
+    el('span', { class: 'settings__label', text: '目标路径' }),
+    imageCustomPathInput,
+  )
+  const imagePreferRelativeCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const imageDotPrefixCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const imageEscapeUrlCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const imageApplyLocalCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const spellcheckCheck = el('input', { class: 'settings__check', type: 'checkbox' })
 
   const bodyFontInput = el('input', {
@@ -325,14 +359,15 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     ),
   )
 
-  // 图像：对应 Typora「图像」面板的「插入图片时」。
+  // 图像：对应 Typora「图像」面板。Markup 另有「粘贴图片转为 Markdown」这道
+  // 总开关（Typora 没有），所以拆成两节：先管粘贴要不要转，再管转出来的图片放哪。
   const imagePanel = el(
     'div',
     { class: 'settings__panel-body', 'data-tab-panel': 'image' },
     el(
       'section',
-      { class: 'settings__section', 'data-section': 'image-insert' },
-      el('h3', { class: 'settings__heading', text: '插入图片时' }),
+      { class: 'settings__section', 'data-section': 'image-paste' },
+      el('h3', { class: 'settings__heading', text: '粘贴图片' }),
       el(
         'label',
         { class: 'settings__field settings__field--row' },
@@ -343,6 +378,52 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '开启后，从浏览器或截图工具复制的位图粘贴进来时会转成 Markdown 图片；关闭则保持为纯文本。',
       }),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'image-insert' },
+      el('h3', { class: 'settings__heading', text: '插入图片时' }),
+      ...IMAGE_MODE_LABELS.map(({ mode, label }) =>
+        el(
+          'label',
+          { class: 'settings__field settings__field--row' },
+          imageModeInputs.get(mode)!,
+          // 字面量里带 ${filename}，所以用普通字符串而不是模板串。
+          el('span', { class: 'settings__label', text: label }),
+        ),
+      ),
+      imageCustomRow,
+      el('p', {
+        class: 'settings__label',
+        text: '可用 ${filename}（当前文件名，不含扩展名）与 ${filepath}（含目录、不含扩展名）。文档尚未保存时无目录可用，图片会保持内联。',
+      }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        imagePreferRelativeCheck,
+        el('span', {
+          class: 'settings__label',
+          text: '优先使用相对路径（跨盘符时自动回退为绝对路径）',
+        }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        imageDotPrefixCheck,
+        el('span', { class: 'settings__label', text: '图片语法偏好：为相对路径添加 ./' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        imageEscapeUrlCheck,
+        el('span', { class: 'settings__label', text: '插入时自动转义图片 URL' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        imageApplyLocalCheck,
+        el('span', { class: 'settings__label', text: '对本地位置的图片应用上述规则' }),
+      ),
     ),
   )
 
@@ -414,6 +495,18 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       tab !== 'appearance' || current.theme !== 'custom' || colorSectionHiddenBySearch
   }
 
+  /** Select a 插入图片时 radio; the target-path row only applies to `custom`. */
+  const applyImageMode = (mode: ImageCopyMode): void => {
+    for (const [value, input] of imageModeInputs) input.checked = value === mode
+    // A class, not `hidden`: the settings search walks every `.settings__field`
+    // and writes `hidden` on each, which would clobber the row on every
+    // keystroke and on open.
+    imageCustomRow.classList.toggle('settings__field--off', mode !== 'custom')
+  }
+
+  const checkedImageMode = (): ImageCopyMode =>
+    IMAGE_COPY_MODES.find((mode) => imageModeInputs.get(mode)?.checked) ?? 'none'
+
   const fill = (config: AppConfig): void => {
     current = config
     themeSelect.value = config.theme
@@ -427,6 +520,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     autoSaveDelayInput.disabled = config.autoSave !== true
     typewriterCheck.checked = config.typewriter === true
     imagePasteCheck.checked = config.imagePaste !== false
+    applyImageMode(config.imageCopyMode ?? 'none')
+    imageCustomPathInput.value = config.imageCopyCustomPath ?? ''
+    imagePreferRelativeCheck.checked = config.imagePreferRelative !== false
+    imageDotPrefixCheck.checked = config.imageDotPrefix === true
+    imageEscapeUrlCheck.checked = config.imageEscapeUrl === true
+    imageApplyLocalCheck.checked = config.imageApplyLocal !== false
     spellcheckCheck.checked = config.spellcheck === true
     restoreSessionCheck.checked = config.restoreSession !== false
     lineNumbersCheck.checked = config.lineNumbers === true
@@ -465,6 +564,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       autoSaveDelayMs: Math.max(300, Math.min(60000, Number(autoSaveDelayInput.value) || 1500)),
       typewriter: checked(typewriterCheck),
       imagePaste: checked(imagePasteCheck),
+      imageCopyMode: checkedImageMode(),
+      imageCopyCustomPath: imageCustomPathInput.value.trim() || undefined,
+      imagePreferRelative: checked(imagePreferRelativeCheck),
+      imageDotPrefix: checked(imageDotPrefixCheck),
+      imageEscapeUrl: checked(imageEscapeUrlCheck),
+      imageApplyLocal: checked(imageApplyLocalCheck),
       spellcheck: checked(spellcheckCheck),
       restoreSession: checked(restoreSessionCheck),
       lineNumbers: checked(lineNumbersCheck),
@@ -504,9 +609,22 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     showStatsCheck,
     focusModeCheck,
     ...MD_SYNTAX_FIELDS.map((field) => mdSyntaxChecks[field.key]),
+    imagePreferRelativeCheck,
+    imageDotPrefixCheck,
+    imageEscapeUrlCheck,
+    imageApplyLocalCheck,
   ]) {
     input.addEventListener('change', () => emit({}))
   }
+  // Radios need the same emit plus a re-derive, so the 目标路径 row appears and
+  // disappears with the selection instead of only on the next fill().
+  for (const input of imageModeInputs.values()) {
+    input.addEventListener('change', () => {
+      applyImageMode(checkedImageMode())
+      emit({})
+    })
+  }
+  imageCustomPathInput.addEventListener('change', () => emit({}))
   for (const input of colorInputs.values()) {
     input.addEventListener('input', () => emit({}))
   }

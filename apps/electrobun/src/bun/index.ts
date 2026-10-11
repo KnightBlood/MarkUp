@@ -170,6 +170,21 @@ const rpc = defineElectrobunRPC<AppRPC, 'bun'>('bun', {
         const buffer = await readFile(path)
         return `data:${embedMimeForPath(path)};base64,${buffer.toString('base64')}`
       },
+      fsMkdirp: (dir: string): Promise<void> => {
+        mkdirSync(dir, { recursive: true })
+        return Promise.resolve()
+      },
+      fsWriteBase64: async ({
+        path,
+        dataUrl,
+      }: {
+        path: string
+        dataUrl: string
+      }): Promise<void> => {
+        const comma = dataUrl.indexOf(',')
+        if (comma < 0) throw new Error(`not a data URL: ${dataUrl.slice(0, 32)}`)
+        await writeFile(path, Buffer.from(dataUrl.slice(comma + 1), 'base64'))
+      },
       dialogOpen: async (options: OpenDialogOptions): Promise<PathInfo[]> => {
         // `openFileDialog` spreads its defaults with the caller's object, so a
         // key present with value `undefined` would clobber the SDK defaults

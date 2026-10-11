@@ -107,6 +107,9 @@ function createElectrobunHost(): HostAPI {
         rpc.request.fsWrite({ path, content }),
       readDir: (path: string): Promise<DirEntry[]> => rpc.request.fsReadDir(path),
       readBase64: (path: string): Promise<string> => rpc.request.fsReadBase64(path),
+      writeBase64: (path: string, dataUrl: string): Promise<void> =>
+        rpc.request.fsWriteBase64({ path, dataUrl }),
+      mkdirp: (dir: string): Promise<void> => rpc.request.fsMkdirp(dir),
       watch: (path: string, listener: (event: FsEvent) => void): (() => void) => {
         void rpc.request.fsWatch(path).catch((error) => {
           console.warn('[markup] watch failed:', path, error)

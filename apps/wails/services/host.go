@@ -77,6 +77,14 @@ type AppConfig struct {
 	MdAlerts        *bool `json:"mdAlerts,omitempty"`
 	MdDiagrams      *bool `json:"mdDiagrams,omitempty"`
 	MdAutoLink      *bool `json:"mdAutoLink,omitempty"`
+	// Typora 「图像 ▸ 插入图片时」. ImageCopyMode is a string union; nil means
+	// "none", which is what every shell did before this existed.
+	ImageCopyMode       *string `json:"imageCopyMode,omitempty"`
+	ImageCopyCustomPath *string `json:"imageCopyCustomPath,omitempty"`
+	ImagePreferRelative *bool   `json:"imagePreferRelative,omitempty"`
+	ImageDotPrefix      *bool   `json:"imageDotPrefix,omitempty"`
+	ImageEscapeUrl      *bool   `json:"imageEscapeUrl,omitempty"`
+	ImageApplyLocal     *bool   `json:"imageApplyLocal,omitempty"`
 }
 
 func defaultConfig() *AppConfig {
@@ -231,6 +239,28 @@ func (s *HostService) ReadBase64(path string) (string, error) {
 		return "", err
 	}
 	return "data:" + embedMimeForPath(path) + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+// WriteBase64 is the inverse of ReadBase64: it decodes a full data: URL and
+// writes the bytes to path. Used by 图像 ▸ 插入图片时 to put a pasted bitmap on
+// disk. Only the payload after the first comma is base64, so a mime parameter
+// containing a comma cannot shift the split.
+func (s *HostService) WriteBase64(path, dataURL string) error {
+	comma := strings.Index(dataURL, ",")
+	if comma < 0 {
+		return errors.New("not a data URL")
+	}
+	raw, err := base64.StdEncoding.DecodeString(dataURL[comma+1:])
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o644)
+}
+
+// Mkdirp creates dir and every missing parent (mkdir -p). An existing directory
+// is not an error.
+func (s *HostService) Mkdirp(dir string) error {
+	return os.MkdirAll(dir, 0o755)
 }
 
 // GetPath resolves a well-known app directory ('plugins' creates

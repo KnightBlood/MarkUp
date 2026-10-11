@@ -17,6 +17,8 @@ import {
   formatTableSource,
   hasReferenceDefinition,
   insertParagraphEdit,
+  latexToMathML,
+  mathSpanAt,
   parseGlobList,
   referenceLabel,
   referenceLinkDefinition,
@@ -1277,7 +1279,18 @@ export function renderShell(): ShellHandle {
   // tables (`markdown` emits grid tables, which this renderer does not draw),
   // the `[^1]` footnotes `insert.footnote` writes, and `- [ ]` task lists all
   // at once.
-  const MARKDOWN_FORMAT = 'gfm'
+  const DEFAULT_MARKDOWN_FORMAT = 'gfm'
+
+  /**
+   * Markdown 变体 — the format name handed to the converter, in both directions.
+   *
+   * A *name*, not a dialect we implement: `gfm` keeps this renderer's own syntax
+   * working through a round trip, while `commonmark_x` is what Typora calls
+   * 「CommonMark + pandoc 扩展」. Passed through as-is so a user can name any
+   * format their pandoc knows.
+   */
+  const markdownFormat = (): string =>
+    appearance.converterMarkdownFormat?.trim() || DEFAULT_MARKDOWN_FORMAT
 
   type ConverterCall = (request: ConvertRequest) => Promise<ConvertResult>
 
@@ -1373,7 +1386,7 @@ export function renderShell(): ShellHandle {
       }
       const result = await convert({
         from,
-        to: MARKDOWN_FORMAT,
+        to: markdownFormat(),
         inputPath: path,
         // Relative on purpose: pandoc then writes the images to a sibling
         // `<name>_files/` and emits portable links, so the markdown and its
@@ -1398,7 +1411,7 @@ export function renderShell(): ShellHandle {
       if (!picked?.path) return
       const open = doc.getDocument()
       await convert({
-        from: MARKDOWN_FORMAT,
+        from: markdownFormat(),
         to: target.format,
         text: editor.getMarkdown(),
         outputPath: picked.path,
@@ -1901,6 +1914,35 @@ export function renderShell(): ShellHandle {
     statusbar.refresh()
   }
 
+  /**
+   * 复制公式 — 复制为 Tex 代码 / 复制为 MathML.
+   *
+   * The formula is located in the *markdown*, not the DOM: the three views
+   * render math differently, and the source is the one place all of them agree
+   * on what the formula is.
+   */
+  const copyMath = async (kind: 'tex' | 'mathml'): Promise<void> => {
+    const span = mathSpanAt(editor.getMarkdown(), selectionRange().from)
+    if (!span) {
+      toastHost.show('光标不在公式内', { level: 'warn' })
+      return
+    }
+    const latex = span.latex.trim()
+    if (kind === 'tex') {
+      await writeClipboard(latex)
+      return
+    }
+    const mathml = latexToMathML(span.latex, span.block)
+    if (!mathml) {
+      // Better to say so than to put a half-rendered fragment on the clipboard.
+      toastHost.show('该公式无法转换为 MathML', { level: 'warn' })
+      return
+    }
+    // MathML *is* HTML, so it goes on as `text/html` with the LaTeX as the
+    // plain-text fallback — a target that cannot take MathML still gets the formula.
+    await writeClipboardHtml(mathml, latex)
+  }
+
   const insertLinkReference = async (): Promise<void> => {
     // Capture the range up front — the prompt is modal and steals focus.
     const markdown = editor.getMarkdown()
@@ -2306,6 +2348,7 @@ export function renderShell(): ShellHandle {
       smartQuotes: next.smartQuotes === true,
       smartDashes: next.smartDashes === true,
       pairedSymbols: next.pairedSymbols === true,
+      emoji: next.emojiAutocomplete === true,
     })
     // 文件树 glob 过滤 is a view over an existing walk, so re-deriving the list
     // is enough — no re-walk, and the tree updates as the setting is typed.
@@ -2845,6 +2888,16 @@ export function renderShell(): ShellHandle {
     id: 'edit.copyAsCleanHtml',
     label: '复制内容并简化格式',
     run: () => void copySelectionAs('clean'),
+  })
+  registry.register({
+    id: 'edit.copyMathTex',
+    label: '复制为 Tex 代码',
+    run: () => void copyMath('tex'),
+  })
+  registry.register({
+    id: 'edit.copyMathMl',
+    label: '复制为 MathML',
+    run: () => void copyMath('mathml'),
   })
   registry.register({
     id: 'edit.copyToWord',

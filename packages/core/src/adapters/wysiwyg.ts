@@ -1662,7 +1662,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
             // edit computed in one coordinates system applies in the same one.
             const result = smartInput(
               {
-                before: doc.textBetween(Math.max(0, from - 2), from, ''),
+                before: doc.textBetween(Math.max(0, from - 32), from, ''),
                 after: doc.textBetween(to, Math.min(doc.content.size, to + 2), ''),
                 text,
                 hasSelection: to > from,

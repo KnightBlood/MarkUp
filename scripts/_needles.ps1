@@ -805,6 +805,49 @@ Check-Needle 'encoding :: command registered' "$root\packages\ui\src\shell.ts" "
 Check-Needle 'encoding :: fatal decode' "$root\packages\ui\src\shell.ts" 'new TextDecoder(label, { fatal: true })' -Literal
 Check-Needle 'encoding :: reuses readBase64' "$root\packages\ui\src\shell.ts" 'dataUrlBytes(await host.fs.readBase64(current.path))' -Literal
 Check-Needle 'encoding :: menu entry' "$root\packages\host-api\src\menu.json" 'file.reopenEncoding' -Literal
+
+# --- Markdown 变体 ---
+# A *name* handed to pandoc, not a dialect this app implements — passed through
+# as-is so a user can name any format their pandoc knows. `gfm` is the default
+# because it is what keeps this renderer's own tables/footnotes/task lists
+# working through a round trip.
+Check-Needle 'mdvariant :: format is config-driven' "$root\packages\ui\src\shell.ts" 'const markdownFormat = (): string =>' -Literal
+Check-Needle 'mdvariant :: config field' "$root\packages\host-api\src\types.ts" 'converterMarkdownFormat?: string' -Literal
+Check-Needle 'mdvariant :: settings select' "$root\packages\ui\src\ui\settings.ts" "'Markdown 变体（导入 / 导出用）'" -Literal
+Check-Needle 'mdvariant :: both directions read it' "$root\packages\ui\src\shell.ts" 'to: markdownFormat(),' -Literal
+Check-Needle 'mdvariant :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'converter_markdown_format: Option<String>' -Literal
+Check-Needle 'mdvariant :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"converterMarkdownFormat,omitempty"' -Literal
+
+# --- 复制公式（Tex / MathML）---
+# `$` is context-sensitive, so the scanner is the substance: an escaped `\$`, a
+# `$` in a fence or inline code, and a lone `$` used as currency must all be
+# ruled out. And the lookup is in the *markdown*, not the DOM — the three views
+# render math differently, and the source is where they agree.
+Check-Needle 'mathcopy :: scanner' "$root\packages\core\src\mathSource.ts" 'export function collectMathSpans(' -Literal
+# Display math routinely starts with a newline; inline math may not start with a
+# space. Applying one rule to both would reject `$$\n…\n$$`.
+Check-Needle 'mathcopy :: non-space rule is inline-only' "$root\packages\core\src\mathSource.ts" 'if (block || (after !== undefined' -Literal
+Check-Needle 'mathcopy :: MathML via KaTeX' "$root\packages\core\src\mathSource.ts" 'export function latexToMathML(' -Literal
+Check-Needle 'mathcopy :: command registered' "$root\packages\ui\src\shell.ts" "id: 'edit.copyMathMl'," -Literal
+Check-Needle 'mathcopy :: mathml goes on as html' "$root\packages\ui\src\shell.ts" 'await writeClipboardHtml(mathml, latex)' -Literal
+Check-Needle 'mathcopy :: menu entries' "$root\packages\host-api\src\menu.json" 'edit.copyMathTex' -Literal
+Check-Needle 'mathcopy :: core smoke wired' "$root\packages\core\package.json" 'pm-mathsrc.mts' -Literal
+
+# --- Emoji 自动补全 ---
+# Rides the existing smart-input hook rather than adding a fourth one. The
+# closing colon is the character being typed, so it is not part of `before`; and
+# an emoji outside the BMP is two UTF-16 units, so the caret offset is not 1.
+Check-Needle 'emoji :: table' "$root\packages\core\src\emoji.ts" 'export const EMOJI: Readonly<Record<string, string>>' -Literal
+Check-Needle 'emoji :: shortcode lookup' "$root\packages\core\src\emoji.ts" 'export function emojiForShortcode(' -Literal
+Check-Needle 'emoji :: rides the smart-input rule' "$root\packages\core\src\smartInput.ts" "if (options.emoji && text === ':') {" -Literal
+# An unknown shortcode has to fall through to a literal colon, or `:foo:` could
+# never be typed at all.
+Check-Needle 'emoji :: unknown falls through' "$root\packages\core\src\smartInput.ts" 'if (name && emoji) {' -Literal
+Check-Needle 'emoji :: shell passes the setting' "$root\packages\ui\src\shell.ts" 'emoji: next.emojiAutocomplete === true,' -Literal
+Check-Needle 'emoji :: config field' "$root\packages\host-api\src\types.ts" 'emojiAutocomplete?: boolean' -Literal
+Check-Needle 'emoji :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'emoji_autocomplete: Option<bool>' -Literal
+Check-Needle 'emoji :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"emojiAutocomplete,omitempty"' -Literal
+Check-Needle 'emoji :: core smoke wired' "$root\packages\core\package.json" 'pm-emoji.mts' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal
@@ -885,7 +928,7 @@ Check-Needle 'settings :: converter lives on export' "$root\packages\ui\src\shel
 Check-Absent 'settings :: old view panel is gone' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'view'" -Literal
 # `gfm`, not `markdown`: measured against pandoc 3.12.1, it is the one name that
 # keeps pipe tables, `[^1]` footnotes and task lists all at once.
-Check-Needle 'convert :: gfm is the round-trip format' "$root\packages\ui\src\shell.ts" "const MARKDOWN_FORMAT = 'gfm'" -Literal
+Check-Needle 'convert :: gfm is the round-trip format' "$root\packages\ui\src\shell.ts" "const DEFAULT_MARKDOWN_FORMAT = 'gfm'" -Literal
 Check-Needle 'convert :: media extracted portably' "$root\packages\ui\src\shell.ts" 'mediaDir' -Literal
 Check-Needle 'convert :: media dir never orphans a folder' "$root\packages\ui\src\shell.ts" 'existsAtTarget ? {}' -Literal
 

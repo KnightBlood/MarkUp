@@ -65,6 +65,7 @@ type AppConfig struct {
 	ExportPageSize        *string `json:"exportPageSize,omitempty"`
 	ExportPageMargin      *string `json:"exportPageMargin,omitempty"`
 	ExportPageBreakOnH1   *bool   `json:"exportPageBreakOnH1,omitempty"`
+	ConverterMarkdownFormat *string `json:"converterMarkdownFormat,omitempty"`
 	LineEnding            *string `json:"lineEnding,omitempty"`
 	EnsureFinalNewline    *bool   `json:"ensureFinalNewline,omitempty"`
 	CodeBlockLanguage     *string `json:"codeBlockLanguage,omitempty"`
@@ -72,6 +73,7 @@ type AppConfig struct {
 	SmartQuotes           *bool   `json:"smartQuotes,omitempty"`
 	SmartDashes           *bool   `json:"smartDashes,omitempty"`
 	PairedSymbols         *bool   `json:"pairedSymbols,omitempty"`
+	EmojiAutocomplete     *bool   `json:"emojiAutocomplete,omitempty"`
 	WorkspaceGlob         *string `json:"workspaceGlob,omitempty"`
 	ShowHiddenFiles       *bool   `json:"showHiddenFiles,omitempty"`
 	OutlineMaxLevel       *int    `json:"outlineMaxLevel,omitempty"`

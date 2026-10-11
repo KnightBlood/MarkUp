@@ -206,6 +206,12 @@ export interface AppConfig {
   /** 按一级标题分页. Print/PDF only. */
   exportPageBreakOnH1?: boolean
   /**
+   * Markdown 变体 — the pandoc format name used when importing and exporting a
+   * document (`-f` / `-t`). Absent means `gfm`, which is what keeps this
+   * renderer's own tables/footnotes/task lists working through a round trip.
+   */
+  converterMarkdownFormat?: string
+  /**
    * 默认换行符 for what gets written to disk. `preserve` (the default) keeps
    * whatever the buffer holds, so an existing CRLF file is not silently
    * rewritten the first time it is saved.
@@ -229,6 +235,8 @@ export interface AppConfig {
   smartDashes?: boolean
   /** 使用成对的符号 — typing an opener also inserts its closer. Default false. */
   pairedSymbols?: boolean
+  /** Emoji 自动补全 — `:name:` becomes the emoji. Default false. */
+  emojiAutocomplete?: boolean
   /**
    * 文件树 glob 过滤. Newline- or comma-separated; `!pattern` excludes, and the
    * last matching pattern wins. Empty hides nothing.

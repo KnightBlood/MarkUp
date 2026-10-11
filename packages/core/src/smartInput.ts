@@ -14,13 +14,16 @@
  *   - do nothing and step over a closer we inserted earlier (`)` before `)`).
  */
 
-export interface SmartInputOptions {
-  /** `"` → `“`/`”`, `'` → `‘`/`’`. */
+import { emojiForShortcode, shortcodeBefore } from './emoji'
+
+export interface SmartInputOptions {  /** `"` → `“`/`”`, `'` → `‘`/`’`. */
   smartQuotes: boolean
   /** `--` → `—`, `...` → `…`. */
   smartDashes: boolean
   /** Typing an opener also inserts its closer, caret inside. */
   pairedSymbols: boolean
+  /** Emoji 自动补全 — `:name:` becomes the emoji on the closing colon. */
+  emoji: boolean
 }
 
 /** The default: every rule off, so nothing rewrites what the user types. */
@@ -28,6 +31,7 @@ export const SMART_INPUT_OFF: SmartInputOptions = {
   smartQuotes: false,
   smartDashes: false,
   pairedSymbols: false,
+  emoji: false,
 }
 
 export interface TypingContext {
@@ -101,6 +105,20 @@ export function smartInput(
   // than something the user has to backspace through.
   if (text.length === 1 && after.startsWith(text) && (CLOSERS.has(text) || text === '`')) {
     return { ...NONE, caretOffset: 1 }
+  }
+
+  // Emoji 自动补全: the closing colon of `:name:` is what triggers it, so the rule
+  // runs on `:` and looks *back* for the shortcode. Checked before the pair rules
+  // because `:` is not a pair and an unknown shortcode must fall through to a
+  // literal colon rather than being eaten.
+  if (options.emoji && text === ':') {
+    const name = shortcodeBefore(before)
+    const emoji = name ? emojiForShortcode(name) : null
+    if (name && emoji) {
+      // Remove the colon that opened the shortcode along with its name; the colon
+      // currently being typed is replaced by the emoji itself.
+      return { ...NONE, text: emoji, deleteBefore: name.length + 1, caretOffset: emoji.length }
+    }
   }
 
   // `--` → `—`, `...` → `…`. Checked before the pair rules: neither character is

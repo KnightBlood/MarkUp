@@ -247,11 +247,11 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | HTML：自定义 CSS | ✅ `exportCustomCss`（追加在内置样式之后） |
 | HTML：`<head>` 追加 | ✅ `exportHeadHtml` |
 | HTML：`<body>` 追加 | ✅ `exportBodyHtml` |
-| 导出项列表（增删改名排序） | ⬜ |
-| 页面设置：页首页尾 | ⬜ |
-| Markdown 变体（原始无扩展 / CommonMark+pandoc 扩展） | ⬜ |
+| 导出项列表（增删改名排序） | ⏸ **暂不实现**（执行自定义命令需要新增 `app.runCommand` 五壳实现，本机无法验证；一个跑不起来的导出项列表比没有更糟） |
+| 页面设置：页首页尾 | ⏸ **暂不实现**（需要 `@page` 的 margin box，Chromium/WebKit 都不支持，当前打印路径做不到） |
+| Markdown 变体（原始无扩展 / CommonMark+pandoc 扩展） | ✅ `converterMarkdownFormat`（交给 pandoc 的格式名：gfm / commonmark_x / commonmark / markdown） |
 | 导出与打印的空格与换行 | ⬜ |
-| 复制为 MathML / Tex / 图片 | ⬜ |
+| 复制为 MathML / Tex / 图片 | 🔶 复制为 Tex ✅ `edit.copyMathTex`；复制为 MathML ✅ `edit.copyMathMl`；复制为图片 ⏸ 暂不实现 |
 | 使用上一次设置导出 / 导出并覆盖 | ⬜ |
 
 **纸张与页边距要过白名单。** 这些值最终落在 `<style>` 元素里，一个 `}` 就能提前结束
@@ -331,7 +331,7 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | 跳转到文首 / 文末 | ✅ `edit.jumpStart`（Ctrl+Home）/ `edit.jumpEnd`（Ctrl+End） |
 | 跳转到行首 / 行尾 | ✅ `edit.jumpLineStart` / `edit.jumpLineEnd` |
 | 跳转到所选内容 | ⬜ |
-| Emoji 自动补全（Esc 触发 / 自动触发） | ⬜ |
+| Emoji 自动补全（Esc 触发 / 自动触发） | 🔶 自动触发 ✅ `emojiAutocomplete`（`:name:` → emoji）；Esc 触发的候选列表未做，表为常用集而非全量 |
 
 ## 8. 查找、导航与统计
 

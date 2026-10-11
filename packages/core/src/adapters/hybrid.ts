@@ -151,8 +151,8 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
     const result = smartInput(
       {
         // A slice, not one character: the ellipsis rule looks at the two dots
-        // already typed.
-        before: doc.sliceString(Math.max(0, from - 2), from),
+        // already typed, and Emoji 自动补全 looks back over a whole `:shortcode`.
+        before: doc.sliceString(Math.max(0, from - 32), from),
         after: doc.sliceString(to, Math.min(doc.length, to + 2)),
         text,
         hasSelection: to > from,

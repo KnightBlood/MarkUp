@@ -120,8 +120,8 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     const result = smartInput(
       {
         // A slice, not one character: the ellipsis rule looks at the two dots
-        // already typed.
-        before: current.slice(Math.max(0, from - 2), from),
+        // already typed, and Emoji 自动补全 looks back over a whole `:shortcode`.
+        before: current.slice(Math.max(0, from - 32), from),
         after: current.slice(to, to + 2),
         text: event.data,
         hasSelection: to > from,

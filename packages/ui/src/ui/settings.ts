@@ -202,6 +202,14 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     autocomplete: 'off',
     placeholder: '留空则从 PATH 查找 pandoc / carta',
   })
+  const markdownFormatSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'gfm', text: 'gfm（GitHub 风格，默认）' }),
+    el('option', { value: 'commonmark_x', text: 'commonmark_x（CommonMark + pandoc 扩展）' }),
+    el('option', { value: 'commonmark', text: 'commonmark（纯 CommonMark）' }),
+    el('option', { value: 'markdown', text: 'markdown（原始，无扩展）' }),
+  )
 
   const lineNumbersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
 
@@ -209,6 +217,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const smartQuotesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const smartDashesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const pairedSymbolsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const emojiAutocompleteCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const codeBlockLanguageInput = el('input', {
     class: 'settings__input',
     type: 'text',
@@ -455,6 +464,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         pairedSymbolsCheck,
         el('span', { class: 'settings__label', text: '使用成对的符号（打左括号自动补右括号）' }),
       ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        emojiAutocompleteCheck,
+        el('span', { class: 'settings__label', text: 'Emoji 自动补全（:smile: → 😄）' }),
+      ),
       el('p', {
         class: 'settings__label',
         text: '三项默认全部关闭 —— 它们会改写你敲进去的内容，开与不开应当由你决定。',
@@ -671,6 +686,16 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '「导入文档」与「导出为 Word/ODT/RTF/EPUB」靠它完成转换。留空则依次查找 PATH 上的 pandoc、carta；Markup 不内置该程序，装好后无需填写。',
       }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: 'Markdown 变体（导入 / 导出用）' }),
+        markdownFormatSelect,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '这是一个交给 pandoc 的格式名，不是本应用实现的方言：gfm 能让本渲染器自己的表格、脚注与任务列表原样往返；commonmark_x 即 Typora 的「CommonMark + pandoc 扩展」。',
+      }),
     ),
     el(
       'section',
@@ -820,6 +845,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     bodyFontInput.value = config.bodyFont ?? ''
     codeFontInput.value = config.codeFont ?? ''
     converterPathInput.value = config.converterPath ?? ''
+    markdownFormatSelect.value = config.converterMarkdownFormat ?? 'gfm'
     autoSaveCheck.checked = config.autoSave === true
     autoSaveDelayInput.value = String(config.autoSaveDelayMs ?? 1500)
     autoSaveDelayInput.disabled = config.autoSave !== true
@@ -834,6 +860,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     smartQuotesCheck.checked = config.smartQuotes === true
     smartDashesCheck.checked = config.smartDashes === true
     pairedSymbolsCheck.checked = config.pairedSymbols === true
+    emojiAutocompleteCheck.checked = config.emojiAutocomplete === true
     codeBlockLanguageInput.value = config.codeBlockLanguage ?? ''
     lineEndingSelect.value = config.lineEnding ?? 'preserve'
     finalNewlineCheck.checked = config.ensureFinalNewline === true
@@ -888,6 +915,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       bodyFont: bodyFontInput.value.trim() || undefined,
       codeFont: codeFontInput.value.trim() || undefined,
       converterPath: converterPathInput.value.trim() || undefined,
+      // 'gfm' is the default, so it never has to be stored.
+      converterMarkdownFormat:
+        markdownFormatSelect.value === 'gfm' ? undefined : markdownFormatSelect.value,
       autoSave: autoSaveOn,
       autoSaveDelayMs: Math.max(300, Math.min(60000, Number(autoSaveDelayInput.value) || 1500)),
       typewriter: checked(typewriterCheck),
@@ -901,6 +931,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       smartQuotes: checked(smartQuotesCheck),
       smartDashes: checked(smartDashesCheck),
       pairedSymbols: checked(pairedSymbolsCheck),
+      emojiAutocomplete: checked(emojiAutocompleteCheck),
       codeBlockLanguage: codeBlockLanguageInput.value.trim() || undefined,
       // `preserve` is the default, so it never has to be stored.
       lineEnding:
@@ -959,6 +990,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   bodyFontInput.addEventListener('change', () => emit({}))
   codeFontInput.addEventListener('change', () => emit({}))
   converterPathInput.addEventListener('change', () => emit({}))
+  markdownFormatSelect.addEventListener('change', () => emit({}))
   autoSaveDelayInput.addEventListener('change', () => emit({}))
   listIndentInput.addEventListener('change', () => emit({}))
   for (const input of [
@@ -983,6 +1015,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     smartQuotesCheck,
     smartDashesCheck,
     pairedSymbolsCheck,
+    emojiAutocompleteCheck,
     finalNewlineCheck,
     copyTextAsMarkdownCheck,
     showHiddenFilesCheck,

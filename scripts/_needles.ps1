@@ -378,6 +378,39 @@ Check-Needle 'imagepersist :: config survives Tauri write-back' "$root\apps\taur
 Check-Needle 'imagepersist :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"imageCopyMode,omitempty"' -Literal
 Check-Needle 'imagepersist :: core smoke wired' "$root\packages\core\package.json" 'pm-imgpersist.mts' -Literal
 
+# --- 段落：标题级别 / 列表缩进 / 任务状态 / 内容目录 / Front Matter ---
+# 提升 promotes (`##` → `#`): a "higher heading level" is the more prominent
+# one, which is also the direction Typora's Ctrl+= behaves in. The step helper is
+# separate from the edit so the wysiwyg view can read the level and apply it
+# through its own block command instead.
+Check-Needle 'paragraph :: heading step helper' "$root\packages\core\src\textFormat.ts" 'export function stepHeadingLevel(' -Literal
+Check-Needle 'paragraph :: 提升 promotes' "$root\packages\core\src\textFormat.ts" "if (step === 'up') return level <= 1 ? 1 : level - 1" -Literal
+Check-Needle 'paragraph :: 降低 demotes out of h6' "$root\packages\core\src\textFormat.ts" 'return level === 0 ? 0 : level >= 6 ? 0 : level + 1' -Literal
+Check-Needle 'paragraph :: heading edit' "$root\packages\core\src\textFormat.ts" 'export function headingLevelEdit(' -Literal
+Check-Needle 'paragraph :: list indent edit' "$root\packages\core\src\textFormat.ts" 'export function listIndentEdit(' -Literal
+Check-Needle 'paragraph :: task status edit' "$root\packages\core\src\textFormat.ts" 'export function taskStatusEdit(' -Literal
+Check-Needle 'paragraph :: the toc marker is single-sourced' "$root\packages\core\src\textFormat.ts" "export const TOC_MARKER = '[TOC]'" -Literal
+# The outline is collected before the rewrite, so a `[TOC]` above the headings
+# still lists them — and the anchors are stamped in that same pass so a TOC link
+# and a sidebar entry can never disagree about the slug.
+Check-Needle 'paragraph :: outline collected first' "$root\packages\core\src\pipeline.ts" 'function collectToc(' -Literal
+Check-Needle 'paragraph :: headings carry anchors' "$root\packages\core\src\pipeline.ts" 'hProperties: { ...(child.data?.hProperties ?? {}), id }' -Literal
+Check-Needle 'paragraph :: toc expansion' "$root\packages\core\src\pipeline.ts" 'function tocNode(' -Literal
+Check-Needle 'paragraph :: toc has a styling hook' "$root\packages\core\src\pipeline.ts" "className: ['md-toc']" -Literal
+# Views that own structure natively do the edit themselves.
+Check-Needle 'paragraph :: wysiwyg list indent' "$root\packages\core\src\adapters\wysiwyg.ts" 'setListIndent(step: ListIndentStep): boolean' -Literal
+Check-Needle 'paragraph :: wysiwyg task status' "$root\packages\core\src\adapters\wysiwyg.ts" 'setTaskStatus(status: TaskStatus): boolean' -Literal
+Check-Needle 'paragraph :: pane routes list indent' "$root\packages\ui\src\ui\editor.ts" 'setListIndent: (step) => {' -Literal
+Check-Needle 'paragraph :: heading command' "$root\packages\ui\src\shell.ts" "id: 'format.headingUp'" -Literal
+Check-Needle 'paragraph :: list indent command' "$root\packages\ui\src\shell.ts" "id: 'format.listIndent'" -Literal
+Check-Needle 'paragraph :: task status command' "$root\packages\ui\src\shell.ts" "id: 'format.taskDone'" -Literal
+Check-Needle 'paragraph :: toc command' "$root\packages\ui\src\shell.ts" "id: 'insert.toc'" -Literal
+Check-Needle 'paragraph :: front matter command' "$root\packages\ui\src\shell.ts" "id: 'insert.frontmatter'" -Literal
+Check-Needle 'paragraph :: context menu mirrors 段落' "$root\packages\ui\src\shell.ts" "registry.run('format.listIndent')" -Literal
+Check-Needle 'paragraph :: menu exposes the heading steps' "$root\packages\host-api\src\menu.json" 'format.headingDown' -Literal
+Check-Needle 'paragraph :: menu exposes the toc' "$root\packages\host-api\src\menu.json" 'insert.toc' -Literal
+Check-Needle 'paragraph :: export styles the toc' "$root\packages\core\src\exportHtml.ts" '.md-toc {' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

@@ -6,12 +6,15 @@ import {
   blockFormatEdit,
   exportHtmlDocument,
   fileToDataUrl,
+  headingLevelAt,
+  headingLevelEdit,
   imageAltText,
   imageNameFor,
   imagePersistOptionsFromConfig,
   imageTargetDir,
   inlineFormatEdit,
   linkEdit,
+  listIndentEdit,
   pathStyleFor,
   resolveImageInsert,
   resolvePlantumlTarget,
@@ -21,14 +24,21 @@ import {
   setMathEnlargeHandler,
   setOvertypeSyntax,
   setPlantumlVisualEditHandler,
+  splitFrontmatter,
+  stepHeadingLevel,
+  taskStatusEdit,
   mdSyntaxOptionsFromConfig,
   pipelineOptionsFromConfig,
+  TOC_MARKER,
   type BlockFormatId,
+  type HeadingStep,
   type InlineFormatId,
   type InsertedImage,
+  type ListIndentStep,
   type OpenDoc,
   type PlantumlTarget,
   type TableCommandId,
+  type TaskStatus,
   type TextEdit,
 } from '@markup/core'
 import { el } from './dom'
@@ -1066,6 +1076,60 @@ export function renderShell(): ShellHandle {
     applyTextEdit(blockFormatEdit(editor.getMarkdown(), selectionRange(), id))
   }
 
+  /** BlockFormatId for a heading level; 0 (or out of range) means a paragraph. */
+  const HEADING_IDS: BlockFormatId[] = ['plain', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+
+  /**
+   * 提升 / 降低标题级别.
+   *
+   * The level is read from the markdown and then applied through the same
+   * native block command as 一级标题: a heading is *structure* in the wysiwyg
+   * view, so splicing markdown text would rewrite a line that is not the one
+   * the caret is on.
+   */
+  const applyHeadingStep = (step: HeadingStep): void => {
+    const markdown = editor.getMarkdown()
+    const range = selectionRange()
+    const level = stepHeadingLevel(headingLevelAt(markdown, range), step)
+    if (editor.supportsBlockFormat()) {
+      editor.setBlockFormat(HEADING_IDS[level] ?? 'plain')
+      return
+    }
+    applyTextEdit(headingLevelEdit(markdown, range, step))
+  }
+
+  const applyListIndent = (step: ListIndentStep): void => {
+    // Prefer the view's own command — nesting a list is a structure change the
+    // markdown-text rewrite cannot express in the wysiwyg view.
+    if (editor.setListIndent?.(step)) return
+    applyTextEdit(listIndentEdit(editor.getMarkdown(), selectionRange(), step))
+  }
+
+  const applyTaskStatus = (status: TaskStatus): void => {
+    if (editor.setTaskStatus?.(status)) return
+    applyTextEdit(taskStatusEdit(editor.getMarkdown(), selectionRange(), status))
+  }
+
+  /** A minimal front matter block; the user fills the fields in. */
+  const FRONTMATTER_TEMPLATE = '---\ntitle: \n---\n'
+
+  /**
+   * 插入 YAML Front Matter.
+   *
+   * The block only means anything at byte 0, so it is spliced in there rather
+   * than at the caret — and skipped entirely when the document already opens
+   * with one, instead of stacking a second `---` run.
+   */
+  const insertFrontmatter = (): void => {
+    const markdown = editor.getMarkdown()
+    if (splitFrontmatter(markdown).frontmatter) {
+      toastHost.show('文档已经是 YAML Front Matter 开头', { level: 'warn' })
+      return
+    }
+    editor.setSelectionRange(0, 0)
+    editor.insertMarkdown(`${FRONTMATTER_TEMPLATE}\n`)
+  }
+
   const insertLink = async (): Promise<void> => {
     // Capture the document/range up front — the prompt is modal and steals
     // focus, so re-reading afterwards could see a moved caret.
@@ -1202,21 +1266,40 @@ export function renderShell(): ShellHandle {
       },
     ]
     const paragraphItems: ContextMenuItem[] = [
+      { label: '正文', run: () => registry.run('format.plain') },
       { label: '一级标题', shortcut: formatShortcut('Mod+1'), run: () => registry.run('format.h1') },
       { label: '二级标题', shortcut: formatShortcut('Mod+2'), run: () => registry.run('format.h2') },
       { label: '三级标题', shortcut: formatShortcut('Mod+3'), run: () => registry.run('format.h3') },
       { label: '四级标题', shortcut: formatShortcut('Mod+4'), run: () => registry.run('format.h4') },
       { label: '五级标题', shortcut: formatShortcut('Mod+5'), run: () => registry.run('format.h5') },
       { label: '六级标题', shortcut: formatShortcut('Mod+6'), run: () => registry.run('format.h6') },
+      {
+        label: '提升标题级别',
+        shortcut: formatShortcut('Mod+='),
+        run: () => registry.run('format.headingUp'),
+      },
+      {
+        label: '降低标题级别',
+        shortcut: formatShortcut('Mod+-'),
+        run: () => registry.run('format.headingDown'),
+      },
       { separator: true },
-      { label: '正文', run: () => registry.run('format.plain') },
       { label: '引用', shortcut: formatShortcut('Mod+Shift+Q'), run: () => registry.run('format.quote') },
-      { separator: true },
       { label: '无序列表', run: () => registry.run('format.bullet') },
       { label: '有序列表', run: () => registry.run('format.ordered') },
       { label: '任务列表', run: () => registry.run('format.task') },
+      { label: '标记为已完成', run: () => registry.run('format.taskDone') },
+      { label: '标记为未完成', run: () => registry.run('format.taskTodo') },
+      { label: '增加缩进', shortcut: formatShortcut('Mod+['), run: () => registry.run('format.listIndent') },
+      {
+        label: '减少缩进',
+        shortcut: formatShortcut('Mod+]'),
+        run: () => registry.run('format.listOutdent'),
+      },
       { separator: true },
       { label: '代码块', shortcut: formatShortcut('Mod+Shift+K'), run: () => registry.run('format.codeBlock') },
+      { label: '内容目录', run: () => registry.run('insert.toc') },
+      { label: 'YAML Front Matter', run: () => registry.run('insert.frontmatter') },
     ]
     const copyPasteAsItems: ContextMenuItem[] = [
       {
@@ -1576,6 +1659,7 @@ export function renderShell(): ShellHandle {
   registry.register({
     id: 'format.plain',
     label: '正文',
+    shortcut: 'Mod+0',
     run: () => applyBlockFormat('plain'),
   })
   registry.register({
@@ -1621,6 +1705,40 @@ export function renderShell(): ShellHandle {
     run: () => applyBlockFormat('h6'),
   })
   registry.register({
+    id: 'format.headingUp',
+    label: '提升标题级别',
+    shortcut: 'Mod+=',
+    run: () => applyHeadingStep('up'),
+  })
+  registry.register({
+    id: 'format.headingDown',
+    label: '降低标题级别',
+    shortcut: 'Mod+-',
+    run: () => applyHeadingStep('down'),
+  })
+  registry.register({
+    id: 'format.listIndent',
+    label: '增加缩进',
+    shortcut: 'Mod+[',
+    run: () => applyListIndent('in'),
+  })
+  registry.register({
+    id: 'format.listOutdent',
+    label: '减少缩进',
+    shortcut: 'Mod+]',
+    run: () => applyListIndent('out'),
+  })
+  registry.register({
+    id: 'format.taskDone',
+    label: '标记为已完成',
+    run: () => applyTaskStatus('done'),
+  })
+  registry.register({
+    id: 'format.taskTodo',
+    label: '标记为未完成',
+    run: () => applyTaskStatus('todo'),
+  })
+  registry.register({
     id: 'edit.delete',
     label: '删除',
     run: deleteSelection,
@@ -1651,6 +1769,18 @@ export function renderShell(): ShellHandle {
     id: 'insert.hr',
     label: '水平分割线',
     run: () => editor.insertMarkdown('\n\n---\n\n'),
+  })
+  registry.register({
+    id: 'insert.toc',
+    label: '内容目录',
+    // The marker is expanded by the render pipeline into a nested list of
+    // links to every heading, and each heading carries the matching anchor.
+    run: () => editor.insertMarkdown(`${TOC_MARKER}\n\n`),
+  })
+  registry.register({
+    id: 'insert.frontmatter',
+    label: 'YAML Front Matter',
+    run: insertFrontmatter,
   })
   registry.register({
     id: 'search.global',

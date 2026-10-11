@@ -78,6 +78,13 @@ u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .md-alert--important { border-left-color: #8250df; background: #fbefff; }
 .md-alert--warning { border-left-color: #9a6700; background: #fff8c5; }
 .md-alert--caution { border-left-color: #d1242f; background: #ffebe9; }
+/* 内容目录 — the list is generated from the document's headings, so its depth
+   is arbitrary; padding rather than a fixed indent keeps it readable however
+   many levels a document uses. */
+.md-toc { padding-left: 1.4em; }
+.md-toc ul { margin-bottom: 0; }
+.md-toc a { text-decoration: none; }
+.md-toc a:hover { text-decoration: underline; }
 @media (prefers-color-scheme: dark) {
   .md-alert { background: #121d2f; }
   .md-alert--note { background: #0c2d6b33; }

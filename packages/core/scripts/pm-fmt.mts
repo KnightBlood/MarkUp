@@ -2,9 +2,17 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-const { inlineFormatEdit, linkEdit, blockFormatEdit, selectionLineRange } = await import(
-  '../src/textFormat'
-)
+const {
+  inlineFormatEdit,
+  linkEdit,
+  blockFormatEdit,
+  selectionLineRange,
+  headingLevelEdit,
+  headingLevelAt,
+  stepHeadingLevel,
+  listIndentEdit,
+  taskStatusEdit,
+} = await import('../src/textFormat')
 
 /** Apply an edit the way the shell does: slice + splice + caret. */
 function apply(
@@ -227,6 +235,70 @@ const find = (md: string, needle: string, from = 0): number => {
   const md = 'one\ntwo\nthree'
   const span = selectionLineRange(md, { from: 5, to: 5 })
   assert(span && md.slice(span.from, span.to) === 'two', 'line range for a caret')
+}
+
+// ── 段落：标题级别 / 列表缩进 / 任务状态 ─────────────────────────────────
+{
+  // 提升 reads backwards until you notice a "higher heading level" is the more
+  // prominent one. Typora's own Ctrl+= does `##` → `#`, so that is the mapping.
+  assert(stepHeadingLevel(0, 'up') === 1, '提升: paragraph → h1')
+  assert(stepHeadingLevel(2, 'up') === 1, '提升: h2 → h1')
+  assert(stepHeadingLevel(1, 'up') === 1, '提升: h1 is already the top')
+  assert(stepHeadingLevel(0, 'down') === 0, '降低: a paragraph has nowhere to go')
+  assert(stepHeadingLevel(1, 'down') === 2, '降低: h1 → h2')
+  assert(stepHeadingLevel(6, 'down') === 0, '降低: h6 leaves the heading run')
+
+  assert(headingLevelAt('### x', { from: 0, to: 0 }) === 3, 'headingLevelAt reads the level')
+  assert(headingLevelAt('plain', { from: 0, to: 0 }) === 0, 'headingLevelAt: plain is 0')
+
+  const up = (md: string, range = { from: 0, to: 0 }): string | null => {
+    const edit = headingLevelEdit(md, range, 'up')
+    return edit ? apply(md, edit).md : null
+  }
+  const down = (md: string, range = { from: 0, to: 0 }): string | null => {
+    const edit = headingLevelEdit(md, range, 'down')
+    return edit ? apply(md, edit).md : null
+  }
+
+  assert(up('text') === '# text', '提升 turns a paragraph into h1')
+  assert(down('# one') === '## one', '降低 demotes a heading')
+  assert(down('###### six') === 'six', '降低 on h6 drops the marker')
+  assert(down('text') === null, '降低 on a paragraph is a no-op, not a dirty document')
+  assert(up('# one') === null, '提升 on h1 is a no-op')
+  // A heading inside a quote keeps the quote; a blank line is never touched.
+  assert(up('> text') === '> # text', '提升 preserves an enclosing quote')
+  assert(down('## a\n### b', { from: 0, to: 9 }) === '### a\n#### b', 'a selection demotes every line')
+
+  // 列表缩进. Indent lands inside a quote so the quote itself is not indented.
+  const indent = (md: string, range = { from: 0, to: 0 }): string | null => {
+    const edit = listIndentEdit(md, range, 'in')
+    return edit ? apply(md, edit).md : null
+  }
+  const outdent = (md: string, range = { from: 0, to: 0 }): string | null => {
+    const edit = listIndentEdit(md, range, 'out')
+    return edit ? apply(md, edit).md : null
+  }
+  assert(indent('- item') === '  - item', '增加缩进 prefixes two spaces')
+  assert(indent('> - item') === '>   - item', '增加缩进 lands inside the quote')
+  assert(indent('1. item') === '  1. item', '增加缩进 works on ordered items too')
+  assert(indent('plain text') === null, '增加缩进 ignores non-list lines')
+  assert(outdent('  - item') === '- item', '减少缩进 removes two spaces')
+  assert(outdent('    - item') === '  - item', '减少缩进 removes one level at a time')
+  // Past level 0 there is nothing to outdent, so the item leaves the list.
+  assert(outdent('- item') === 'item', '减少缩进 past level 0 makes it a paragraph')
+  assert(outdent('plain') === null, '减少缩进 ignores non-list lines')
+
+  // 任务状态 applies to the whole list, like Typora, not just the caret line.
+  const tasks = '- [ ] a\n- [x] b\n- [ ] c'
+  const doneEdit = taskStatusEdit(tasks, { from: 2, to: 2 }, 'done')
+  assert(doneEdit, '标记为已完成 produces an edit')
+  assert(apply(tasks, doneEdit!).md === '- [x] a\n- [x] b\n- [x] c', 'marks every item in the list')
+  const todoEdit = taskStatusEdit(tasks, { from: 2, to: 2 }, 'todo')
+  assert(apply(tasks, todoEdit!).md === '- [ ] a\n- [ ] b\n- [ ] c', 'unmarking clears every item')
+  assert(taskStatusEdit('- item', { from: 0, to: 0 }, 'done') === null, 'a non-task list is left alone')
+  assert(taskStatusEdit('plain', { from: 0, to: 0 }, 'done') === null, 'a paragraph is left alone')
+  // An already-complete list must not dirty the document.
+  assert(taskStatusEdit('- [x] a', { from: 0, to: 0 }, 'done') === null, 'a no-op returns null')
 }
 
 console.log('pm-fmt: OK')

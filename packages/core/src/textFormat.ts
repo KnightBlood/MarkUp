@@ -332,6 +332,67 @@ function lineSpans(markdown: string): LineSpan[] {
 
 const FENCE_LINE = /^\s*```[^\s`]*\s*$/
 
+interface Selection {
+  spans: LineSpan[]
+  first: number
+  last: number
+  caret: number
+}
+
+/** Resolve a markdown range to the line indices it touches. */
+function selectLines(markdown: string, range: TextRange): Selection | null {
+  const from = clamp(range.from, 0, markdown.length)
+  const to = clamp(range.to, from, markdown.length)
+  const spans = lineSpans(markdown)
+  if (spans.length === 0) return null
+  let first = spans.findIndex((span) => from <= span.end)
+  if (first < 0) first = spans.length - 1
+  let last = spans.findIndex((span) => to <= span.end)
+  if (last < 0) last = spans.length - 1
+  if (last < first) last = first
+  // A selection ending exactly at a line break means "up to that break" —
+  // don't drag the next, untouched line into the edit.
+  if (last > first && markdown[to - 1] === '\n') last -= 1
+  return { spans, first, last, caret: from }
+}
+
+/**
+ * Rewrite lines `first..last` through `map`, building the edit and carrying the
+ * caret. `map` returning null (or the original text) leaves a line verbatim —
+ * blank and marker-only lines are structural, so rewriting them swallows the
+ * join. Returns null when nothing changed, so a no-op keypress never dirties
+ * the document.
+ */
+function rewriteLines(
+  sel: Selection,
+  first: number,
+  last: number,
+  map: (parts: LineParts, line: string, index: number) => string | null,
+): TextEdit | null {
+  const targets = sel.spans.slice(first, last + 1)
+  const rangeStart = targets[0]!.start
+  const rangeEnd = targets[targets.length - 1]!.end
+  const out: string[] = []
+  let caretOffset: number | null = null
+  let produced = 0
+  for (let i = 0; i < targets.length; i++) {
+    const span = targets[i]!
+    const next = map(parseLine(span.text), span.text, first + i) ?? span.text
+    if (caretOffset === null && sel.caret >= span.start && sel.caret <= span.end) {
+      // Only the prefix usually changes — the trailing rest moves verbatim, so
+      // the caret shifts by exactly the length delta.
+      const offsetInOld = sel.caret - span.start
+      const delta = next.length - span.text.length
+      caretOffset = produced + clamp(offsetInOld + delta, 0, next.length)
+    }
+    out.push(next)
+    produced += next.length + 1
+  }
+  const text = out.join('\n')
+  if (text === sel.spans.slice(first, last + 1).map((s) => s.text).join('\n')) return null
+  return { range: { from: rangeStart, to: rangeEnd }, text, caret: caretOffset ?? text.length }
+}
+
 /**
  * Apply a paragraph-level format to every line the selection touches.
  * Returns `null` when nothing changes, so the caller can skip the edit and
@@ -342,60 +403,14 @@ export function blockFormatEdit(
   range: TextRange,
   id: BlockFormatId,
 ): TextEdit | null {
-  const from = clamp(range.from, 0, markdown.length)
-  const to = clamp(range.to, from, markdown.length)
-  const spans = lineSpans(markdown)
-  if (spans.length === 0) return null
-
-  const caret = from
-  let first = spans.findIndex((span) => caret <= span.end)
-  if (first < 0) first = spans.length - 1
-  let last = spans.findIndex((span) => to <= span.end)
-  if (last < 0) last = spans.length - 1
-  if (last < first) last = first
-  // A selection ending exactly at a line break means "up to that break" —
-  // don't drag the next, untouched line into the edit.
-  if (last > first && markdown[to - 1] === '\n') last -= 1
-
-  const targets = spans.slice(first, last + 1)
-  const rangeStart = targets[0]!.start
-  const rangeEnd = targets[targets.length - 1]!.end
+  const sel = selectLines(markdown, range)
+  if (!sel) return null
 
   if (id === 'codeBlock') {
-    return codeBlockEdit(spans, first, last, caret)
+    return codeBlockEdit(sel.spans, sel.first, sel.last, sel.caret)
   }
 
-  const out: string[] = []
-  let caretOffset: number | null = null
-  let produced = 0
-  for (const span of targets) {
-    const parts = parseLine(span.text)
-    const next = renderLine(parts, id)
-    if (next === null) {
-      // Blank / marker-only line: keep it verbatim so the join below doesn't
-      // swallow it.
-      if (caretOffset === null && caret >= span.start && caret <= span.end) {
-        caretOffset = produced + (caret - span.start)
-      }
-      out.push(span.text)
-      produced += span.text.length + 1
-      continue
-    }
-    if (caretOffset === null && caret >= span.start && caret <= span.end) {
-      // Only the prefix changes — the trailing rest moves verbatim, so the
-      // caret shifts by exactly the prefix delta.
-      const offsetInOld = caret - span.start
-      const delta = next.length - span.text.length
-      caretOffset = produced + clamp(offsetInOld + delta, 0, next.length)
-    }
-    out.push(next)
-    produced += next.length + 1
-  }
-
-  const text = out.join('\n')
-  if (text === markdown.slice(rangeStart, rangeEnd)) return null
-  if (caretOffset === null) caretOffset = text.length
-  return { range: { from: rangeStart, to: rangeEnd }, text, caret: caretOffset }
+  return rewriteLines(sel, sel.first, sel.last, (parts, line) => renderLine(parts, id) ?? line)
 }
 
 /**
@@ -471,3 +486,111 @@ export function selectionLineRange(
   const end = spans[lastIdx]?.end ?? markdown.length
   return { from: start, to: end }
 }
+
+// ── 段落：标题级别 / 列表缩进 / 任务状态 ────────────────────────────────────
+
+/**
+ * Typora「提升 / 降低标题级别」.
+ *
+ * The names read backwards until you notice that a "higher heading level" means
+ * *more* prominent: 提升 promotes (`##` → `#`) and 降低 demotes (`#` → `##`).
+ * That matches the direction of Typora's own Ctrl+= / Ctrl+- bindings.
+ */
+export type HeadingStep = 'up' | 'down'
+
+/** Target level for `step`. 0 means paragraph. */
+export function stepHeadingLevel(level: number, step: HeadingStep): number {
+  // 提升: a paragraph becomes h1 and h1 stays put; otherwise one level up.
+  if (step === 'up') return level <= 1 ? 1 : level - 1
+  // 降低: a paragraph has nowhere to go; h6 falls back out of the heading run.
+  return level === 0 ? 0 : level >= 6 ? 0 : level + 1
+}
+
+/** Heading level (0 = not a heading) of the first line the range touches. */
+export function headingLevelAt(markdown: string, range: TextRange): number {
+  const sel = selectLines(markdown, range)
+  if (!sel) return 0
+  return parseLine(sel.spans[sel.first]!.text).heading
+}
+
+export function headingLevelEdit(
+  markdown: string,
+  range: TextRange,
+  step: HeadingStep,
+): TextEdit | null {
+  const sel = selectLines(markdown, range)
+  if (!sel) return null
+  return rewriteLines(sel, sel.first, sel.last, (parts) => {
+    // A blank or marker-only line is structural — never grow a `#` onto it.
+    if (!parts.rest.trim()) return null
+    const level = stepHeadingLevel(parts.heading, step)
+    return withRest(parts, level > 0 ? `${'#'.repeat(level)} ${parts.rest}` : parts.rest)
+  })
+}
+
+export type ListIndentStep = 'in' | 'out'
+
+/**
+ * Split off any leading `>` run so an indent lands *inside* a blockquote
+ * instead of turning the quote itself into an indented block.
+ */
+function splitQuotePrefix(line: string): { prefix: string; rest: string } {
+  const prefix = /^(?:[ \t]*>[ \t]?)*/.exec(line)?.[0] ?? ''
+  return { prefix, rest: line.slice(prefix.length) }
+}
+
+export function listIndentEdit(
+  markdown: string,
+  range: TextRange,
+  step: ListIndentStep,
+): TextEdit | null {
+  const sel = selectLines(markdown, range)
+  if (!sel) return null
+  return rewriteLines(sel, sel.first, sel.last, (parts, line) => {
+    // 列表缩进 only means something on a list item.
+    if (!parts.bullet && !parts.ordered) return null
+    const { prefix, rest } = splitQuotePrefix(line)
+    if (step === 'in') return `${prefix}  ${rest}`
+    const indent = /^[ \t]{1,2}/.exec(rest)?.[0]
+    if (indent) return prefix + rest.slice(indent.length)
+    // Nothing left to outdent, so the item leaves the list — Typora turns it
+    // into a paragraph here rather than quietly doing nothing.
+    return withoutMarks(parts)
+  })
+}
+
+/** Typora 任务状态 ▸ 标记为已完成 / 未完成. */
+export type TaskStatus = 'done' | 'todo'
+
+const isTaskLine = (line: string): boolean => parseLine(line).task
+
+export function taskStatusEdit(
+  markdown: string,
+  range: TextRange,
+  status: TaskStatus,
+): TextEdit | null {
+  const sel = selectLines(markdown, range)
+  if (!sel) return null
+  // Typora marks the whole list, not just the caret's item — so widen to the
+  // contiguous run of task lines. Only when the selection actually starts on
+  // one: otherwise the walk would grab an unrelated neighbouring list.
+  if (!isTaskLine(sel.spans[sel.first]!.text)) return null
+  let first = sel.first
+  while (first > 0 && isTaskLine(sel.spans[first - 1]!.text)) first -= 1
+  let last = sel.last
+  while (last + 1 < sel.spans.length && isTaskLine(sel.spans[last + 1]!.text)) last += 1
+  const box = status === 'done' ? 'x' : ' '
+  return rewriteLines(sel, first, last, (parts) => {
+    if (!parts.task) return null
+    const marker = parts.ordered || parts.bullet || '-'
+    const quote = parts.quote ? '> ' : ''
+    return `${parts.indent}${quote}${marker} [${box}] ${parts.rest}`
+  })
+}
+
+/**
+ * The literal 内容目录 marker. `pipeline.ts` expands a paragraph holding
+ * exactly this string into a nested link list built from the document's
+ * headings, which is why the marker lives here rather than in the shell.
+ */
+export const TOC_MARKER = '[TOC]'

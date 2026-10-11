@@ -1,6 +1,6 @@
 export type ViewKind = 'wysiwyg' | 'source' | 'hybrid'
 
-import type { BlockFormatId } from '../textFormat'
+import type { BlockFormatId, ListIndentStep, TaskStatus } from '../textFormat'
 
 /**
  * Image formats accepted for insert/paste when the blob reports no usable MIME
@@ -115,6 +115,18 @@ export interface ViewAdapter {
    * better return true; the shell falls back to the text rewrite otherwise.
    */
   setBlockFormat?(id: BlockFormatId): boolean
+  /**
+   * 列表缩进 natively. Nesting a list is a *structure* change, so the
+   * markdown-text rewrite cannot express it here. False when unsupported or a
+   * no-op, and the caller falls back to the text transform.
+   */
+  setListIndent?(step: ListIndentStep): boolean
+  /**
+   * 任务状态 ▸ 标记为已完成 / 未完成, applied to the enclosing list (Typora
+   * marks the whole list, not just the caret's item). False when the caret is
+   * not in a task list.
+   */
+  setTaskStatus?(status: TaskStatus): boolean
   setCodeLanguage?(language: string): void
   /** Scroll so the caret line sits near the vertical center of its scroller. */
   centerCaret?(): void

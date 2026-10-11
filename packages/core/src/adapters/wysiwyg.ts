@@ -31,6 +31,7 @@ import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
 import {
   createCodeBlockCommand,
   liftListItemCommand,
+  sinkListItemCommand,
   turnIntoTextCommand,
   wrapInBlockquoteCommand,
   wrapInBulletListCommand,
@@ -76,7 +77,7 @@ import {
   type PlantumlAnchor,
   type PlantumlTarget,
 } from '../plantumlEditBridge'
-import type { BlockFormatId } from '../textFormat'
+import type { BlockFormatId, ListIndentStep, TaskStatus } from '../textFormat'
 import {
   TABLE_COMMAND_LABELS,
   type InsertedImage,
@@ -1598,6 +1599,47 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
 
         if (result) flush()
         return result
+      })
+    },
+
+    setListIndent(step: ListIndentStep): boolean {
+      if (!editor || !ready) return false
+      return editor.action((ctx): boolean => {
+        const view = ctx.get(editorViewCtx)
+        const flush = (): void => emit(ctx.get(serializerCtx)(view.state.doc))
+        const call = (key: unknown): boolean =>
+          Boolean(callCommand(key as never, undefined as never)(ctx))
+        // Only meaningful inside a list — sinking a paragraph would *create* a
+        // list, which is a different command (and not what 列表缩进 means).
+        if (!enclosingAncestor(view.state, ['bullet_list', 'ordered_list'])) return false
+        const ok = call(step === 'in' ? sinkListItemCommand.key : liftListItemCommand.key)
+        if (ok) flush()
+        return ok
+      })
+    },
+
+    setTaskStatus(status: TaskStatus): boolean {
+      if (!editor || !ready) return false
+      return editor.action((ctx): boolean => {
+        const view = ctx.get(editorViewCtx)
+        const flush = (): void => emit(ctx.get(serializerCtx)(view.state.doc))
+        const list = enclosingAncestor(view.state, ['bullet_list'])
+        // A task list is a bullet list whose items carry `checked`; anything
+        // else is left alone rather than silently gaining checkboxes.
+        if (!list || !isTaskList(list.node)) return false
+        const checked = status === 'done'
+        const tr = view.state.tr
+        let pos = list.pos + 1
+        list.node.forEach((child) => {
+          if (child.type.name === 'list_item') {
+            tr.setNodeMarkup(pos, undefined, { ...child.attrs, checked })
+          }
+          pos += child.nodeSize
+        })
+        if (!tr.docChanged) return false
+        view.dispatch(tr)
+        flush()
+        return true
       })
     },
 

@@ -13,6 +13,7 @@ import { splitFrontmatter } from './frontmatter'
 import { normalizeMathLang } from './math'
 import { mdAlerts } from './mdAlerts'
 import { mdSyntax } from './mdSyntax'
+import { TOC_MARKER } from './textFormat'
 
 export interface TocEntry {
   text: string
@@ -63,6 +64,10 @@ interface MdastNode {
   value?: string
   depth?: number
   meta?: string | null
+  /** Set on a `list` built for a `[TOC]` expansion. */
+  ordered?: boolean
+  /** Set on a `link` built for a `[TOC]` expansion. */
+  url?: string
   data?: {
     hName?: string
     hProperties?: Record<string, unknown>
@@ -103,6 +108,77 @@ interface TransformCtx {
   toc: TocEntry[]
   seen: Map<string, number>
   options: PipelineOptions
+}
+
+/**
+ * Collect the outline *before* rewriting anything.
+ *
+ * A `[TOC]` has to expand to the whole document's headings even when it sits
+ * above them, so the list cannot be built while walking in order — and the
+ * `seen` map that disambiguates duplicate slugs has to be filled exactly once,
+ * here, or the anchors shift away from the ones the export outline points at.
+ */
+function collectToc(parent: MdastNode, ctx: TransformCtx): void {
+  if (!parent.children) return
+  for (const child of parent.children) {
+    if (child.type === 'heading' && typeof child.depth === 'number') {
+      const text = textOf(child).trim()
+      const id = slugify(text, ctx.seen)
+      ctx.toc.push({ text, level: child.depth, id })
+      // Stamp the anchor onto the heading in the same pass. Generated here
+      // rather than in the TOC expansion so a heading and its outline entry can
+      // never disagree about the slug — a `[TOC]` link and a sidebar entry that
+      // resolve differently is the kind of bug nobody notices until a reader
+      // clicks one.
+      child.data = {
+        ...child.data,
+        hProperties: { ...(child.data?.hProperties ?? {}), id },
+      }
+    }
+    collectToc(child, ctx)
+  }
+}
+
+/** Drop the speculative nested lists that ended up with no items. */
+function pruneEmptyLists(node: MdastNode): void {
+  if (!node.children) return
+  node.children = node.children.filter(
+    (child) => !(child.type === 'list' && (child.children?.length ?? 0) === 0),
+  )
+  for (const child of node.children) pruneEmptyLists(child)
+}
+
+/** A `[TOC]` paragraph → a nested bullet list of links to every heading. */
+function tocNode(ctx: TransformCtx): MdastNode {
+  const root: MdastNode = {
+    type: 'list',
+    ordered: false,
+    children: [],
+    // A hook for both the export stylesheet and the app theme, and something
+    // for tests to target without depending on list nesting depth.
+    data: { hProperties: { className: ['md-toc'] } },
+  }
+  if (ctx.toc.length === 0) return root
+  const top = Math.min(...ctx.toc.map((entry) => entry.level))
+  const stack: Array<{ level: number; node: MdastNode }> = [{ level: top - 1, node: root }]
+  for (const entry of ctx.toc) {
+    // Pop back to the parent of this level's run; entries deeper than their
+    // predecessor nest, shallower or equal ones become siblings.
+    while (stack.length > 1 && entry.level <= stack[stack.length - 1]!.level) stack.pop()
+    const item: MdastNode = { type: 'listItem', children: [] }
+    const nested: MdastNode = { type: 'list', ordered: false, children: [] }
+    item.children!.push({
+      type: 'paragraph',
+      children: [
+        { type: 'link', url: `#${entry.id}`, children: [{ type: 'text', value: entry.text }] },
+      ],
+    })
+    item.children!.push(nested)
+    stack[stack.length - 1]!.node.children!.push(item)
+    stack.push({ level: entry.level, node: nested })
+  }
+  pruneEmptyLists(root)
+  return root
 }
 
 function diagramPlaceholder(lang: string, code: string): MdastNode {
@@ -191,9 +267,9 @@ function transform(parent: MdastNode, ctx: TransformCtx): void {
         }
       }
     }
-    if (child.type === 'heading' && typeof child.depth === 'number') {
-      const text = textOf(child).trim()
-      ctx.toc.push({ text, level: child.depth, id: slugify(text, ctx.seen) })
+    if (child.type === 'paragraph' && textOf(child).trim() === TOC_MARKER) {
+      next.push(tocNode(ctx))
+      continue
     }
     transform(child, ctx)
     next.push(child)
@@ -225,7 +301,10 @@ export function createSharedPipeline(options: PipelineOptions = {}): Pipeline {
       if (options.alerts !== false) processor.use(mdAlerts)
       const file = await processor
         .use(remarkMath, options.inlineMath === false ? { singleDollarTextMath: false } : {})
-        .use(() => (tree: MdastNode) => transform(tree, ctx))
+        .use(() => (tree: MdastNode) => {
+          collectToc(tree, ctx)
+          transform(tree, ctx)
+        })
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeKatex, { strict: false })
         .use(rehypeStringify, { allowDangerousHtml: true })

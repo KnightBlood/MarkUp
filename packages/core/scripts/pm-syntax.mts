@@ -170,4 +170,38 @@ assert(
   'overtype: re-configuring the hook flips it without re-installing',
 )
 
+// ---- 内容目录 `[TOC]` ------------------------------------------------------
+// The marker must expand to the *whole* document even when it sits above the
+// headings, so the outline is collected in a pass before the rewrite.
+const tocHtml = await render('# 一\n\n[TOC]\n\n## 子\n\n### 孙')
+assert(tocHtml.includes('href="#'), 'a [TOC] paragraph becomes a list of links')
+assert(tocHtml.includes('md-toc'), 'the generated list carries its styling hook')
+assert(tocHtml.includes('>一</a>'), 'the TOC lists the document title')
+assert(tocHtml.includes('>子</a>') && tocHtml.includes('>孙</a>'), 'every heading is listed')
+assert(
+  (tocHtml.match(/<ul>/g) ?? []).length >= 2,
+  'deeper headings nest instead of flattening into one list',
+)
+assert(
+  tocHtml.indexOf('[TOC]') < 0,
+  'the marker itself is consumed — it is structure, not text',
+)
+// An anchor in the TOC has to match the one the heading got, or the link is
+// dead. The serializer percent-encodes the href, and a browser decodes the
+// fragment before matching, so compare the decoded form.
+const headingIds = [...tocHtml.matchAll(/<h[1-6][^>]*id="([^"]+)"/g)].map((m) => m[1])
+const tocHrefs = [...tocHtml.matchAll(/href="#([^"]+)"/g)].map((m) =>
+  decodeURIComponent(m[1] ?? ''),
+)
+assert(
+  headingIds.length > 0 && tocHrefs.every((id) => headingIds.includes(id)),
+  `every TOC link resolves to a heading (${tocHrefs.join(',')} vs ${headingIds.join(',')})`,
+)
+// No headings → an empty list, never a leftover marker.
+const noHeads = await render('[TOC]\n\njust text')
+assert(!noHeads.includes('[TOC]'), 'the marker is consumed even with no headings')
+// `[TOC]` has to be the whole paragraph; mentioning it must not expand it.
+const inline = await render('see [TOC] for the outline')
+assert(inline.includes('[TOC]'), 'only a marker-only paragraph expands')
+
 console.log('SMOKE CORE MARKDOWN SYNTAX OK: sub/sup/highlight/underline + alerts + overtype hook')

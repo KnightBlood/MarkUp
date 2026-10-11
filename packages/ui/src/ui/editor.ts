@@ -12,7 +12,9 @@ import {
   type InsertedImage,
   type ImageSourceKind,
   type LineAt,
+  type ListIndentStep,
   type TableCommandId,
+  type TaskStatus,
   type ViewKind,
 } from '@markup/core'
 import { el } from '../dom'
@@ -47,6 +49,13 @@ export interface EditorPaneApi {
    * cannot do it natively (the caller then rewrites the markdown text).
    */
   setBlockFormat(id: BlockFormatId): boolean
+  /**
+   * 列表缩进 in the active view; false when the view has no native command (the
+   * caller then rewrites the markdown text).
+   */
+  setListIndent(step: ListIndentStep): boolean
+  /** 任务状态 in the active view; false when it cannot be done natively. */
+  setTaskStatus(status: TaskStatus): boolean
   setCodeLanguage(language: string): void
   /** When enabled, keep the caret line centered after edits/selection. */
   setTypewriter(enabled: boolean): void
@@ -308,6 +317,22 @@ export function renderEditorPane(
         active.focus()
       }
       return applied
+    },
+    setListIndent: (step) => {
+      const active = sync.getActive()
+      if (!active?.setListIndent?.(step)) return false
+      doc.setContent(active.getValue())
+      sidebarRefresh?.()
+      active.focus?.()
+      return true
+    },
+    setTaskStatus: (status) => {
+      const active = sync.getActive()
+      if (!active?.setTaskStatus?.(status)) return false
+      doc.setContent(active.getValue())
+      sidebarRefresh?.()
+      active.focus?.()
+      return true
     },
     setTypewriter,
     centerCaret: () => {

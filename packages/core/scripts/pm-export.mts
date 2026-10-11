@@ -126,6 +126,25 @@ assert(
   const noOutline = await exportHtmlDocument('# 标题\n\n正文', {})
   assert(!noOutline.includes('class="md-toc"'), 'no outline unless asked for')
 
+  // ---- 首行缩进 ----
+  assert(!plain.includes('text-indent'), 'no indent rule unless asked for')
+  assert(
+    buildStandaloneHtml('<p>x</p>', { firstLineIndent: true }).includes(
+      '.markdown-body p { text-indent: 2em; }',
+    ),
+    '首行缩进 reaches the exported stylesheet',
+  )
+  // It is a layout rule, so it belongs with the other 页面设置 output rather than
+  // in the base sheet — and the config maps onto it from the editor setting.
+  assert(
+    exportOptionsFromConfig({ firstLineIndent: true }).firstLineIndent === true,
+    'the editor setting feeds the export',
+  )
+  assert(
+    exportOptionsFromConfig({}).firstLineIndent === false,
+    'and absent means off',
+  )
+
   // Config → options: absent keys mean the behaviour before these settings.
   const opts = exportOptionsFromConfig({})
   assert(

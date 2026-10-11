@@ -75,6 +75,8 @@ type AppConfig struct {
 	WorkspaceGlob         *string `json:"workspaceGlob,omitempty"`
 	ShowHiddenFiles       *bool   `json:"showHiddenFiles,omitempty"`
 	OutlineMaxLevel       *int    `json:"outlineMaxLevel,omitempty"`
+	FirstLineIndent       *bool   `json:"firstLineIndent,omitempty"`
+	CodeBlockWrap         *bool   `json:"codeBlockWrap,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

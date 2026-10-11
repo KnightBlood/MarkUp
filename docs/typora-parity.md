@@ -301,13 +301,13 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | 输入时转换 / 渲染时转换 | ⬜ |
 | 解析时识别 Unicode 标点 | ⬜ |
 | 默认缩进（引用/列表） | ⬜ |
-| 代码缩进 / 代码块自动换行 | ⬜ |
+| 代码缩进 / 代码块自动换行 | 🔶 代码块自动换行 ✅ `codeBlockWrap`；代码缩进未做 |
 | 默认的代码块语言 | ✅ `codeBlockLanguage`（只取第一个词，空格会提前结束 info string） |
 | 默认换行符（LF / CRLF） | ✅ `lineEnding`（`preserve`/`lf`/`crlf`） |
 | 保存时在文末添加空行 | ✅ `ensureFinalNewline` |
 | 当复制纯文本时复制 Markdown 源码 | ✅ `copyTextAsMarkdown` |
 | 空格与换行（编辑时 / 导出时保留或忽略） | ⬜ |
-| 首行缩进 | ⬜ |
+| 首行缩进 | ✅ `firstLineIndent`（预览 + 导出；只作用于段落，列表项与引用有自己的前导标记） |
 | 当复制纯文本时复制 Markdown 源码 | ✅ `copyTextAsMarkdown` |
 | 复制或剪切光标所在整行 | ✅ `edit.copyLine`（Ctrl+Shift+X）/ `edit.cutLine` |
 | 选中当前行 | ✅ `edit.selectLine`（Ctrl+L） |
@@ -342,7 +342,7 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | 文件库（列表视图） | ⬜ |
 | 文件树 / 文件库 glob 过滤（含 `!` 排除） | ✅ `workspaceGlob`（最后匹配的规则生效；`*` 不跨目录，`**` 跨） |
 | 显示隐藏的文件夹 / 文件 | ✅ `showHiddenFiles`（只影响 `.` 开头；`node_modules`/`.git` 等始终隐藏） |
-| 在文件树中显示 / 在文档列表中显示 | ⬜ |
+| 在文件树中显示 / 在文档列表中显示 | ✅ 文件树标记当前文档（`file.revealInSidebar` + 切换标签页时自动跟随） |
 | 文件树内新建文件 / 文件夹 | ✅ 工作区根目录右键（拒绝含斜杠的名字，不覆盖同名） |
 
 ## 10. 系统集成与杂项
@@ -350,7 +350,7 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 | Typora 项 | 状态 |
 |---|---|
 | 复制为图片 | ⬜ |
-| 复制到 MS Word | ⬜ |
+| 复制到 MS Word | ✅ `edit.copyToWord`（去样式后以真正的 `text/html` 剪贴板格式写入） |
 | 复制内容并简化格式（无样式 HTML） | ✅ `edit.copyAsCleanHtml`（去掉内联样式与 `<style>`，保留类名与结构） |
 | 格式化表格源码 | ✅ `format.tableSource`（按显示宽度对齐，中文按两格算） |
 | 使用 Google 搜索 / 搜索… | ✅ `search.google`（搜索所选内容） |

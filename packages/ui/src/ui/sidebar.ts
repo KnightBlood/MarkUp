@@ -38,6 +38,12 @@ export interface SidebarApi {
   refreshOutline: () => void
   refreshRecents: () => void
   refreshWorkspace: () => void
+  /**
+   * 在文件树中显示 — mark `path` as the open document. Pass null to clear the
+   * mark. `scroll` brings it into view, which is only wanted for the explicit
+   * command; following the active document should not fight the user's scrolling.
+   */
+  revealPath: (path: string | null, options?: { scroll?: boolean }) => void
   showTab: (tab: string) => void
   focusSearch: () => void
   /** Append a plugin tab (button + panel). Returns an unsubscribe that removes it. */
@@ -164,6 +170,9 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
     void handlers.openPath(path)
   }
 
+  /** Absolute path of the document the tree should mark as open. */
+  let activePath: string | null = null
+
   const refreshWorkspaceFiles = (): void => {
     const workspace = handlers.getWorkspace()
     if (!workspace.root) {
@@ -188,7 +197,9 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
           'li',
           {},
           el('button', {
-            class: 'file-tree__recent',
+            // 在文件树中显示: the open document is marked so the tree shows where
+            // you are, not just what exists.
+            class: `file-tree__recent${path === activePath ? ' is-active' : ''}`,
             type: 'button',
             text: relativePath(workspace.root!, path),
             title: path,
@@ -231,6 +242,24 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
 
   const refreshWorkspace = (): void => {
     refreshWorkspaceFiles()
+  }
+
+  /**
+   * 在文件树中显示 — mark the open document and bring it into view. Re-renders
+   * first: the tree may not contain the path yet if the workspace was reloaded
+   * since the document opened.
+   */
+  const revealPath = (path: string | null, options: { scroll?: boolean } = {}): void => {
+    const changed = path !== activePath
+    activePath = path
+    // Re-rendering the whole list on every document change would be waste — the
+    // mark only moves when the *path* does, which typing never changes.
+    if (changed) refreshWorkspaceFiles()
+    if (options.scroll) {
+      fileList
+        .querySelector<HTMLElement>('.file-tree__recent.is-active')
+        ?.scrollIntoView({ block: 'nearest' })
+    }
   }
 
   const refreshOutline = (): void => {
@@ -491,6 +520,7 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
     refreshOutline,
     refreshRecents,
     refreshWorkspace,
+    revealPath,
     showTab,
     registerTab,
     focusSearch: () => {

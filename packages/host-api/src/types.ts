@@ -245,6 +245,17 @@ export interface AppConfig {
    */
   outlineMaxLevel?: number
   /**
+   * 首行缩进 — indent the first line of each paragraph by two characters, the
+   * usual setting for CJK prose. Off by default; it is a typographic choice, not
+   * a neutral default.
+   */
+  firstLineIndent?: boolean
+  /**
+   * 代码块自动换行. Off by default: a code block wrapping changes what the code
+   * looks like, so it is a choice rather than a neutral default.
+   */
+  codeBlockWrap?: boolean
+  /**
    * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
    * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
    */

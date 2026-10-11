@@ -140,6 +140,10 @@ struct AppConfig {
     #[serde(default)]
     outline_max_level: Option<u8>,
     #[serde(default)]
+    first_line_indent: Option<bool>,
+    #[serde(default)]
+    code_block_wrap: Option<bool>,
+    #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
     spellcheck: Option<bool>,
@@ -236,6 +240,8 @@ impl Default for AppConfig {
             workspace_glob: None,
             show_hidden_files: None,
             outline_max_level: None,
+            first_line_indent: None,
+            code_block_wrap: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

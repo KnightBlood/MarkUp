@@ -233,6 +233,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     placeholder: '每行或逗号分隔，例如：\n*.md\n!draft-*',
   })
   const showHiddenFilesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const firstLineIndentCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const codeBlockWrapCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const outlineMaxLevelSelect = el(
     'select',
     { class: 'settings__input' },
@@ -464,6 +466,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '只取第一个词：空格会提前结束围栏的 info string，后面会变成围栏元数据。',
       }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        codeBlockWrapCheck,
+        el('span', { class: 'settings__label', text: '代码块自动换行' }),
+      ),
     ),
     el(
       'section',
@@ -679,6 +687,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         exportPageBreakCheck,
         el('span', { class: 'settings__label', text: '按一级标题分页' }),
       ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        firstLineIndentCheck,
+        el('span', { class: 'settings__label', text: '首行缩进（每段首行缩进两字）' }),
+      ),
       el('p', {
         class: 'settings__label',
         text: '页面设置只作用于导出 PDF 与打印（浏览器忽略屏幕上的 @page 规则）。纸张与页边距会做白名单校验，只允许字母数字与空格 . % / -，避免破坏样式表。',
@@ -803,6 +817,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     workspaceGlobInput.value = config.workspaceGlob ?? ''
     showHiddenFilesCheck.checked = config.showHiddenFiles === true
     outlineMaxLevelSelect.value = String(config.outlineMaxLevel ?? 0)
+    firstLineIndentCheck.checked = config.firstLineIndent === true
+    codeBlockWrapCheck.checked = config.codeBlockWrap === true
     exportFolderInput.value = config.exportFolder ?? ''
     exportAfterSelect.value = config.exportAfter ?? 'none'
     exportPageSizeInput.value = config.exportPageSize ?? ''
@@ -871,6 +887,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       showHiddenFiles: checked(showHiddenFilesCheck),
       // 0 is "全部层级", the default, so it never has to be stored.
       outlineMaxLevel: Number(outlineMaxLevelSelect.value) || undefined,
+      firstLineIndent: checked(firstLineIndentCheck),
+      codeBlockWrap: checked(codeBlockWrapCheck),
       exportFolder: exportFolderInput.value.trim() || undefined,
       // Absent means "do nothing", so the default never has to be stored.
       exportAfter:
@@ -929,6 +947,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     imageApplyLocalCheck,
     exportPageBreakCheck,
     exportOutlineCheck,
+    firstLineIndentCheck,
+    codeBlockWrapCheck,
     smartQuotesCheck,
     smartDashesCheck,
     pairedSymbolsCheck,

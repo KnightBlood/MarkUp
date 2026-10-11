@@ -156,6 +156,8 @@ export interface ExportHtmlOptions {
   headHtml?: string
   /** Injected just before `</body>`. */
   bodyHtml?: string
+  /** 首行缩进 — indent each paragraph's first line by two characters. */
+  firstLineIndent?: boolean
   /** 大纲侧边栏 — put the document outline at the top of the exported body. */
   outline?: boolean
 }
@@ -177,6 +179,9 @@ function pageCss(options: ExportHtmlOptions): string {
     parts.push(`@page {${sizeOk ? ` size: ${size};` : ''}${marginOk ? ` margin: ${margin};` : ''} }`)
   }
   if (options.pageBreakOnH1) parts.push('h1 { break-before: page; }')
+  // 首行缩进 belongs in the layout block because it has to reach the printed
+  // page too, not just the on-screen preview.
+  if (options.firstLineIndent) parts.push('.markdown-body p { text-indent: 2em; }')
   return parts.join('\n')
 }
 
@@ -258,9 +263,18 @@ export function exportOptionsFromConfig(config: {
   exportPageSize?: string
   exportPageMargin?: string
   exportPageBreakOnH1?: boolean
+  /** The editor's 首行缩进 — the export has to agree with the preview. */
+  firstLineIndent?: boolean
 }): Pick<
   ExportHtmlOptions,
-  'customCss' | 'headHtml' | 'bodyHtml' | 'outline' | 'pageSize' | 'pageMargin' | 'pageBreakOnH1'
+  | 'customCss'
+  | 'headHtml'
+  | 'bodyHtml'
+  | 'outline'
+  | 'pageSize'
+  | 'pageMargin'
+  | 'pageBreakOnH1'
+  | 'firstLineIndent'
 > {
   return {
     // Absent keys mean "off"/"unset" — the behaviour before these settings
@@ -272,6 +286,7 @@ export function exportOptionsFromConfig(config: {
     pageSize: config.exportPageSize,
     pageMargin: config.exportPageMargin,
     pageBreakOnH1: config.exportPageBreakOnH1 === true,
+    firstLineIndent: config.firstLineIndent === true,
   }
 }
 

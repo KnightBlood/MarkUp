@@ -177,8 +177,8 @@ const editorChecks = settings.el.querySelectorAll<HTMLInputElement>(
   '[data-tab-panel="editor"] input[type="checkbox"]',
 )
 const lineNumbersCheckRef = editorChecks[2]!
-assert(editorChecks.length === 9, `editor checkboxes: ${editorChecks.length}`)
-// 打字机 / 专注 / 行号 / 智能引号 / 智能破折号 / 成对符号 / 文末空行 / 纯文本复制 / 显示隐藏文件
+assert(editorChecks.length === 10, `editor checkboxes: ${editorChecks.length}`)
+// 打字机 / 专注 / 行号 / 智能引号 / 智能破折号 / 成对符号 / 文末空行 / 纯文本复制 / 代码块换行 / 显示隐藏文件
 const lineNumbersCheck = editorChecks[2]!
 lineNumbersCheck.checked = true
 lineNumbersCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))

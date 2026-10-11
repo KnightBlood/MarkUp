@@ -55,6 +55,7 @@ const copied: string[] = []
 const removed: string[] = []
 /** Workspace root the mock reports; flipped mid-test to reach the tree actions. */
 let workspaceRoot: string | null = null
+const workspaceFiles: string[] = []
 const created: string[] = []
 let folderOpens = 0
 
@@ -66,7 +67,7 @@ const sidebar = renderSidebar({
   getCurrentPath: () => null,
   getMarkdown: () => '# 标题一\n\n段落\n\n## 标题二',
   gotoAnchor: () => undefined,
-  getWorkspace: () => ({ root: workspaceRoot, files: [] }),
+  getWorkspace: () => ({ root: workspaceRoot, files: workspaceFiles }),
   onOpenFolder: async () => {
     folderOpens += 1
   },
@@ -165,6 +166,29 @@ assert(
   lastMenu.some((i) => i.label === '刷新工作区列表'),
   '刷新工作区列表 is still offered with a root',
 )
+
+// ---- 在文件树中显示 --------------------------------------------------------
+workspaceFiles.push('/notes/a.md', '/notes/b.md')
+sidebar.refreshWorkspace()
+const marks = (): HTMLElement[] => [
+  ...root.querySelectorAll<HTMLElement>('.file-tree__recent.is-active'),
+]
+assert(marks().length === 0, 'nothing is marked before a document is revealed')
+
+sidebar.revealPath('/notes/b.md')
+assert(marks().length === 1, `exactly one entry is marked: ${marks().length}`)
+assert(marks()[0]!.getAttribute('title') === '/notes/b.md', 'and it is the right one')
+
+// Following the document moves the mark rather than adding a second one.
+sidebar.revealPath('/notes/a.md')
+assert(marks().length === 1 && marks()[0]!.getAttribute('title') === '/notes/a.md', 'the mark moves')
+
+// A path outside the workspace (or an unsaved document) simply marks nothing —
+// it must not throw or leave a stale highlight behind.
+sidebar.revealPath('/elsewhere/c.md')
+assert(marks().length === 0, 'an unlisted path clears the mark')
+sidebar.revealPath(null)
+assert(marks().length === 0, 'null clears the mark')
 
 // registration surface: registerTab appends button + panel, unsubscribe removes both
 const pluginTab = sidebar.registerTab({

@@ -1362,6 +1362,21 @@ body {
   display: none;
 }
 
+.file-tree__recent.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 首行缩进 (--mk-first-line-indent, set from the config). Paragraphs only: a list
+   item or a quote already has its own leading marker, and indenting those reads
+   as a broken indent rather than a typographic choice. */
+.editor-viewport .ProseMirror > p,
+.editor-viewport .overtype-preview > p,
+.editor-viewport .cm-line > p {
+  text-indent: var(--mk-first-line-indent, 0px);
+}
+
 .settings__field--off {
   display: none;
 }

@@ -672,6 +672,51 @@ Check-Needle 'outlinelevel :: config field' "$root\packages\host-api\src\types.t
 Check-Needle 'outlinelevel :: settings select' "$root\packages\ui\src\ui\settings.ts" "'大纲显示的标题层数'" -Literal
 Check-Needle 'outlinelevel :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'outline_max_level: Option<u8>' -Literal
 Check-Needle 'outlinelevel :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"outlineMaxLevel,omitempty"' -Literal
+
+# --- 在文件树中显示 / 在文档列表中显示 ---
+# Following the active document must *move* the mark rather than add one, and a
+# path outside the workspace must clear it instead of leaving a stale highlight.
+Check-Needle 'revealsidebar :: api' "$root\packages\ui\src\ui\sidebar.ts" 'revealPath: (path: string | null, options?: { scroll?: boolean }) => void' -Literal
+Check-Needle 'revealsidebar :: mark' "$root\packages\ui\src\ui\sidebar.ts" 'file-tree__recent${path === activePath' -Literal
+# Re-rendering the whole list on every keystroke would be waste: the mark only
+# moves when the path does.
+Check-Needle 'revealsidebar :: only re-renders on change' "$root\packages\ui\src\ui\sidebar.ts" 'if (changed) refreshWorkspaceFiles()' -Literal
+Check-Needle 'revealsidebar :: follows the active document' "$root\packages\ui\src\shell.ts" 'sidebar.revealPath(doc.getDocument()?.path ?? null)' -Literal
+Check-Needle 'revealsidebar :: command registered' "$root\packages\ui\src\shell.ts" "id: 'file.revealInSidebar'," -Literal
+Check-Needle 'revealsidebar :: styles' "$root\packages\ui\src\theme\shell.css" '.file-tree__recent.is-active {' -Literal
+
+# --- 复制到 MS Word / 真正的 HTML 剪贴板 ---
+# `writeText` alone hands the destination the *source*: pasting into Word would
+# show the tags instead of a paragraph. `ClipboardItem` is the only way to offer
+# a real `text/html` flavour.
+Check-Needle 'word :: html clipboard flavour' "$root\packages\ui\src\shell.ts" 'const writeClipboardHtml = async (html: string, plain: string)' -Literal
+Check-Needle 'word :: falls back to text' "$root\packages\ui\src\shell.ts" 'await writeClipboard(plain)' -Literal
+# Our theme CSS confuses Word's importer, which is what motivates stripping it.
+Check-Needle 'word :: strips our presentation' "$root\packages\ui\src\shell.ts" "await writeClipboardHtml(stripHtmlFormatting(sourceHtml), plainFallback)" -Literal
+Check-Needle 'word :: command registered' "$root\packages\ui\src\shell.ts" "id: 'edit.copyToWord'," -Literal
+Check-Needle 'word :: menu entry' "$root\packages\host-api\src\menu.json" 'edit.copyToWord' -Literal
+
+# --- 首行缩进 ---
+# A CSS variable so the preview, the export and the print path all read the same
+# switch; and applied to paragraphs only — a list item or quote already has its
+# own leading marker, and indenting those reads as a broken indent.
+Check-Needle 'indent :: config field' "$root\packages\host-api\src\types.ts" 'firstLineIndent?: boolean' -Literal
+Check-Needle 'indent :: preview variable' "$root\packages\ui\src\shell.ts" "'--mk-first-line-indent'" -Literal
+Check-Needle 'indent :: paragraphs only' "$root\packages\ui\src\theme\shell.css" 'text-indent: var(--mk-first-line-indent, 0px);' -Literal
+Check-Needle 'indent :: export rule' "$root\packages\core\src\exportHtml.ts" "'.markdown-body p { text-indent: 2em; }'" -Literal
+Check-Needle 'indent :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'first_line_indent: Option<bool>' -Literal
+Check-Needle 'indent :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"firstLineIndent,omitempty"' -Literal
+
+# --- 代码块自动换行 ---
+# A variable rather than a second rule, so the preview and the export read one
+# source; and the default stays `pre` — a code block wrapping changes what the
+# code looks like, so it is a choice, not a neutral default.
+Check-Needle 'codewrap :: config field' "$root\packages\host-api\src\types.ts" 'codeBlockWrap?: boolean' -Literal
+Check-Needle 'codewrap :: preview reads the variable' "$root\packages\core\src\adapters\github.css" 'white-space: var(--mk-code-wrap, pre);' -Literal
+Check-Needle 'codewrap :: shell sets it' "$root\packages\ui\src\shell.ts" "'--mk-code-wrap'" -Literal
+Check-Needle 'codewrap :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'代码块自动换行'" -Literal
+Check-Needle 'codewrap :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'code_block_wrap: Option<bool>' -Literal
+Check-Needle 'codewrap :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"codeBlockWrap,omitempty"' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal

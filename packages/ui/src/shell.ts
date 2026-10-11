@@ -193,6 +193,12 @@ function applyAppearance(config: AppConfig): void {
   // element, so the zoom survives a view switch (the adapters rebuild their
   // own DOM) without the shell having to re-apply it.
   root.style.setProperty('--view-zoom', zoomCss(config.viewZoom))
+  // 首行缩进: a variable rather than a stylesheet edit so the preview, the
+  // export and a future print path all read the same switch.
+  root.style.setProperty('--mk-first-line-indent', config.firstLineIndent ? '2em' : '0px')
+  // 代码块自动换行. Default (absent) is `pre` — a code block does not wrap, which
+  // is how it has always rendered; turning the setting on allows wrapping.
+  root.style.setProperty('--mk-code-wrap', config.codeBlockWrap ? 'pre-wrap' : 'pre')
   // Optional font overrides (settings → 外观 → 字体); absent = CSS defaults.
   for (const { name, value } of fontVars(config)) {
     if (value) root.style.setProperty(name, value)
@@ -940,6 +946,9 @@ export function renderShell(): ShellHandle {
 
   refreshSidePanel = () => {
     sidebar.refreshOutline()
+    // 在文档列表中显示: keep the tree's mark on the document you are actually in,
+    // so switching tabs moves the highlight rather than leaving it behind.
+    sidebar.revealPath(doc.getDocument()?.path ?? null)
     statusbar.refresh()
   }
 
@@ -1475,6 +1484,33 @@ export function renderShell(): ShellHandle {
     }
   }
 
+  /**
+   * Put HTML on the clipboard as a real `text/html` flavour, with a plain-text
+   * fallback.
+   *
+   * `writeText` alone would hand the destination the *source* — pasting into
+   * Word would show `&lt;p&gt;…&lt;/p&gt;` instead of a paragraph. `ClipboardItem`
+   * is the only way to offer an HTML flavour; where it is missing the command
+   * still does something (plain text) rather than failing silently.
+   */
+  const writeClipboardHtml = async (html: string, plain: string): Promise<void> => {
+    const Item = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem
+    if (navigator.clipboard?.write && Item) {
+      try {
+        await navigator.clipboard.write([
+          new Item({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plain], { type: 'text/plain' }),
+          }),
+        ])
+        return
+      } catch {
+        /* some hosts deny the richer write — fall through to plain text */
+      }
+    }
+    await writeClipboard(plain)
+  }
+
   const writeClipboard = async (text: string): Promise<void> => {
     try {
       if (navigator.clipboard?.writeText) {
@@ -1743,7 +1779,7 @@ export function renderShell(): ShellHandle {
   }
 
   const copySelectionAs = async (
-    mode: 'markdown' | 'text' | 'html' | 'clean',
+    mode: 'markdown' | 'text' | 'html' | 'clean' | 'word',
   ): Promise<void> => {
     const markdown = editor.getMarkdown()
     const range = selectionRange()
@@ -1758,12 +1794,21 @@ export function renderShell(): ShellHandle {
         : editor.getSelectedText() || text
     }
     // 源码视图 has no rendered DOM: 纯文本/HTML fall back to the markdown slice.
-    if (mode === 'html') text = selectionHtml() || `<p>${escapeHtml(text)}</p>`
-    // 复制内容并简化格式: the same HTML with our own presentation stripped — what
-    // gets copied describes how it looks *here*, which is meaningless or harmful
-    // in whatever it is pasted into.
-    if (mode === 'clean') {
-      text = stripHtmlFormatting(selectionHtml() || `<p>${escapeHtml(text)}</p>`)
+    const sourceHtml = selectionHtml() || `<p>${escapeHtml(text)}</p>`
+    const plainFallback = editor.getSelectedText() || text
+    // 复制为 HTML 代码 / 复制到 MS Word / 复制内容并简化格式 all want a real
+    // `text/html` flavour — writing the source as *text* would show the tags
+    // wherever it is pasted.
+    if (mode === 'html') {
+      await writeClipboardHtml(sourceHtml, plainFallback)
+      return
+    }
+    if (mode === 'clean' || mode === 'word') {
+      // Our presentation describes how it looks *here*; pasted elsewhere it is
+      // meaningless (or fights the destination's own styling). Word is the case
+      // that motivated stripping it — our CSS confuses its importer.
+      await writeClipboardHtml(stripHtmlFormatting(sourceHtml), plainFallback)
+      return
     }
     await writeClipboard(text)
   }
@@ -2242,6 +2287,19 @@ export function renderShell(): ShellHandle {
     },
   })
   registry.register({
+    id: 'file.revealInSidebar',
+    label: '在文件树中显示',
+    run: () => {
+      const current = doc.getDocument()
+      if (!current?.path) {
+        toastHost.show('当前文档尚未保存', { level: 'warn' })
+        return
+      }
+      sidebar.showTab('file')
+      sidebar.revealPath(current.path, { scroll: true })
+    },
+  })
+  registry.register({
     id: 'settings.advancedConfig',
     label: '高级设置（打开配置目录）',
     run: async () => {
@@ -2574,6 +2632,11 @@ export function renderShell(): ShellHandle {
     id: 'edit.copyAsCleanHtml',
     label: '复制内容并简化格式',
     run: () => void copySelectionAs('clean'),
+  })
+  registry.register({
+    id: 'edit.copyToWord',
+    label: '复制到 MS Word',
+    run: () => void copySelectionAs('word'),
   })
   registry.register({
     id: 'search.google',

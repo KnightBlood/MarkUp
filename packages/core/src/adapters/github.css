@@ -94,7 +94,10 @@
   border-radius: 0;
   background: transparent;
   font-size: inherit;
-  white-space: pre;
+  /* 代码块自动换行 (--mk-code-wrap, set from the config): `pre` by default so a
+     code block does not wrap, as it always has; the setting switches it to
+     `pre-wrap`. A variable rather than a second rule so there is one source. */
+  white-space: var(--mk-code-wrap, pre);
 }
 
 /* GitHub tables: block-level scroller, header row on the subtle background,

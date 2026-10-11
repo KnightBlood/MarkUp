@@ -17,7 +17,7 @@ import {
   watch as fsWatch,
   type FSWatcher,
 } from 'node:fs'
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { HOST_EVENT_CHANNEL, IPC_CHANNELS } from '../../shared/ipc'
 import menuData from '../../shared/menu.json'
@@ -170,6 +170,9 @@ function registerHandlers(): void {
   })
   ipcMain.handle(IPC_CHANNELS.fsMkdirp, (_event, dir: string) => {
     mkdirSync(dir, { recursive: true })
+  })
+  ipcMain.handle(IPC_CHANNELS.fsRemove, async (_event, path: string) => {
+    await rm(path, { force: true })
   })
   ipcMain.handle(IPC_CHANNELS.fsWriteBase64, async (_event, path: string, dataUrl: string) => {
     // `data:<mime>;base64,<payload>` — only the payload after the first comma

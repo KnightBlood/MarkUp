@@ -10,7 +10,7 @@
  *  - intercepts window close and asks the app first via `close-request`.
  */
 import { existsSync, mkdirSync, readFileSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -173,6 +173,9 @@ const rpc = defineElectrobunRPC<AppRPC, 'bun'>('bun', {
       fsMkdirp: (dir: string): Promise<void> => {
         mkdirSync(dir, { recursive: true })
         return Promise.resolve()
+      },
+      fsRemove: async (path: string): Promise<void> => {
+        await rm(path, { force: true })
       },
       fsWriteBase64: async ({
         path,

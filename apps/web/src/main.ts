@@ -150,10 +150,11 @@ function createWebHost(): HostAPI {
         }
         return `data:${embedMimeForPath(path)};base64,${btoa(binary)}`
       },
-      // `writeBase64` / `mkdirp` are deliberately absent, not forgotten: the
-      // browser has no writable filesystem. Their absence is what makes
-      // 图像 ▸ 插入图片时 fall back to keeping pasted bitmaps inline here
-      // instead of failing — see `resolveImageInsert`.
+      // `writeBase64` / `mkdirp` / `remove` are deliberately absent, not forgotten:
+      // the browser has no writable filesystem. Their absence is what makes
+      // 图像 ▸ 插入图片时 fall back to keeping pasted bitmaps inline here, and
+      // what hides the destructive 图像工具 items, instead of offering actions
+      // that can only fail — see `resolveImageInsert`.
     },
     dialog: {
       open: (options: OpenDialogOptions): Promise<PathInfo[]> => pickFiles(options),

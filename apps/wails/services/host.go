@@ -264,6 +264,16 @@ func (s *HostService) Mkdirp(dir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
+// Remove deletes a file. A file that is already gone is not an error — the
+// caller wanted it gone either way (matches `rm -f`).
+func (s *HostService) Remove(path string) error {
+	err := os.Remove(path)
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
 // GetPath resolves a well-known app directory ('plugins' creates
 // ~/.markup/plugins on demand; 'pluginsLocal' resolves plugins/ next to the
 // executable and is never created). Returns nil (JSON null) for unknown names.

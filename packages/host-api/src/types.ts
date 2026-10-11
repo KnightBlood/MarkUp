@@ -387,6 +387,14 @@ export interface HostAPI {
      * Optional, paired with `writeBase64`.
      */
     mkdirp?(dir: string): Promise<void>
+    /**
+     * Delete a file. Used by 图像工具 ▸ 删除图片文件 / 移动图片到 (a move is a
+     * copy followed by a delete).
+     *
+     * Optional — web has no writable filesystem, and a host that omits it
+     * simply does not offer the destructive image tools.
+     */
+    remove?(path: string): Promise<void>
   }
   dialog: {
     open(options: OpenDialogOptions): Promise<PathInfo[]>

@@ -25,6 +25,7 @@ export const IPC_CHANNELS = {
   fsReadBase64: 'markup:fs:readBase64',
   fsWriteBase64: 'markup:fs:writeBase64',
   fsMkdirp: 'markup:fs:mkdirp',
+  fsRemove: 'markup:fs:remove',
   dlOpen: 'markup:dialog:open',
   dlSave: 'markup:dialog:save',
   appOpenExternal: 'markup:app:openExternal',

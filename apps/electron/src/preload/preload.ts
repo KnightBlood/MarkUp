@@ -41,6 +41,7 @@ const api: HostAPI = {
     readBase64: (path) => ipcRenderer.invoke(IPC_CHANNELS.fsReadBase64, path),
     writeBase64: (path, dataUrl) => ipcRenderer.invoke(IPC_CHANNELS.fsWriteBase64, path, dataUrl),
     mkdirp: (dir) => ipcRenderer.invoke(IPC_CHANNELS.fsMkdirp, dir),
+    remove: (path) => ipcRenderer.invoke(IPC_CHANNELS.fsRemove, path),
     watch: (path, listener) => {
       const off = onHostMessage('fs-changed', (payload) => {
         listener(payload as FsEvent)

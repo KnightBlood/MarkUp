@@ -31,6 +31,7 @@ function createTauriHost(): HostAPI {
       writeBase64: (path: string, dataUrl: string): Promise<void> =>
         invoke('write_base64', { path, dataUrl }),
       mkdirp: (dir: string): Promise<void> => invoke('mkdirp', { dir }),
+      remove: (path: string): Promise<void> => invoke('remove_file', { path }),
       watch: (path: string, listener: (event: FsEvent) => void): (() => void) => {
         let off: (() => void) | null = null
         void listen<HostMessage>('host-event', (event) => {

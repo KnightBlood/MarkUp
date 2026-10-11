@@ -179,7 +179,7 @@ export function escapeUrlPath(url: string): string {
 export function imageMarkdownUrl(
   target: string,
   docPath: string,
-  options: ImagePersistOptions,
+  options: Pick<ImagePersistOptions, 'preferRelative' | 'dotPrefix' | 'escapeUrl'>,
   style: PathStyle,
 ): string {
   const asPosix = (p: string) => p.replace(/\\/g, '/')

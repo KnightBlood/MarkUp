@@ -110,6 +110,7 @@ function createElectrobunHost(): HostAPI {
       writeBase64: (path: string, dataUrl: string): Promise<void> =>
         rpc.request.fsWriteBase64({ path, dataUrl }),
       mkdirp: (dir: string): Promise<void> => rpc.request.fsMkdirp(dir),
+      remove: (path: string): Promise<void> => rpc.request.fsRemove(path),
       watch: (path: string, listener: (event: FsEvent) => void): (() => void) => {
         void rpc.request.fsWatch(path).catch((error) => {
           console.warn('[markup] watch failed:', path, error)

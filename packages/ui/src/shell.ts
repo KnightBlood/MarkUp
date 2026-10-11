@@ -9,14 +9,21 @@ import {
   headingLevelAt,
   headingLevelEdit,
   imageAltText,
+  imageAt,
+  imageDisplayName,
   imageNameFor,
   imagePersistOptionsFromConfig,
   imageTargetDir,
+  imagesInScope,
   inlineFormatEdit,
+  joinPath,
   linkEdit,
   listIndentEdit,
+  localImages,
   pathStyleFor,
+  repointImagesEdit,
   resolveImageInsert,
+  resolveImagePath,
   resolvePlantumlTarget,
   setDiagramEditHandler,
   setDiagramEnlargeHandler,
@@ -26,12 +33,16 @@ import {
   setPlantumlVisualEditHandler,
   splitFrontmatter,
   stepHeadingLevel,
+  switchImageSyntaxEdit,
   taskStatusEdit,
   mdSyntaxOptionsFromConfig,
   pipelineOptionsFromConfig,
   TOC_MARKER,
+  uniqueFileName,
   type BlockFormatId,
   type HeadingStep,
+  type ImageRef,
+  type ImageSyntax,
   type InlineFormatId,
   type InsertedImage,
   type ListIndentStep,
@@ -294,6 +305,201 @@ export function renderShell(): ShellHandle {
       console.error('[markup] 图片落盘失败，改为内联 data URL', error)
       return null
     }
+  }
+
+  // ── 图像工具 ─────────────────────────────────────────────────────────────
+  // Every entry point that touches the disk needs the same two capabilities, so
+  // a host without them (web) simply does not offer the items — better than a
+  // menu entry whose only possible outcome is an error.
+  const canEditImageFiles = (): boolean =>
+    typeof host.fs.writeBase64 === 'function' && typeof host.fs.remove === 'function'
+
+  const imageContext = () => {
+    const docPath = doc.getDocument()?.path || null
+    return {
+      docPath,
+      options: imagePersistOptionsFromConfig(appearance),
+      style: pathStyleFor(docPath ?? ''),
+    }
+  }
+
+  /** The local image the caret sits on, with its path resolved. */
+  const currentImage = (): { ref: ImageRef; path: string } | null => {
+    const { docPath, style } = imageContext()
+    const ref = imageAt(editor.getMarkdown(), selectionRange().from)
+    if (!ref) return null
+    const path = resolveImagePath(ref.url, docPath, style)
+    return path ? { ref, path } : null
+  }
+
+  const confirmImageAction = async (
+    title: string,
+    message: string,
+    confirmText: string,
+  ): Promise<boolean> => {
+    const result = await host.dialog.message({ title, message, buttons: ['取消', confirmText] })
+    return result.button === confirmText
+  }
+
+  /** Bytes → bytes, then drop the original: a move spelled with the optional ops. */
+  const moveImageFile = async (from: string, to: string): Promise<void> => {
+    const dataUrl = await host.fs.readBase64(from)
+    await host.fs.mkdirp?.(dirname(to))
+    await host.fs.writeBase64?.(to, dataUrl)
+    await host.fs.remove?.(from)
+  }
+
+  const copyImageBytes = async (from: string, to: string): Promise<void> => {
+    const dataUrl = await host.fs.readBase64(from)
+    await host.fs.mkdirp?.(dirname(to))
+    await host.fs.writeBase64?.(to, dataUrl)
+  }
+
+  /**
+   * 转换图片语法 — one toggle, as in Typora: flip whatever the selection is made
+   * of to the other syntax. With a bare caret that means the whole document.
+   */
+  const switchImageSyntax = (): void => {
+    const markdown = editor.getMarkdown()
+    const range = selectionRange()
+    const target: ImageSyntax = imagesInScope(markdown, range).some(
+      (ref) => ref.kind === 'markdown',
+    )
+      ? 'html'
+      : 'markdown'
+    const edit = switchImageSyntaxEdit(markdown, range, target)
+    if (!edit) {
+      toastHost.show(target === 'html' ? '没有 Markdown 图片可转换' : '没有 HTML 图片可转换')
+      return
+    }
+    applyTextEdit(edit)
+  }
+
+  const copyImagePath = async (): Promise<void> => {
+    const image = currentImage()
+    if (!image) {
+      toastHost.show('光标不在本地图片上', { level: 'warn' })
+      return
+    }
+    await navigator.clipboard.writeText(image.path)
+    toastHost.show('已复制图片路径')
+  }
+
+  const deleteImageFile = async (): Promise<void> => {
+    const image = currentImage()
+    if (!image) {
+      toastHost.show('光标不在本地图片上', { level: 'warn' })
+      return
+    }
+    const name = imageDisplayName(image.path)
+    // The reference is deliberately left behind. Deleting the *file* is not the
+    // same as deleting the paragraph, and the author may be about to put the
+    // file back — Typora leaves the broken link too.
+    const ok = await confirmImageAction(
+      '删除图片文件',
+      `从磁盘删除 ${name}？文档中的引用会保留，并显示为断开。`,
+      '删除',
+    )
+    if (!ok) return
+    try {
+      await host.fs.remove?.(image.path)
+      toastHost.show(`已删除 ${name}`)
+    } catch (error) {
+      toastHost.show(`删除失败：${String(error)}`, { level: 'error' })
+    }
+  }
+
+  const renameImageFile = async (): Promise<void> => {
+    const image = currentImage()
+    const { docPath, style, options } = imageContext()
+    if (!image || !docPath) {
+      toastHost.show('光标不在本地图片上（未保存的文档没有目录可解析）', { level: 'warn' })
+      return
+    }
+    const next = await showPrompt({
+      title: '重命名 / 移动图片到',
+      message: '相对路径按文档所在目录解析，也可以填绝对路径。',
+      value: imageDisplayName(image.path),
+      placeholder: 'assets/new-name.png',
+      confirmText: '移动',
+    })
+    if (!next?.trim()) return
+    // The typed value is resolved exactly like a reference would be, so `a.png`,
+    // `./a.png` and `C:/x/a.png` all mean what they look like.
+    const nextPath = resolveImagePath(next.trim(), docPath, style) ?? next.trim()
+    if (nextPath === image.path) return
+    try {
+      await moveImageFile(image.path, nextPath)
+    } catch (error) {
+      toastHost.show(`移动失败：${String(error)}`, { level: 'error' })
+      return
+    }
+    applyTextEdit(
+      repointImagesEdit(editor.getMarkdown(), docPath, image.path, nextPath, options, style),
+    )
+  }
+
+  const transferAllImages = async (move: boolean): Promise<void> => {
+    const { docPath, style, options } = imageContext()
+    if (!docPath) {
+      toastHost.show('请先保存文档', { level: 'warn' })
+      return
+    }
+    if (localImages(editor.getMarkdown(), docPath, style).length === 0) {
+      toastHost.show('文档中没有本地图片')
+      return
+    }
+    const picked = await host.dialog.open({
+      directory: true,
+      multiple: false,
+      defaultPath: dirname(docPath),
+    })
+    const dir = picked[0]?.path
+    if (!dir) return
+    // Names are resolved against what is already there *and* against what this
+    // same run has just written, so two `a.png` from different folders cannot
+    // silently become one file.
+    const taken = new Set<string>()
+    try {
+      for (const entry of await host.fs.readDir(dir)) taken.add(entry.name.toLowerCase())
+    } catch {
+      // A folder that does not list yet has nothing to collide with.
+    }
+    // The list is a snapshot taken before any edit; each round re-reads the
+    // markdown because repointing rewrites it (and shifts every later offset).
+    const images = localImages(editor.getMarkdown(), docPath, style)
+    let done = 0
+    for (const image of images) {
+      const name = uniqueFileName(dir, imageDisplayName(image.path), taken)
+      taken.add(name.toLowerCase())
+      const to = joinPath(dir, name, style.sep)
+      if (to === image.path) continue
+      try {
+        if (move) await moveImageFile(image.path, to)
+        else await copyImageBytes(image.path, to)
+      } catch (error) {
+        toastHost.show(
+          `处理 ${imageDisplayName(image.path)} 失败：${String(error)}`,
+          { level: 'error' },
+        )
+        continue
+      }
+      done += 1
+      applyTextEdit(
+        repointImagesEdit(editor.getMarkdown(), docPath, image.path, to, options, style),
+      )
+    }
+    toastHost.show(`${move ? '移动' : '复制'}了 ${done} 张图片`)
+  }
+
+  /**
+   * 重新加载所有图片. Images are resolved from disk at render time — there is
+   * no cache to invalidate, so re-rendering the current markdown is exactly what
+   * "reload" has to mean. `setValue` does not dirty the document.
+   */
+  const reloadAllImages = (): void => {
+    editor.setValue(editor.getMarkdown())
+    toastHost.show('已重新加载图片')
   }
 
   const editor: EditorPaneApi = renderEditorPane(doc, {
@@ -1397,6 +1603,10 @@ export function renderShell(): ShellHandle {
         { separator: true },
       )
     } else if (img) {
+      // The file-touching items need the reference in the *markdown*, which the
+      // caret only knows when the right-click landed on (or selected) the image
+      // node. Document-wide items stay available either way.
+      const onImage = currentImage()
       items.unshift(
         {
           label: '打开图片',
@@ -1406,6 +1616,35 @@ export function renderShell(): ShellHandle {
           label: '复制图片地址',
           run: () => void writeClipboard(img.src),
         },
+        { separator: true },
+        { label: '转换图片语法', run: () => registry.run('image.switchSyntax') },
+        {
+          label: '复制图片路径',
+          run: () => registry.run('image.copyPath'),
+          disabled: !onImage,
+        },
+        {
+          label: '重命名 / 移动图片到…',
+          run: () => registry.run('image.renameFile'),
+          disabled: !onImage || !canEditImageFiles(),
+        },
+        {
+          label: '删除图片文件',
+          run: () => registry.run('image.deleteFile'),
+          disabled: !onImage || !canEditImageFiles(),
+        },
+        { separator: true },
+        {
+          label: '复制所有图片到…',
+          run: () => registry.run('image.copyAllTo'),
+          disabled: !canEditImageFiles(),
+        },
+        {
+          label: '移动所有图片到…',
+          run: () => registry.run('image.moveAllTo'),
+          disabled: !canEditImageFiles(),
+        },
+        { label: '重新加载所有图片', run: () => registry.run('image.reloadAll') },
         { separator: true },
       )
     } else if (pre) {
@@ -1917,6 +2156,38 @@ export function renderShell(): ShellHandle {
     id: 'insert.image',
     label: '插入图片…',
     run: () => void pickAndInsertImage(),
+  })
+  // 图像工具 — the document-side operations from Typora's image menu.
+  registry.register({ id: 'image.switchSyntax', label: '转换图片语法', run: switchImageSyntax })
+  registry.register({
+    id: 'image.copyPath',
+    label: '复制图片路径',
+    run: () => void copyImagePath(),
+  })
+  registry.register({
+    id: 'image.deleteFile',
+    label: '删除图片文件',
+    run: () => void deleteImageFile(),
+  })
+  registry.register({
+    id: 'image.renameFile',
+    label: '重命名 / 移动图片到…',
+    run: () => void renameImageFile(),
+  })
+  registry.register({
+    id: 'image.copyAllTo',
+    label: '复制所有图片到…',
+    run: () => void transferAllImages(false),
+  })
+  registry.register({
+    id: 'image.moveAllTo',
+    label: '移动所有图片到…',
+    run: () => void transferAllImages(true),
+  })
+  registry.register({
+    id: 'image.reloadAll',
+    label: '重新加载所有图片',
+    run: reloadAllImages,
   })
   registry.register({
     id: 'insert.model',

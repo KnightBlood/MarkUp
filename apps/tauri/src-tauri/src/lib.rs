@@ -222,6 +222,17 @@ async fn mkdirp(dir: String) -> Result<(), String> {
     fs::create_dir_all(&dir).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn remove_file(path: String) -> Result<(), String> {
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        // Deleting a file that is already gone is the outcome the caller
+        // wanted, so it is not an error (matches `rm -f`).
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
 /// Inverse of `read_base64`. Only the payload after the first comma is base64,
 /// so a mime parameter containing a comma cannot shift the split.
 #[tauri::command]
@@ -742,6 +753,7 @@ pub fn run() {
             read_base64,
             write_base64,
             mkdirp,
+            remove_file,
             read_dir,
             fs_watch,
             open_dialog,

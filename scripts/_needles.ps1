@@ -378,6 +378,28 @@ Check-Needle 'imagepersist :: config survives Tauri write-back' "$root\apps\taur
 Check-Needle 'imagepersist :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"imageCopyMode,omitempty"' -Literal
 Check-Needle 'imagepersist :: core smoke wired' "$root\packages\core\package.json" 'pm-imgpersist.mts' -Literal
 
+# --- 图像工具 (document-side image tools: syntax switch, path, move/repoint) ---
+# An `![](…)` inside a fenced block is *sample* markdown — rewriting it corrupts
+# the sample — so fences and inline code spans are skipped by the scanner.
+Check-Needle 'imagetools :: scanner skips fences' "$root\packages\core\src\imageTools.ts" 'export function collectImages(' -Literal
+Check-Needle 'imagetools :: inline code is skipped too' "$root\packages\core\src\imageTools.ts" 'function inlineCodeRanges(' -Literal
+Check-Needle 'imagetools :: syntax switch' "$root\packages\core\src\imageTools.ts" 'export function switchImageSyntaxEdit(' -Literal
+Check-Needle 'imagetools :: scope helper' "$root\packages\core\src\imageTools.ts" 'export function imagesInScope(' -Literal
+# A reference is matched by its *resolved* path, or `./a.png`, `a.png` and
+# `sub/../a.png` would each look like a different file after a move.
+Check-Needle 'imagetools :: repoint by resolved path' "$root\packages\core\src\imageTools.ts" 'export function repointImagesEdit(' -Literal
+Check-Needle 'imagetools :: a drive letter is not a scheme' "$root\packages\core\src\imageTools.ts" "if (!scheme || scheme.length === 1) return null" -Literal
+Check-Needle 'imagetools :: host API (delete a file)' "$root\packages\host-api\src\types.ts" 'remove?(path: string): Promise<void>' -Literal
+Check-Needle 'imagetools :: electron remove' "$root\apps\electron\shared\ipc.ts" 'fsRemove' -Literal
+Check-Needle 'imagetools :: tauri remove' "$root\apps\tauri\src-tauri\src\lib.rs" 'async fn remove_file(' -Literal
+Check-Needle 'imagetools :: wails remove' "$root\apps\wails\services\host.go" 'func (s *HostService) Remove(' -Literal
+Check-Needle 'imagetools :: electrobun remove' "$root\apps\electrobun\shared\rpc.ts" 'fsRemove' -Literal
+Check-Needle 'imagetools :: web offers none of it' "$root\apps\web\src\main.ts" 'hides the destructive 图像工具' -Literal
+Check-Needle 'imagetools :: shell command' "$root\packages\ui\src\shell.ts" "id: 'image.switchSyntax'" -Literal
+Check-Needle 'imagetools :: context menu items' "$root\packages\ui\src\shell.ts" "registry.run('image.deleteFile')" -Literal
+Check-Needle 'imagetools :: menu exposes them' "$root\packages\host-api\src\menu.json" 'image.moveAllTo' -Literal
+Check-Needle 'imagetools :: core smoke wired' "$root\packages\core\package.json" 'pm-imgtools.mts' -Literal
+
 # --- 段落：标题级别 / 列表缩进 / 任务状态 / 内容目录 / Front Matter ---
 # 提升 promotes (`##` → `#`): a "higher heading level" is the more prominent
 # one, which is also the direction Typora's Ctrl+= behaves in. The step helper is

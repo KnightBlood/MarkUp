@@ -2,7 +2,13 @@ import { getHost, type DirEntry } from '@markup/host-api'
 
 export interface WorkspaceState {
   root: string | null
+  /** The list the file tree renders — `allFiles` after 文件树 glob 过滤. */
   files: string[]
+  /**
+   * The unfiltered walk. Kept so changing the filter re-renders without
+   * re-walking the folder.
+   */
+  allFiles?: string[]
 }
 
 export interface SearchHit {
@@ -70,13 +76,33 @@ export function relativePath(root: string, path: string): string {
   return basename(path)
 }
 
-function shouldSkip(entry: DirEntry): boolean {
+/**
+ * Entries the tree never shows.
+ *
+ * `IGNORE_DIRS` is skipped regardless of 显示隐藏的文件夹: a `.git` directory or a
+ * `node_modules` is build/vcs noise, not something the user hid on purpose, and
+ * "show hidden" should not be a way to accidentally walk a checkout.
+ */
+export function shouldSkipEntry(
+  entry: { name: string; kind: 'file' | 'dir' },
+  includeHidden: boolean,
+): boolean {
   if (entry.kind === 'dir' && IGNORE_DIRS.has(entry.name)) return true
-  if (entry.kind === 'file' && entry.name.startsWith('.') && entry.name !== '.md') return true
+  if (!includeHidden && entry.name.startsWith('.')) return true
   return false
 }
 
-export async function walkMarkdownFiles(root: string, limit = MAX_WALK_FILES): Promise<string[]> {
+export interface WalkOptions {
+  /** 显示隐藏的文件夹 / 文件 — include entries whose name starts with `.`. */
+  includeHidden?: boolean
+}
+
+export async function walkMarkdownFiles(
+  root: string,
+  limit = MAX_WALK_FILES,
+  options: WalkOptions = {},
+): Promise<string[]> {
+  const includeHidden = options.includeHidden === true
   const host = getHost()
   const out: string[] = []
   const queue: string[] = [root]
@@ -96,7 +122,7 @@ export async function walkMarkdownFiles(root: string, limit = MAX_WALK_FILES): P
     })
     for (const entry of entries) {
       if (out.length >= limit) break
-      if (shouldSkip(entry)) continue
+      if (shouldSkipEntry(entry, includeHidden)) continue
       if (entry.kind === 'dir') {
         queue.push(entry.path)
       } else if (isMarkdownPath(entry.name)) {

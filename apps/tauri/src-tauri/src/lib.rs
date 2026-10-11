@@ -132,6 +132,13 @@ struct AppConfig {
     smart_dashes: Option<bool>,
     #[serde(default)]
     paired_symbols: Option<bool>,
+    /// 文件树 glob 过滤（原样字符串，Rust 侧不解释）.
+    #[serde(default)]
+    workspace_glob: Option<String>,
+    #[serde(default)]
+    show_hidden_files: Option<bool>,
+    #[serde(default)]
+    outline_max_level: Option<u8>,
     #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
@@ -226,6 +233,9 @@ impl Default for AppConfig {
             smart_quotes: None,
             smart_dashes: None,
             paired_symbols: None,
+            workspace_glob: None,
+            show_hidden_files: None,
+            outline_max_level: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

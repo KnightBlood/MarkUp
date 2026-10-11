@@ -225,6 +225,25 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   )
   const finalNewlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const copyTextAsMarkdownCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const workspaceGlobInput = el('textarea', {
+    class: 'settings__input',
+    rows: '3',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '每行或逗号分隔，例如：\n*.md\n!draft-*',
+  })
+  const showHiddenFilesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const outlineMaxLevelSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: '0', text: '全部层级' }),
+    el('option', { value: '1', text: '仅一级标题' }),
+    el('option', { value: '2', text: '到二级' }),
+    el('option', { value: '3', text: '到三级' }),
+    el('option', { value: '4', text: '到四级' }),
+    el('option', { value: '5', text: '到五级' }),
+    el('option', { value: '6', text: '到六级' }),
+  )
   const showStatsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const focusModeCheck = el('input', { class: 'settings__check', type: 'checkbox' })
 
@@ -471,6 +490,41 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       el('p', {
         class: 'settings__label',
         text: '换行符只在写盘时应用，不会改动编辑器里的内容（否则光标会因为你换了个偏好而跳动）。',
+      }),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'editor-workspace' },
+      el('h3', { class: 'settings__heading', text: '文件树过滤' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: 'Glob 模式（留空显示全部）' }),
+        workspaceGlobInput,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '每行或逗号分隔。`!` 前缀表示排除，最后一条匹配的规则生效（与 gitignore 一致，所以宽泛的包含后面还能再收窄）。`*` 不跨目录，`**` 跨；不含 `/` 的模式匹配任意层级的文件名。',
+      }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        showHiddenFilesCheck,
+        el('span', { class: 'settings__label', text: '显示隐藏的文件夹 / 文件' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '只影响以 `.` 开头的条目。`node_modules`、`.git` 之类属于构建与版本控制的噪音，无论开关如何都仍然隐藏 —— 「显示隐藏」不该变成误入代码仓库的途径。',
+      }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '大纲显示的标题层数' }),
+        outlineMaxLevelSelect,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '只过滤显示，不改变层级编号：被过滤掉的二级标题下面的三级标题，仍然按三级缩进。',
       }),
     ),
   )
@@ -746,6 +800,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     lineEndingSelect.value = config.lineEnding ?? 'preserve'
     finalNewlineCheck.checked = config.ensureFinalNewline === true
     copyTextAsMarkdownCheck.checked = config.copyTextAsMarkdown === true
+    workspaceGlobInput.value = config.workspaceGlob ?? ''
+    showHiddenFilesCheck.checked = config.showHiddenFiles === true
+    outlineMaxLevelSelect.value = String(config.outlineMaxLevel ?? 0)
     exportFolderInput.value = config.exportFolder ?? ''
     exportAfterSelect.value = config.exportAfter ?? 'none'
     exportPageSizeInput.value = config.exportPageSize ?? ''
@@ -810,6 +867,10 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
           : (lineEndingSelect.value as AppConfig['lineEnding']),
       ensureFinalNewline: checked(finalNewlineCheck),
       copyTextAsMarkdown: checked(copyTextAsMarkdownCheck),
+      workspaceGlob: workspaceGlobInput.value.trim() || undefined,
+      showHiddenFiles: checked(showHiddenFilesCheck),
+      // 0 is "全部层级", the default, so it never has to be stored.
+      outlineMaxLevel: Number(outlineMaxLevelSelect.value) || undefined,
       exportFolder: exportFolderInput.value.trim() || undefined,
       // Absent means "do nothing", so the default never has to be stored.
       exportAfter:
@@ -873,10 +934,12 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     pairedSymbolsCheck,
     finalNewlineCheck,
     copyTextAsMarkdownCheck,
+    showHiddenFilesCheck,
   ]) {
     input.addEventListener('change', () => emit({}))
   }
   lineEndingSelect.addEventListener('change', () => emit({}))
+  outlineMaxLevelSelect.addEventListener('change', () => emit({}))
   exportAfterSelect.addEventListener('change', () => emit({}))
   for (const input of [
     exportFolderInput,
@@ -886,6 +949,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     exportHeadHtmlInput,
     exportBodyHtmlInput,
     codeBlockLanguageInput,
+    workspaceGlobInput,
   ]) {
     input.addEventListener('change', () => emit({}))
   }

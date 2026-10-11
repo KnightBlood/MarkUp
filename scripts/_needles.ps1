@@ -609,12 +609,113 @@ Check-Needle 'stats :: ui smoke wired' "$root\packages\ui\package.json" 'pm-u-st
 # heading counts as being in it.
 Check-Needle 'outline :: panel module' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function createOutlinePanel(' -Literal
 Check-Needle 'outline :: caret to heading' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function activeOutlineIndex(' -Literal
+# Collapsing hides a *subtree*: everything deeper than the collapsed heading, up
+# to the next item at its level or above.
+Check-Needle 'outline :: collapse hides the subtree' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function visibleOutlineIndices(' -Literal
+Check-Needle 'outline :: leaves have no twisty' "$root\packages\ui\src\ui\outlinePanel.ts" 'export function hasNestedHeadings(' -Literal
+# Collapsed indices are positional, so a different document must not inherit them.
+Check-Needle 'outline :: collapse state is per-document' "$root\packages\ui\src\ui\outlinePanel.ts" 'collapsed.clear()' -Literal
+
+# --- 文件树内新建文件 / 文件夹 ---
+# The sidebar only renders; the shell owns the prompt and the filesystem, so the
+# handler passes (root, kind) across that boundary.
+Check-Needle 'tree :: handler contract' "$root\packages\ui\src\ui\sidebar.ts" "createEntry?: (dir: string, kind: 'file' | 'folder') => void" -Literal
+Check-Needle 'tree :: menu items' "$root\packages\ui\src\ui\sidebar.ts" "'新建文件夹…'" -Literal
+# A name with a separator would silently create elsewhere — refuse rather than guess.
+Check-Needle 'tree :: separator in the name is refused' "$root\packages\ui\src\shell.ts" "'名称不能包含斜杠'" -Literal
+# `fs.write` clobbers without a word, and a tree action that eats a document is
+# not recoverable.
+Check-Needle 'tree :: refuses to overwrite' "$root\packages\ui\src\shell.ts" '已存在' -Literal
+Check-Needle 'tree :: folder needs mkdirp' "$root\packages\ui\src\shell.ts" "'当前环境无法创建文件夹'" -Literal
+
+# --- 文件树 glob 过滤 ---
+# The last matching pattern wins (gitignore's rule), which is the only rule that
+# lets a broad include be narrowed again; and `*` must not cross a `/`, or
+# `*.md` would silently mean "any markdown anywhere".
+Check-Needle 'glob :: parse + match' "$root\packages\core\src\globFilter.ts" 'export function matchesGlobList(' -Literal
+Check-Needle 'glob :: last match wins' "$root\packages\core\src\globFilter.ts" 'if (ruleMatches(rule, path)) included = !rule.negated' -Literal
+Check-Needle 'glob :: star does not cross a slash' "$root\packages\core\src\globFilter.ts" "out += '[^/]*'" -Literal
+# `**` handled as a unit before `*`, or it would stop at the first slash — the
+# one thing it exists to avoid.
+Check-Needle 'glob :: double star is a unit' "$root\packages\core\src\globFilter.ts" 'if (pattern[i + 1] === ' -Literal
+Check-Needle 'glob :: empty hides nothing' "$root\packages\core\src\globFilter.ts" 'if (rules.length === 0) return true' -Literal
+Check-Needle 'glob :: applied to the listing' "$root\packages\ui\src\shell.ts" 'workspace.files = applyWorkspaceFilter(files)' -Literal
+Check-Needle 'glob :: config field' "$root\packages\host-api\src\types.ts" 'workspaceGlob?: string' -Literal
+Check-Needle 'glob :: settings section' "$root\packages\ui\src\ui\settings.ts" "'data-section': 'editor-workspace'" -Literal
+Check-Needle 'glob :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'workspace_glob: Option<String>' -Literal
+Check-Needle 'glob :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"workspaceGlob,omitempty"' -Literal
+Check-Needle 'glob :: core smoke wired' "$root\packages\core\package.json" 'pm-glob.mts' -Literal
+
+# --- 显示隐藏的文件夹 / 文件 ---
+# Two separate sets that must not be conflated: *hidden* is a leading dot, *noise*
+# is node_modules/.git/dist. Turning on "show hidden" must not become a way to
+# accidentally walk a checkout.
+Check-Needle 'hidden :: predicate' "$root\packages\ui\src\workspace.ts" 'export function shouldSkipEntry(' -Literal
+Check-Needle 'hidden :: noise dirs always skipped' "$root\packages\ui\src\workspace.ts" 'IGNORE_DIRS.has(entry.name)' -Literal
+# Changing this needs a re-walk, unlike the glob filter: it decides which entries
+# are visited at all, so there is no unfiltered list to re-derive from.
+Check-Needle 'hidden :: only re-walks when it changes' "$root\packages\ui\src\shell.ts" 'if (hidden !== appliedShowHidden) {' -Literal
+Check-Needle 'hidden :: config field' "$root\packages\host-api\src\types.ts" 'showHiddenFiles?: boolean' -Literal
+Check-Needle 'hidden :: settings checkbox' "$root\packages\ui\src\ui\settings.ts" "'显示隐藏的文件夹 / 文件'" -Literal
+Check-Needle 'hidden :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'show_hidden_files: Option<bool>' -Literal
+Check-Needle 'hidden :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"showHiddenFiles,omitempty"' -Literal
+Check-Needle 'hidden :: ui smoke wired' "$root\packages\ui\package.json" 'pm-w-workspace.mts' -Literal
+
+# --- 目录显示的标题层数 ---
+# Filtering runs *after* extraction so surviving items keep their real levels: an
+# h3 under a filtered-out h2 still indents as an h3 instead of taking its place.
+Check-Needle 'outlinelevel :: filter' "$root\packages\ui\src\outline.ts" 'export function filterOutlineLevel(' -Literal
+Check-Needle 'outlinelevel :: 0 means everything' "$root\packages\ui\src\outline.ts" 'if (maxLevel <= 0) return items' -Literal
+Check-Needle 'outlinelevel :: sidebar applies it' "$root\packages\ui\src\ui\sidebar.ts" 'handlers.getOutlineMaxLevel?.() ?? 0' -Literal
+Check-Needle 'outlinelevel :: floating panel applies it' "$root\packages\ui\src\shell.ts" 'filterOutlineLevel(extractOutline(editor.getMarkdown()), appearance.outlineMaxLevel ?? 0)' -Literal
+Check-Needle 'outlinelevel :: config field' "$root\packages\host-api\src\types.ts" 'outlineMaxLevel?: number' -Literal
+Check-Needle 'outlinelevel :: settings select' "$root\packages\ui\src\ui\settings.ts" "'大纲显示的标题层数'" -Literal
+Check-Needle 'outlinelevel :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'outline_max_level: Option<u8>' -Literal
+Check-Needle 'outlinelevel :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"outlineMaxLevel,omitempty"' -Literal
 Check-Needle 'outline :: reuses the sidebar extractor' "$root\packages\ui\src\shell.ts" 'extractOutline(editor.getMarkdown())' -Literal
 Check-Needle 'outline :: shell wires it' "$root\packages\ui\src\shell.ts" 'const outlinePanel = createOutlinePanel(' -Literal
 Check-Needle 'outline :: command registered' "$root\packages\ui\src\shell.ts" "id: 'view.outline'," -Literal
 Check-Needle 'outline :: menu entry' "$root\packages\host-api\src\menu.json" '"id": "view.outline"' -Literal
 Check-Needle 'outline :: styles' "$root\packages\ui\src\theme\shell.css" '.outline-panel {' -Literal
 Check-Needle 'outline :: ui smoke wired' "$root\packages\ui\package.json" 'pm-v-outline.mts' -Literal
+
+# --- 格式化表格源码 ---
+# Alignment is a property of the rendered text, not of the string length: a CJK
+# character occupies two cells, so padding by `.length` produces a ragged table
+# in exactly the documents this feature exists for.
+Check-Needle 'tablefmt :: display width' "$root\packages\core\src\tableFormat.ts" 'export function displayWidth(' -Literal
+Check-Needle 'tablefmt :: escaped pipes stay in their cell' "$root\packages\core\src\tableFormat.ts" 'text[i + 1] === ' -Literal
+Check-Needle 'tablefmt :: alignment markers survive' "$root\packages\core\src\tableFormat.ts" 'function delimiterCell(cell: string, width: number): string {' -Literal
+# A no-op must not dirty the document.
+Check-Needle 'tablefmt :: aligned table is a no-op' "$root\packages\core\src\tableFormat.ts" 'if (text === markdown.slice(table.from, table.to)) return null' -Literal
+Check-Needle 'tablefmt :: command registered' "$root\packages\ui\src\shell.ts" "id: 'format.tableSource'," -Literal
+Check-Needle 'tablefmt :: menu entry' "$root\packages\host-api\src\menu.json" 'format.tableSource' -Literal
+Check-Needle 'tablefmt :: core smoke wired' "$root\packages\core\package.json" 'pm-tablefmt.mts' -Literal
+
+# --- 打开文件位置 / 高级设置 ---
+# Both go through `openExternal` with a `file:` URL — the one primitive every
+# shell already has. Unlike 导出后, a failure here *is* reported: nothing else
+# happened, so staying silent would look like the command did nothing.
+Check-Needle 'reveal :: shared helper' "$root\packages\ui\src\shell.ts" 'const revealFolder = async (folder: string, what: string)' -Literal
+# The config root, not a guessed file name: an older build may not have written
+# the file yet, and a folder always exists.
+Check-Needle 'reveal :: config root not a file' "$root\packages\ui\src\shell.ts" "host.app.getPath?.('userData')" -Literal
+Check-Needle 'reveal :: unsaved doc says so' "$root\packages\ui\src\shell.ts" "'当前文档尚未保存'" -Literal
+Check-Needle 'reveal :: menu entries' "$root\packages\host-api\src\menu.json" 'file.revealInFolder' -Literal
+Check-Needle 'reveal :: settings entry' "$root\packages\host-api\src\menu.json" 'settings.advancedConfig' -Literal
+
+# --- 复制内容并简化格式 / 搜索 ---
+# Drop presentation (inline styles, <style> blocks), keep meaning (classes and
+# structure) — a fragment that lost its callout or checkbox would be a worse
+# outcome than one that kept a class nobody styles.
+Check-Needle 'htmlcopy :: stripper' "$root\packages\core\src\htmlCopy.ts" 'export function stripHtmlFormatting(' -Literal
+# Detection has to agree with the stripper, or a caller skips work that was needed.
+Check-Needle 'htmlcopy :: detection' "$root\packages\core\src\htmlCopy.ts" 'export function hasInlineFormatting(' -Literal
+Check-Needle 'htmlcopy :: command registered' "$root\packages\ui\src\shell.ts" "id: 'edit.copyAsCleanHtml'," -Literal
+Check-Needle 'search :: command registered' "$root\packages\ui\src\shell.ts" "id: 'search.google'," -Literal
+Check-Needle 'search :: needs a selection' "$root\packages\ui\src\shell.ts" "'请先选中要搜索的内容'" -Literal
+Check-Needle 'htmlcopy :: menu entries' "$root\packages\host-api\src\menu.json" 'edit.copyAsCleanHtml' -Literal
+Check-Needle 'htmlcopy :: core smoke wired' "$root\packages\core\package.json" 'pm-htmlcopy.mts' -Literal
 
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,

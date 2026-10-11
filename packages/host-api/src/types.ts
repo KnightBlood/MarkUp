@@ -230,6 +230,21 @@ export interface AppConfig {
   /** 使用成对的符号 — typing an opener also inserts its closer. Default false. */
   pairedSymbols?: boolean
   /**
+   * 文件树 glob 过滤. Newline- or comma-separated; `!pattern` excludes, and the
+   * last matching pattern wins. Empty hides nothing.
+   */
+  workspaceGlob?: string
+  /**
+   * 显示隐藏的文件夹 / 文件. Only affects entries whose name starts with `.`;
+   * `node_modules` / `.git` and other build-vcs noise stay hidden either way.
+   */
+  showHiddenFiles?: boolean
+  /**
+   * 目录显示的标题层数 — the deepest heading level the 大纲 shows. 0 or absent
+   * means every level.
+   */
+  outlineMaxLevel?: number
+  /**
    * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
    * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
    */

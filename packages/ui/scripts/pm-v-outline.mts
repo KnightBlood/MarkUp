@@ -21,8 +21,9 @@ g.Element = dom.window.Element
 g.HTMLElement = dom.window.HTMLElement
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
 
-const { createOutlinePanel, activeOutlineIndex } = await import('../src/ui/outlinePanel')
-const { extractOutline } = await import('../src/outline')
+const { createOutlinePanel, activeOutlineIndex, visibleOutlineIndices, hasNestedHeadings } =
+  await import('../src/ui/outlinePanel')
+const { extractOutline, filterOutlineLevel } = await import('../src/outline')
 
 const md = ['# 一', '', '正文', '', '## 二', '', '正文', '', '## 三', '', '正文'].join('\n')
 const items = extractOutline(md)
@@ -92,6 +93,94 @@ assert(items.length === 3, `three headings: ${items.length}`)
   // An outline with nothing in it shows the empty state instead of a blank box.
   panel.update([])
   assert(empty.hidden === false, 'an empty outline shows the empty state')
+}
+
+// ---- collapsing ------------------------------------------------------------
+{
+  const nested = extractOutline(
+    ['# 一', '', '## 一甲', '', '### 一甲A', '', '## 一乙', '', '# 二', '', '## 二甲'].join('\n'),
+  )
+  const levels = nested.map((item) => item.level).join(',')
+  assert(levels === '1,2,3,2,1,2', `fixture shape: ${levels}`)
+
+  const none = new Set<number>()
+  assert(
+    visibleOutlineIndices(nested, none).length === nested.length,
+    'nothing collapsed shows everything',
+  )
+  // Collapsing `# 一` hides `## 一甲`, `### 一甲A` and `## 一乙`, but not `# 二`.
+  assert(
+    visibleOutlineIndices(nested, new Set([0])).join(',') === '0,4,5',
+    `collapsing an h1 hides its subtree: ${visibleOutlineIndices(nested, new Set([0])).join(',')}`,
+  )
+  // Collapsing the h2 hides only the h3 under it.
+  assert(
+    visibleOutlineIndices(nested, new Set([1])).join(',') === '0,1,3,4,5',
+    'collapsing an h2 hides just its children',
+  )
+  assert(hasNestedHeadings(nested, 0), 'an h1 followed by an h2 has children')
+  assert(!hasNestedHeadings(nested, 2), 'an h3 followed by an h2 does not')
+  assert(!hasNestedHeadings(nested, nested.length - 1), 'the last item never has children')
+
+  // ---- the panel ----
+  const panel = createOutlinePanel(() => undefined)
+  document.getElementById('app')?.appendChild(panel.el)
+  panel.update(nested)
+  const rows = (): HTMLElement[] => [...panel.el.querySelectorAll<HTMLElement>('.outline-panel__row')]
+  const twisty = (n: number): HTMLButtonElement | null =>
+    rows()[n]?.querySelector<HTMLButtonElement>('button.outline-panel__twisty') ?? null
+  assert(rows().length === nested.length, 'all six rows render')
+  // Only headings with children get a clickable twisty.
+  assert(twisty(0) && twisty(1), 'nested headings have a twisty')
+  assert(twisty(2) === null, 'a leaf has none')
+  assert(rows()[2]!.querySelector('.outline-panel__twisty--empty'), 'a leaf keeps the alignment spacer')
+
+  twisty(0)!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  assert(rows().length === 3, `clicking a twisty collapses the subtree: ${rows().length}`)
+  assert(twisty(0)!.getAttribute('aria-expanded') === 'false', 'and reports it')
+  twisty(0)!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  assert(rows().length === nested.length, 'clicking again expands it')
+
+  const action = (label: string): HTMLButtonElement => {
+    const found = [...panel.el.querySelectorAll<HTMLButtonElement>('.outline-panel__action')].find(
+      (b) => b.textContent === label,
+    )
+    assert(found, `the ${label} action exists`)
+    return found
+  }
+  action('折叠').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  // Collapse-all leaves only the top-level headings: `# 一` swallows its whole
+  // subtree and `## 二甲` goes with `# 二`.
+  assert(rows().length === 2, `全部折叠 leaves the h1s: ${rows().length}`)
+  action('展开').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  assert(rows().length === nested.length, '全部展开 restores everything')
+
+  // A different document must not inherit the previous one's collapsed indices —
+  // the same index would mean a different heading.
+  twisty(0)!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  panel.update([{ text: 'x', level: 1, offset: 0, line: 1 }])
+  assert(rows().length === 1, 'the new outline renders fully')
+}
+
+// ---- 目录显示的标题层数 ----------------------------------------------------
+{
+  const nested = extractOutline(
+    ['# 一', '', '## 二', '', '### 三', '', '#### 四', '', '## 五'].join('\n'),
+  )
+  assert(nested.map((i) => i.level).join(',') === '1,2,3,4,2', 'fixture levels')
+  // 0 means every level — the default, so an absent setting changes nothing.
+  assert(filterOutlineLevel(nested, 0).length === nested.length, '0 shows everything')
+  assert(filterOutlineLevel(nested, 2).length === 3, '到二级 keeps h1 and h2 only')
+  assert(filterOutlineLevel(nested, 1).length === 1, '仅一级标题')
+  assert(filterOutlineLevel(nested, 9).length === nested.length, 'a level beyond the range is harmless')
+  // Levels are NOT renumbered: an h3 under a filtered-out h2 stays an h3, so it
+  // still indents like one instead of taking its parent's place.
+  assert(filterOutlineLevel(nested, 4)[2]!.level === 3, 'levels survive the filter')
+  assert(
+    filterOutlineLevel(nested, 2).every((item) => item.level <= 2),
+    'and nothing deeper slips through',
+  )
+  assert(filterOutlineLevel([], 2).length === 0, 'an empty outline stays empty')
 }
 
 console.log('SMOKE UI OUTLINE OK: caret→heading + indent by level + click-to-jump + active tracking')

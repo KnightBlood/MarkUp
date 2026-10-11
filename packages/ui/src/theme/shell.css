@@ -1266,10 +1266,11 @@ body {
   display: none;
 }
 
-.outline-panel__title {
+.outline-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin: 0 6px 8px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .outline-panel__list {
@@ -1277,10 +1278,57 @@ body {
   min-height: 0;
   overflow: auto;
 }
+.outline-panel__title {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.outline-panel__action {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.outline-panel__action:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+
+.outline-panel__row {
+  display: flex;
+  align-items: center;
+}
+
+/* The twisty is a button only when the heading has children; the leaf spacer
+   keeps its text aligned with the ones that do. */
+.outline-panel__twisty {
+  flex: none;
+  width: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.outline-panel__twisty--empty {
+  display: inline-block;
+  cursor: default;
+}
 
 .outline-panel__item {
-  display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 3px 8px;
   border: 0;
   border-radius: 4px;

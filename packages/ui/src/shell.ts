@@ -12,6 +12,10 @@ import {
   exportHtmlDocument,
   exportOptionsFromConfig,
   fileToDataUrl,
+  filterPaths,
+  formatTableSource,
+  parseGlobList,
+  stripHtmlFormatting,
   headingLevelAt,
   headingLevelEdit,
   imageAltText,
@@ -90,7 +94,7 @@ import {
 } from './ui/embeds'
 import { CommandRegistry, attachKeydown, formatShortcut } from './commands'
 import { loadPlugins, type LoadedPlugin, type PluginManifest } from './plugins'
-import { countStats, extractOutline } from './outline'
+import { countStats, extractOutline, filterOutlineLevel } from './outline'
 import { parseLineLink } from './mdLinks'
 import { openWorkspaceFolder, walkMarkdownFiles, type WorkspaceState } from './workspace'
 import { attachHostEvents, systemThemeClass } from './hostEvents'
@@ -227,7 +231,7 @@ export function renderShell(): ShellHandle {
   const doc = new DocStore()
   const docLabel = createDocLabel()
   const registry = new CommandRegistry()
-  const workspace: WorkspaceState = { root: null, files: [] }
+  const workspace: WorkspaceState = { root: null, files: [], allFiles: [] }
   let appearance: AppConfig = {
     theme: 'system',
     fontSize: 16,
@@ -571,7 +575,9 @@ export function renderShell(): ShellHandle {
 
   const refreshOutlinePanel = (): void => {
     if (!outlinePanel.visible) return
-    outlinePanel.update(extractOutline(editor.getMarkdown()))
+    outlinePanel.update(
+      filterOutlineLevel(extractOutline(editor.getMarkdown()), appearance.outlineMaxLevel ?? 0),
+    )
     outlinePanel.setActive(editor.getSelectionRange()?.from ?? null)
   }
 
@@ -804,6 +810,58 @@ export function renderShell(): ShellHandle {
     void handleDroppedFiles(files)
   })
 
+  /**
+   * 文件树内新建文件 / 文件夹.
+   *
+   * The name is asked for rather than auto-generated: a `新建文件 1.md` the user
+   * then has to rename is worse than one prompt.
+   */
+  const createWorkspaceEntry = async (dir: string, kind: 'file' | 'folder'): Promise<void> => {
+    const name = await showPrompt({
+      title: kind === 'file' ? '新建文件' : '新建文件夹',
+      message: `在 ${dir} 下创建`,
+      value: kind === 'file' ? 'untitled.md' : '新文件夹',
+      confirmText: '创建',
+    })
+    const trimmed = name?.trim()
+    if (!trimmed) return
+    // A separator would silently create somewhere else entirely — refuse rather
+    // than guess which of the two the user meant.
+    if (/[\\/]/.test(trimmed)) {
+      await showError('名称不能包含斜杠')
+      return
+    }
+    const target = joinPath(dir, trimmed, pathStyleFor(dir).sep)
+    try {
+      // Refuse to overwrite: `fs.write` would clobber an existing file without a
+      // word, and a tree action that eats a document is not recoverable.
+      let exists = false
+      try {
+        await host.fs.read(target)
+        exists = true
+      } catch {
+        /* absent — safe to create */
+      }
+      if (exists) {
+        await showError(`「${trimmed}」已存在`)
+        return
+      }
+      if (kind === 'folder') {
+        if (!host.fs.mkdirp) throw new Error('当前环境无法创建文件夹')
+        await host.fs.mkdirp(target)
+      } else {
+        await host.fs.write(target, '')
+      }
+    } catch (error) {
+      await showError(`创建失败：${String(error)}`)
+      return
+    }
+    sidebar.refreshWorkspace()
+    // Opening it is the point of creating it — otherwise the user has to go and
+    // find the file they just made.
+    if (kind === 'file') await openPath(target)
+  }
+
   const getRecents = async (): Promise<string[]> => {
     try {
       const config = await host.app.getConfig()
@@ -813,14 +871,35 @@ export function renderShell(): ShellHandle {
     }
   }
 
+  /**
+   * 文件树 glob 过滤. Applied to the list the tree renders, not to the walk:
+   * the walk is what `刷新工作区列表` re-runs, and re-walking a tree because a
+   * filter string changed would make the filter feel expensive for no reason.
+   */
+  const applyWorkspaceFilter = (files: string[]): string[] => {
+    const rules = parseGlobList(appearance.workspaceGlob ?? '')
+    return filterPaths(files, rules)
+  }
+
+  /** Walk + filter the current root into `workspace`. */
+  const reloadWorkspace = async (): Promise<void> => {
+    if (!workspace.root) return
+    const files = await walkMarkdownFiles(workspace.root, undefined, {
+      includeHidden: appearance.showHiddenFiles === true,
+    })
+    // The unfiltered walk is kept so changing the filter does not need a
+    // re-walk — `workspace.files` is the filtered view the tree renders.
+    workspace.allFiles = files
+    workspace.files = applyWorkspaceFilter(files)
+    sidebar.refreshWorkspace()
+  }
+
   const openFolder = async (): Promise<void> => {
     const rootPath = await openWorkspaceFolder()
     if (!rootPath) return
     try {
-      const files = await walkMarkdownFiles(rootPath)
       workspace.root = rootPath
-      workspace.files = files
-      sidebar.refreshWorkspace()
+      await reloadWorkspace()
       sidebar.showTab('file')
     } catch (error) {
       console.error('[markup] open folder failed', error)
@@ -847,6 +926,8 @@ export function renderShell(): ShellHandle {
       applyAppearanceConfig({ ...appearance, recentDocuments: next })
       sidebar.refreshRecents()
     },
+    createEntry: (dir, kind) => void createWorkspaceEntry(dir, kind),
+    getOutlineMaxLevel: () => appearance.outlineMaxLevel ?? 0,
   })
 
   // The DocStore owns the persisted recents list; mirror it into the in-memory
@@ -1661,7 +1742,9 @@ export function renderShell(): ShellHandle {
     return host.innerHTML
   }
 
-  const copySelectionAs = async (mode: 'markdown' | 'text' | 'html'): Promise<void> => {
+  const copySelectionAs = async (
+    mode: 'markdown' | 'text' | 'html' | 'clean',
+  ): Promise<void> => {
     const markdown = editor.getMarkdown()
     const range = selectionRange()
     if (range.to <= range.from) return
@@ -1676,6 +1759,12 @@ export function renderShell(): ShellHandle {
     }
     // 源码视图 has no rendered DOM: 纯文本/HTML fall back to the markdown slice.
     if (mode === 'html') text = selectionHtml() || `<p>${escapeHtml(text)}</p>`
+    // 复制内容并简化格式: the same HTML with our own presentation stripped — what
+    // gets copied describes how it looks *here*, which is meaningless or harmful
+    // in whatever it is pasted into.
+    if (mode === 'clean') {
+      text = stripHtmlFormatting(selectionHtml() || `<p>${escapeHtml(text)}</p>`)
+    }
     await writeClipboard(text)
   }
 
@@ -1963,6 +2052,8 @@ export function renderShell(): ShellHandle {
   // Tracked so 保持窗口在最前端 is only pushed to the shell when it actually
   // changes — `applyAppearanceConfig` runs on every settings tweak.
   let appliedAlwaysOnTop: boolean | null = null
+  /** Tracked so 显示隐藏的文件夹 only re-walks the tree when it really changes. */
+  let appliedShowHidden: boolean | null = null
 
   const applyAppearanceConfig = (next: AppConfig): void => {
     appearance = next
@@ -1978,6 +2069,25 @@ export function renderShell(): ShellHandle {
       smartDashes: next.smartDashes === true,
       pairedSymbols: next.pairedSymbols === true,
     })
+    // 文件树 glob 过滤 is a view over an existing walk, so re-deriving the list
+    // is enough — no re-walk, and the tree updates as the setting is typed.
+    if (workspace.root) {
+      workspace.files = applyWorkspaceFilter(workspace.allFiles ?? [])
+      sidebar.refreshWorkspace()
+    }
+    // 目录显示的标题层数 is a view over the extracted outline too, so both the
+    // sidebar tab and the floating panel just re-render.
+    if (next.outlineMaxLevel !== undefined || appearance.outlineMaxLevel !== undefined) {
+      sidebar.refreshOutline()
+      refreshOutlinePanel()
+    }
+    // 显示隐藏的文件夹 / 文件 needs the opposite: the filter decides which entries
+    // are *visited*, so there is no unfiltered list to re-derive from.
+    const hidden = next.showHiddenFiles === true
+    if (hidden !== appliedShowHidden) {
+      appliedShowHidden = hidden
+      if (workspace.root) void reloadWorkspace().catch(() => undefined)
+    }
     editor.setImagePasteEnabled(next.imagePaste !== false)
     // 分屏 renders through OverType's own parser, so it needs the syntax
     // extensions installed separately from the remark pipeline.
@@ -2105,6 +2215,45 @@ export function renderShell(): ShellHandle {
     label: '重新打开关闭的文件',
     shortcut: 'Mod+Shift+T',
     run: () => void reopenClosed(),
+  })
+  /**
+   * Reveal a folder through `openExternal` with a `file:` URL — the one
+   * primitive every shell already has for "let the OS deal with this". A
+   * failure is reported, unlike 导出后: nothing else happened, so staying silent
+   * would look like the command did nothing.
+   */
+  const revealFolder = async (folder: string, what: string): Promise<void> => {
+    try {
+      await host.app.openExternal(fileUrl(folder))
+    } catch (error) {
+      await showError(`无法打开${what}所在目录：${String(error)}`)
+    }
+  }
+  registry.register({
+    id: 'file.revealInFolder',
+    label: '打开文件位置',
+    run: () => {
+      const current = doc.getDocument()
+      if (!current?.path) {
+        toastHost.show('当前文档尚未保存', { level: 'warn' })
+        return
+      }
+      void revealFolder(dirname(current.path), '文档')
+    },
+  })
+  registry.register({
+    id: 'settings.advancedConfig',
+    label: '高级设置（打开配置目录）',
+    run: async () => {
+      // The config root, not a guessed file name: the file is written by the
+      // shell and an older build may not have created it yet.
+      const folder = await host.app.getPath?.('userData').catch(() => null)
+      if (!folder) {
+        toastHost.show('当前环境无法定位配置目录', { level: 'warn' })
+        return
+      }
+      void revealFolder(folder, '配置')
+    },
   })
   registry.register({ id: 'file.saveAs', label: '另存为…', shortcut: 'Mod+Shift+S', run: () => void saveAs() })
   registry.register({ id: 'file.quickOpen', label: '快速打开文件', shortcut: 'Mod+P', run: toggleQuickOpen })
@@ -2303,6 +2452,13 @@ export function renderShell(): ShellHandle {
     run: () => applyBlockFormat('h6'),
   })
   registry.register({
+    id: 'format.tableSource',
+    label: '格式化表格源码',
+    // Aligns the columns of the table the caret is in, in the source text. Only
+    // the *source* can be aligned; the rendered table is already aligned by CSS.
+    run: () => applyTextEdit(formatTableSource(editor.getMarkdown(), selectionRange())),
+  })
+  registry.register({
     id: 'format.headingUp',
     label: '提升标题级别',
     shortcut: 'Mod+=',
@@ -2413,6 +2569,23 @@ export function renderShell(): ShellHandle {
     id: 'edit.copyAsText',
     label: '复制为纯文本',
     run: () => void copySelectionAs('text'),
+  })
+  registry.register({
+    id: 'edit.copyAsCleanHtml',
+    label: '复制内容并简化格式',
+    run: () => void copySelectionAs('clean'),
+  })
+  registry.register({
+    id: 'search.google',
+    label: '使用 Google 搜索所选内容',
+    run: () => {
+      const query = editor.getSelectedText().trim()
+      if (!query) {
+        toastHost.show('请先选中要搜索的内容', { level: 'warn' })
+        return
+      }
+      void host.app.openExternal(`https://www.google.com/search?q=${encodeURIComponent(query)}`)
+    },
   })
   registry.register({
     id: 'edit.pasteAsPlainText',

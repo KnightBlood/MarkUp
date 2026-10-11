@@ -18,6 +18,7 @@
         { "kind": "command", "id": "file.saveAs", "label": "另存为…" },
         { "kind": "command", "id": "file.saveAll", "label": "保存全部" },
         { "kind": "command", "id": "file.reopenClosed", "label": "重新打开关闭的文件" },
+        { "kind": "command", "id": "file.revealInFolder", "label": "打开文件位置" },
         { "kind": "command", "id": "file.quickOpen", "label": "快速打开" },
         { "kind": "separator" },
         { "kind": "command", "id": "file.import", "label": "导入文档…" },
@@ -69,6 +70,8 @@
         { "kind": "command", "id": "edit.copyAsMarkdown", "label": "复制为 Markdown" },
         { "kind": "command", "id": "edit.copyAsHtml", "label": "复制为 HTML 代码" },
         { "kind": "command", "id": "edit.copyAsText", "label": "复制为纯文本" },
+        { "kind": "command", "id": "edit.copyAsCleanHtml", "label": "复制内容并简化格式" },
+        { "kind": "command", "id": "search.google", "label": "使用 Google 搜索所选内容" },
         { "kind": "command", "id": "edit.pasteAsPlainText", "label": "粘贴为纯文本" },
         { "kind": "separator" },
         { "kind": "command", "id": "palette.toggle", "label": "命令面板" },
@@ -89,6 +92,7 @@
         { "kind": "command", "id": "format.headingDown", "label": "降低标题级别" },
         { "kind": "separator" },
         { "kind": "command", "id": "insert.table", "label": "表格" },
+        { "kind": "command", "id": "format.tableSource", "label": "格式化表格源码" },
         { "kind": "command", "id": "format.codeBlock", "label": "代码块" },
         { "kind": "command", "id": "insert.formula", "label": "公式块" },
         { "kind": "command", "id": "insert.formula.inline", "label": "行内公式" },
@@ -176,6 +180,7 @@
         { "kind": "separator" },
         { "kind": "command", "id": "settings.appearance", "label": "外观设置…" },
         { "kind": "command", "id": "settings.keys", "label": "快捷键设置…" },
+        { "kind": "command", "id": "settings.advancedConfig", "label": "高级设置（打开配置目录）" },
         { "kind": "command", "id": "theme.toggle", "label": "切换主题" },
         { "kind": "action", "id": "reload", "label": "重新加载", "accelerator": "CmdOrCtrl+R" }
       ]

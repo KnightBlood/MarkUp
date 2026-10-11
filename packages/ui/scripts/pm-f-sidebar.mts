@@ -53,6 +53,9 @@ let lastMenu: Array<{ label?: string; separator?: boolean; run?: () => void }> |
 const opened: string[] = []
 const copied: string[] = []
 const removed: string[] = []
+/** Workspace root the mock reports; flipped mid-test to reach the tree actions. */
+let workspaceRoot: string | null = null
+const created: string[] = []
 let folderOpens = 0
 
 const sidebar = renderSidebar({
@@ -63,7 +66,7 @@ const sidebar = renderSidebar({
   getCurrentPath: () => null,
   getMarkdown: () => '# 标题一\n\n段落\n\n## 标题二',
   gotoAnchor: () => undefined,
-  getWorkspace: () => ({ root: null, files: [] }),
+  getWorkspace: () => ({ root: workspaceRoot, files: [] }),
   onOpenFolder: async () => {
     folderOpens += 1
   },
@@ -76,6 +79,9 @@ const sidebar = renderSidebar({
   },
   removeFromRecents: async (path) => {
     removed.push(path)
+  },
+  createEntry: (dir, kind) => {
+    created.push(`${kind}:${dir}`)
   },
 })
 
@@ -128,6 +134,37 @@ assert(blankFile && blankFile.run, 'blank menu file item runnable')
 const opensBefore = opened.length
 blankFile.run() // dialog.open mock 未选文件 → 直接返回，不得抛错
 assert(opened.length === opensBefore, 'file picker without selection opens nothing')
+
+// ---- 文件树内新建文件 / 文件夹 --------------------------------------------
+// With no workspace root there is nothing to create inside, so the items must
+// stay out of the menu rather than appear and do nothing.
+assert(
+  !lastMenu.some((i) => i.label === '新建文件…'),
+  'no workspace root means no 新建文件',
+)
+assert(
+  !lastMenu.some((i) => i.label === '新建文件夹…'),
+  'no workspace root means no 新建文件夹',
+)
+
+workspaceRoot = '/notes'
+lastMenu = null
+blank.dispatchEvent(new dom.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+assert(lastMenu, 'blank menu opened again')
+const newFile = lastMenu.find((i) => i.label === '新建文件…')
+const newFolder = lastMenu.find((i) => i.label === '新建文件夹…')
+assert(newFile?.run && newFolder?.run, 'both tree actions are present and runnable')
+newFile.run()
+newFolder.run()
+// The sidebar only renders; it must hand the *root* and the kind to the shell.
+assert(
+  created.join(',') === 'file:/notes,folder:/notes',
+  `createEntry receives root + kind: ${created.join(',')}`,
+)
+assert(
+  lastMenu.some((i) => i.label === '刷新工作区列表'),
+  '刷新工作区列表 is still offered with a root',
+)
 
 // registration surface: registerTab appends button + panel, unsubscribe removes both
 const pluginTab = sidebar.registerTab({

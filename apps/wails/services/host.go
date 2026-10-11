@@ -72,6 +72,9 @@ type AppConfig struct {
 	SmartQuotes           *bool   `json:"smartQuotes,omitempty"`
 	SmartDashes           *bool   `json:"smartDashes,omitempty"`
 	PairedSymbols         *bool   `json:"pairedSymbols,omitempty"`
+	WorkspaceGlob         *string `json:"workspaceGlob,omitempty"`
+	ShowHiddenFiles       *bool   `json:"showHiddenFiles,omitempty"`
+	OutlineMaxLevel       *int    `json:"outlineMaxLevel,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

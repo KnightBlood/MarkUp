@@ -44,6 +44,18 @@ export function extractOutline(markdown: string): OutlineItem[] {
   return items
 }
 
+/**
+ * 目录显示的标题层数. `maxLevel` of 0 (or a non-positive value) means every level.
+ *
+ * Filtering runs *after* extraction, so the surviving items keep their real
+ * levels: an h3 under a filtered-out h2 is still an h3 and still indents like
+ * one, rather than being silently renumbered into its parent's place.
+ */
+export function filterOutlineLevel(items: OutlineItem[], maxLevel: number): OutlineItem[] {
+  if (maxLevel <= 0) return items
+  return items.filter((item) => item.level <= maxLevel)
+}
+
 export function countStats(markdown: string): { words: number; chars: number; lines: number } {
   const chars = markdown.length
   const lines = markdown === '' ? 1 : markdown.split('\n').length

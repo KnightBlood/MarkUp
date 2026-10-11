@@ -1,7 +1,7 @@
 import { getHost } from '@markup/host-api'
 import type { Anchor } from '@markup/core'
 import { el } from '../dom'
-import { extractOutline, type OutlineItem } from '../outline'
+import { extractOutline, filterOutlineLevel, type OutlineItem } from '../outline'
 import type { ContextMenuItem } from './contextMenu'
 import {
   basename,
@@ -24,6 +24,13 @@ export interface SidebarHandlers {
   showContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void
   copyText?: (text: string) => Promise<void>
   removeFromRecents?: (path: string) => Promise<void>
+  /**
+   * 文件树内新建文件 / 文件夹. The sidebar only renders; the shell owns the
+   * filesystem and the name prompt, so it creates inside `dir`.
+   */
+  createEntry?: (dir: string, kind: 'file' | 'folder') => void
+  /** 目录显示的标题层数; 0 means every level. */
+  getOutlineMaxLevel?: () => number
 }
 
 export interface SidebarApi {
@@ -227,7 +234,12 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
   }
 
   const refreshOutline = (): void => {
-    const items = extractOutline(handlers.getMarkdown())
+    // 目录显示的标题层数 — a view over the extracted outline, so the levels the
+    // surviving items report are still their real ones.
+    const items = filterOutlineLevel(
+      extractOutline(handlers.getMarkdown()),
+      handlers.getOutlineMaxLevel?.() ?? 0,
+    )
     outlineItems = items
     if (items.length === 0) {
       outlineList.replaceChildren(el('li', { class: 'outline__empty', text: '无标题' }))
@@ -458,6 +470,15 @@ export function renderSidebar(handlers: SidebarHandlers): SidebarApi {
       { label: '打开文件夹…', run: openFolderWithPicker },
       ...(workspace.root
         ? [
+            { separator: true } as ContextMenuItem,
+            {
+              label: '新建文件…',
+              run: () => handlers.createEntry?.(workspace.root!, 'file'),
+            },
+            {
+              label: '新建文件夹…',
+              run: () => handlers.createEntry?.(workspace.root!, 'folder'),
+            },
             { separator: true } as ContextMenuItem,
             { label: '刷新工作区列表', run: () => refreshWorkspace() },
           ]

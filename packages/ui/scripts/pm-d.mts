@@ -35,6 +35,7 @@ const { CommandRegistry } = await import('../src/commands')
 
 let theme = 'system'
 let fontSize = 16
+let autoSave = false
 let typewriter = false
 let lineNumbers = false
 let showStats = true
@@ -52,7 +53,7 @@ const settings = createSettings({
     lineWidth: 780,
     recentDocuments: [],
     typewriter,
-    autoSave: false,
+    autoSave,
     lineNumbers,
     showStats,
     focusMode,
@@ -67,6 +68,7 @@ const settings = createSettings({
     theme = next.theme
     fontSize = next.fontSize
     typewriter = next.typewriter === true
+    autoSave = next.autoSave === true
     lineNumbers = next.lineNumbers === true
     showStats = next.showStats !== false
     focusMode = next.focusMode === true
@@ -87,7 +89,7 @@ assert(settings.isOpen() === false, 'close hides')
 
 const registry = new CommandRegistry()
 registry.register({ id: 'settings.open', label: '设置', run: () => settings.open() })
-registry.register({ id: 'settings.view', label: '设置：视图', run: () => settings.open('view') })
+registry.register({ id: 'settings.export', label: '设置：导出', run: () => settings.open('export') })
 registry.register({
   id: 'view.typewriter',
   label: '打字机',
@@ -101,59 +103,73 @@ settings.close()
 registry.run('view.typewriter')
 assert(typewriter === true, 'typewriter toggles via registry')
 
+// 面板顺序对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → 图像 → 导出。
 const tabButtons = settings.el.querySelectorAll<HTMLButtonElement>('.settings__tab')
-assert(tabButtons.length === 3, `three tabs: ${tabButtons.length}`)
+assert(tabButtons.length === 5, `five tabs: ${tabButtons.length}`)
 assert(
-  tabButtons[0]?.textContent === '外观' &&
-    tabButtons[1]?.textContent === '编辑' &&
-    tabButtons[2]?.textContent === '视图',
-  'tab labels appearance/editor/view',
+  tabButtons[0]?.textContent === '通用' &&
+    tabButtons[1]?.textContent === '外观' &&
+    tabButtons[2]?.textContent === '编辑器' &&
+    tabButtons[3]?.textContent === '图像' &&
+    tabButtons[4]?.textContent === '导出',
+  'tab labels general/appearance/editor/image/export',
 )
-assert(settings.getTab() === 'appearance', 'default tab is appearance')
-
-settings.setTab('view')
-assert(settings.getTab() === 'view', 'setTab switches')
-assert(settings.el.querySelector('[data-tab-panel="view"]')?.hidden === false, 'view panel visible')
-assert(settings.el.querySelector('[data-tab-panel="appearance"]')?.hidden === true, 'appearance hidden')
-
-const lineNumbersCheck = settings.el.querySelector<HTMLInputElement>(
-  '[data-tab-panel="view"] input[type="checkbox"]',
-)
-assert(lineNumbersCheck, 'line numbers checkbox exists')
-lineNumbersCheck.checked = true
-lineNumbersCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
-assert(lineNumbers === true, 'lineNumbers emitted')
-
-const showStatsCheck = settings.el.querySelectorAll<HTMLInputElement>(
-  '[data-tab-panel="view"] input[type="checkbox"]',
-)[1]
-assert(showStatsCheck, 'showStats checkbox exists')
-showStatsCheck.checked = false
-showStatsCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
-assert(showStats === false, 'showStats emitted')
+assert(settings.getTab() === 'general', 'default tab is general')
 
 settings.setTab('editor')
-const editorChecks = settings.el.querySelectorAll<HTMLInputElement>(
-  '[data-tab-panel="editor"] input[type="checkbox"]',
+assert(settings.getTab() === 'editor', 'setTab switches')
+assert(settings.el.querySelector('[data-tab-panel="editor"]')?.hidden === false, 'editor panel visible')
+assert(settings.el.querySelector('[data-tab-panel="general"]')?.hidden === true, 'general hidden')
+
+// ---- 通用：启动 / 保存与恢复 / 统计与校对 ---------------------------------
+settings.setTab('general')
+const generalChecks = settings.el.querySelectorAll<HTMLInputElement>(
+  '[data-tab-panel="general"] input[type="checkbox"]',
 )
-assert(editorChecks.length === 5, `editor checkboxes: ${editorChecks.length}`)
-const imagePasteCheck = editorChecks[2]
-const spellcheckCheck = editorChecks[3]
-const restoreSessionCheck = editorChecks[4]
-assert(imagePasteCheck && spellcheckCheck && restoreSessionCheck, 'imagePaste + spellcheck + session checkboxes')
-imagePasteCheck.checked = false
-imagePasteCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
-assert(imagePaste === false, 'imagePaste emitted')
-spellcheckCheck.checked = true
-spellcheckCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
-assert(spellcheck === true, 'spellcheck emitted')
+assert(generalChecks.length === 4, `general checkboxes: ${generalChecks.length}`)
+const [restoreSessionCheck, autoSaveCheck, showStatsCheck, spellcheckCheck] = generalChecks
+assert(
+  restoreSessionCheck && autoSaveCheck && showStatsCheck && spellcheckCheck,
+  'restoreSession + autoSave + showStats + spellcheck checkboxes',
+)
 assert(restoreSession === true, 'restoreSession defaults on')
 restoreSessionCheck.checked = false
 restoreSessionCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
 assert(restoreSession === false, 'restoreSession emitted')
+autoSaveCheck.checked = true
+autoSaveCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(autoSave === true, 'autoSave emitted')
+showStatsCheck.checked = false
+showStatsCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(showStats === false, 'showStats emitted')
+spellcheckCheck.checked = true
+spellcheckCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(spellcheck === true, 'spellcheck emitted')
 
-registry.run('settings.view')
-assert(settings.getTab() === 'view', 'settings.view opens view tab')
+// ---- 编辑器：打字机 / 专注 / 行号 -----------------------------------------
+settings.setTab('editor')
+const editorChecks = settings.el.querySelectorAll<HTMLInputElement>(
+  '[data-tab-panel="editor"] input[type="checkbox"]',
+)
+assert(editorChecks.length === 3, `editor checkboxes: ${editorChecks.length}`)
+const lineNumbersCheck = editorChecks[2]!
+lineNumbersCheck.checked = true
+lineNumbersCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(lineNumbers === true, 'lineNumbers emitted')
+
+// ---- 图像：插入图片时 -----------------------------------------------------
+settings.setTab('image')
+const imagePasteCheck = settings.el.querySelector<HTMLInputElement>(
+  '[data-tab-panel="image"] input[type="checkbox"]',
+)
+assert(imagePasteCheck, 'imagePaste checkbox exists')
+imagePasteCheck.checked = false
+imagePasteCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(imagePaste === false, 'imagePaste emitted')
+
+// ---- 导出：转换器路径 -----------------------------------------------------
+registry.run('settings.export')
+assert(settings.getTab() === 'export', 'settings.export opens export tab')
 
 const themeSelect = settings.el.querySelector<HTMLSelectElement>('select')
 assert(themeSelect, 'theme select exists')
@@ -253,6 +269,6 @@ assert(dupThrew, 'duplicate tab id throws while registered')
 pluginTab()
 assert(!settings.el.querySelector('[data-tab="plugin"]'), 'unsubscribe removes button')
 assert(!settings.el.querySelector('.settings__plugin-panel'), 'unsubscribe removes panel')
-assert(settings.getTab() === 'appearance', 'unsubscribe falls back to appearance tab')
+assert(settings.getTab() === 'general', 'unsubscribe falls back to the first tab')
 
-console.log('SMOKE UI SETTINGS OK: tabs + editor/view options + open/close + registry + registerTab')
+console.log('SMOKE UI SETTINGS OK: typora-aligned tabs + general/editor/image/export options + open/close + registry + registerTab')

@@ -2,7 +2,7 @@ import type { AppConfig, CustomTheme } from '@markup/host-api'
 import { el } from '../dom'
 import { THEME_OPTIONS } from '../appearance'
 
-export type SettingsTab = 'appearance' | 'editor' | 'view'
+export type SettingsTab = 'general' | 'appearance' | 'editor' | 'image' | 'export'
 
 /** Extra settings tab contributed at runtime (plugins / registration surface). */
 export interface SettingsTabSpec {
@@ -43,10 +43,16 @@ const COLOR_FIELDS: Array<{ key: keyof CustomTheme; label: string; fallback: str
   { key: 'bad', label: '错误', fallback: '#cf222e' },
 ]
 
+/**
+ * 面板顺序与命名对齐 Typora 的偏好设置：通用 → 外观 → 编辑器 → 图像 → 导出。
+ * （Typora 还有 Markdown / 文件 两个面板，本项目暂无对应功能，故不设空壳。）
+ */
 const TAB_LABELS: Array<{ id: SettingsTab; label: string }> = [
+  { id: 'general', label: '通用' },
   { id: 'appearance', label: '外观' },
-  { id: 'editor', label: '编辑' },
-  { id: 'view', label: '视图' },
+  { id: 'editor', label: '编辑器' },
+  { id: 'image', label: '图像' },
+  { id: 'export', label: '导出' },
 ]
 
 function toHexColor(value: string | undefined, fallback: string): string {
@@ -138,13 +144,65 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     colorRow,
   )
 
+  // 通用：启动、保存、统计、拼写。Typora 把这四项都放在「通用」面板
+  // （启动选项 / 保存&恢复 / 字数统计 / 拼写检查），此处照搬其归类。
+  const generalPanel = el(
+    'div',
+    { class: 'settings__panel-body', 'data-tab-panel': 'general' },
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'launch' },
+      el('h3', { class: 'settings__heading', text: '启动' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        restoreSessionCheck,
+        el('span', { class: 'settings__label', text: '重启后恢复上次打开的标签页' }),
+      ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'save-recover' },
+      el('h3', { class: 'settings__heading', text: '保存与恢复' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        autoSaveCheck,
+        el('span', { class: 'settings__label', text: '自动保存（有路径的文档）' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '自动保存延时 (ms)' }),
+        autoSaveDelayInput,
+      ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'status' },
+      el('h3', { class: 'settings__heading', text: '统计与校对' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        showStatsCheck,
+        el('span', { class: 'settings__label', text: '状态栏显示字数统计' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        spellcheckCheck,
+        el('span', { class: 'settings__label', text: '拼写检查' }),
+      ),
+    ),
+  )
+
   const appearancePanel = el(
     'div',
     { class: 'settings__panel-body', 'data-tab-panel': 'appearance' },
     el(
       'section',
       { class: 'settings__section' },
-      el('h3', { class: 'settings__heading', text: '外观' }),
+      el('h3', { class: 'settings__heading', text: '主题与字号' }),
       el(
         'label',
         { class: 'settings__field' },
@@ -194,19 +252,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     el(
       'section',
       { class: 'settings__section' },
-      el('h3', { class: 'settings__heading', text: '编辑' }),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        autoSaveCheck,
-        el('span', { class: 'settings__label', text: '自动保存（有路径的文档）' }),
-      ),
-      el(
-        'label',
-        { class: 'settings__field' },
-        el('span', { class: 'settings__label', text: '自动保存延时 (ms)' }),
-        autoSaveDelayInput,
-      ),
+      el('h3', { class: 'settings__heading', text: '编辑行为' }),
       el(
         'label',
         { class: 'settings__field settings__field--row' },
@@ -216,22 +262,43 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       el(
         'label',
         { class: 'settings__field settings__field--row' },
+        focusModeCheck,
+        el('span', { class: 'settings__label', text: '专注模式（隐藏侧栏与状态栏）' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        lineNumbersCheck,
+        el('span', { class: 'settings__label', text: '分屏/源码视图显示行号' }),
+      ),
+    ),
+  )
+
+  // 图像：对应 Typora「图像」面板的「插入图片时」。
+  const imagePanel = el(
+    'div',
+    { class: 'settings__panel-body', 'data-tab-panel': 'image' },
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'image-insert' },
+      el('h3', { class: 'settings__heading', text: '插入图片时' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
         imagePasteCheck,
         el('span', { class: 'settings__label', text: '粘贴图片转为 Markdown' }),
       ),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        spellcheckCheck,
-        el('span', { class: 'settings__label', text: '拼写检查' }),
-      ),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        restoreSessionCheck,
-        el('span', { class: 'settings__label', text: '重启后恢复上次打开的标签页' }),
-      ),
+      el('p', {
+        class: 'settings__label',
+        text: '开启后，从浏览器或截图工具复制的位图粘贴进来时会转成 Markdown 图片；关闭则保持为纯文本。',
+      }),
     ),
+  )
+
+  // 导出：Typora 把 Pandoc 路径放在「导出」面板，转换器路径同理归到这里。
+  const exportPanel = el(
+    'div',
+    { class: 'settings__panel-body', 'data-tab-panel': 'export' },
     el(
       'section',
       { class: 'settings__section', 'data-section': 'converter' },
@@ -249,36 +316,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     ),
   )
 
-  const viewPanel = el(
-    'div',
-    { class: 'settings__panel-body', 'data-tab-panel': 'view' },
-    el(
-      'section',
-      { class: 'settings__section' },
-      el('h3', { class: 'settings__heading', text: '视图' }),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        lineNumbersCheck,
-        el('span', { class: 'settings__label', text: '分屏/源码视图显示行号' }),
-      ),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        showStatsCheck,
-        el('span', { class: 'settings__label', text: '状态栏显示字数统计' }),
-      ),
-      el(
-        'label',
-        { class: 'settings__field settings__field--row' },
-        focusModeCheck,
-        el('span', { class: 'settings__label', text: '专注模式（隐藏侧栏与状态栏）' }),
-      ),
-    ),
-  )
-
   let current: AppConfig = callbacks.getAppearance()
-  let activeTab = 'appearance'
+  let activeTab = 'general'
   /** Set while a search hides the custom-theme section regardless of theme. */
   let colorSectionHiddenBySearch = false
 
@@ -302,9 +341,11 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   )
 
   const panels = new Map<string, HTMLElement>([
+    ['general', generalPanel],
     ['appearance', appearancePanel],
     ['editor', editorPanel],
-    ['view', viewPanel],
+    ['image', imagePanel],
+    ['export', exportPanel],
   ])
 
   const setTab = (tab: string): void => {
@@ -490,7 +531,15 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
 
   searchInput.addEventListener('input', applyFilter)
 
-  const body = el('div', { class: 'settings__body' }, appearancePanel, editorPanel, viewPanel)
+  const body = el(
+    'div',
+    { class: 'settings__body' },
+    generalPanel,
+    appearancePanel,
+    editorPanel,
+    imagePanel,
+    exportPanel,
+  )
   const panel = el(
     'div',
     { class: 'settings__panel', role: 'dialog', 'aria-label': '设置' },
@@ -535,7 +584,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       newPanel.remove()
       tabButtons.delete(spec.id)
       panels.delete(spec.id)
-      if (activeTab === spec.id) setTab('appearance')
+      if (activeTab === spec.id) setTab('general')
     }
   }
 

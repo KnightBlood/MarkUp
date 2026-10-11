@@ -343,7 +343,7 @@ Check-Needle 'plantuml :: ui smoke wired' "$root\packages\ui\package.json" 'pm-s
 
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
-# or uses an explicit path from 设置 ▸ 编辑 ▸ 文档转换. These needles pin the seams that
+# or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that
 # have to stay wired across the five shells.
 Check-Needle 'convert :: host API (locate)' "$root\packages\host-api\src\types.ts" 'converter?(): Promise<ConverterInfo | null>' -Literal
 Check-Needle 'convert :: host API (convert)' "$root\packages\host-api\src\types.ts" 'convert?(request: ConvertRequest): Promise<ConvertResult>' -Literal
@@ -361,6 +361,18 @@ Check-Needle 'convert :: electrobun host exposes it' "$root\apps\electrobun\fron
 Check-Needle 'convert :: menu has import' "$root\packages\host-api\src\menu.json" 'file.import' -Literal
 Check-Needle 'convert :: menu has docx export' "$root\packages\host-api\src\menu.json" 'file.exportDocx' -Literal
 Check-Needle 'convert :: settings path field' "$root\packages\ui\src\ui\settings.ts" 'converterPath' -Literal
+
+# --- settings panel layout (aligned with Typora's preferences: 通用/外观/编辑器/图像/导出) ---
+# The type union is the single declaration of the built-in panel set; the shell's
+# per-panel commands and the `view` panel removal below are both keyed off it.
+Check-Needle 'settings :: panel set' "$root\packages\ui\src\ui\settings.ts" "'general' | 'appearance' | 'editor' | 'image' | 'export'" -Literal
+Check-Needle 'settings :: general panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'general'" -Literal
+Check-Needle 'settings :: image panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'image'" -Literal
+Check-Needle 'settings :: export panel' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'export'" -Literal
+Check-Needle 'settings :: converter lives on export' "$root\packages\ui\src\shell.ts" "settings.open('export')" -Literal
+# `视图` was dissolved into 通用/编辑器. Asserting the new panels exist is not enough:
+# a leftover `view` panel would leave both the old and the new grouping in place.
+Check-Absent 'settings :: old view panel is gone' "$root\packages\ui\src\ui\settings.ts" "'data-tab-panel': 'view'" -Literal
 # `gfm`, not `markdown`: measured against pandoc 3.12.1, it is the one name that
 # keeps pipe tables, `[^1]` footnotes and task lists all at once.
 Check-Needle 'convert :: gfm is the round-trip format' "$root\packages\ui\src\shell.ts" "const MARKDOWN_FORMAT = 'gfm'" -Literal

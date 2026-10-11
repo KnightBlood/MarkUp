@@ -720,7 +720,7 @@ export function renderShell(): ShellHandle {
     // Open the 编辑 tab, not the default one: 文档转换 lives there, and making
     // the user hunt for the field the prompt just told them to fill is the
     // whole point of the button existing.
-    if (answer.button === '打开设置') settings.open('editor')
+    if (answer.button === '打开设置') settings.open('export')
     return null
   }
 
@@ -1793,19 +1793,29 @@ export function renderShell(): ShellHandle {
     run: settings.open,
   })
   registry.register({
+    id: 'settings.general',
+    label: '设置：通用',
+    run: () => settings.open('general'),
+  })
+  registry.register({
     id: 'settings.appearance',
     label: '设置：外观',
     run: () => settings.open('appearance'),
   })
   registry.register({
     id: 'settings.editor',
-    label: '设置：编辑',
+    label: '设置：编辑器',
     run: () => settings.open('editor'),
   })
   registry.register({
-    id: 'settings.view',
-    label: '设置：视图',
-    run: () => settings.open('view'),
+    id: 'settings.image',
+    label: '设置：图像',
+    run: () => settings.open('image'),
+  })
+  registry.register({
+    id: 'settings.export',
+    label: '设置：导出',
+    run: () => settings.open('export'),
   })
   registry.register({
     id: 'settings.keys',

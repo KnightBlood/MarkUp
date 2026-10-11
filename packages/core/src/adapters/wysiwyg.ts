@@ -77,6 +77,7 @@ import {
   type PlantumlAnchor,
   type PlantumlTarget,
 } from '../plantumlEditBridge'
+import { smartInput, smartInputEdit, SMART_INPUT_OFF, type SmartInputOptions } from '../smartInput'
 import type { BlockFormatId, ListIndentStep, TaskStatus } from '../textFormat'
 import {
   TABLE_COMMAND_LABELS,
@@ -1040,6 +1041,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
   let ready = false
   let wantsFocus = false
   let lastAnchor: Anchor | null = null
+  let smartInputOptions: SmartInputOptions = SMART_INPUT_OFF
   let spellcheck = false
   // Swallow markdownUpdated during create()/first settle so remount ≠ dirty.
   let suppressInitEmit = false
@@ -1640,6 +1642,41 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
         view.dispatch(tr)
         flush()
         return true
+      })
+    },
+
+    setSmartInput(next: SmartInputOptions): void {
+      smartInputOptions = next
+      if (!editor || !ready) return
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        // `handleTextInput` is a ProseMirror *prop*, so it can be swapped on a
+        // live view — and returning true replaces the text before it is applied,
+        // which is the only way to do this without an undo-able second step.
+        view.setProps({
+          handleTextInput: (proseView, from, to, text) => {
+            if (smartInputOptions === SMART_INPUT_OFF) return false
+            const doc = proseView.state.doc
+            // Positions here are ProseMirror document positions, not markdown
+            // offsets — `textBetween`/`insertText` both speak this space, so the
+            // edit computed in one coordinates system applies in the same one.
+            const result = smartInput(
+              {
+                before: doc.textBetween(Math.max(0, from - 2), from, ''),
+                after: doc.textBetween(to, Math.min(doc.content.size, to + 2), ''),
+                text,
+                hasSelection: to > from,
+              },
+              smartInputOptions,
+            )
+            if (!result.wrap && result.deleteBefore === 0 && result.text === text) return false
+            const edit = smartInputEdit(result, { from, to }, doc.textBetween(from, to, ''))
+            const tr = proseView.state.tr.insertText(edit.insert, edit.from, edit.to)
+            tr.setSelection(TextSelection.create(tr.doc, edit.caret))
+            proseView.dispatch(tr)
+            return true
+          },
+        })
       })
     },
 

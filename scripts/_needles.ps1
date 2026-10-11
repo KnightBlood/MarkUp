@@ -527,6 +527,60 @@ Check-Needle 'file :: 重新打开关闭的文件' "$root\packages\ui\src\shell.
 Check-Needle 'file :: only saved tabs are remembered' "$root\packages\ui\src\shell.ts" 'const rememberClosed = (path: string | undefined): void => {' -Literal
 Check-Needle 'file :: menu exposes them' "$root\packages\host-api\src\menu.json" 'file.reopenClosed' -Literal
 
+# --- 编辑 ▸ 选中当前… / 跳转 / 整行 ---
+# The ranges are markdown offsets, so a range that is one character long selects
+# the space after a word on the next click. CJK matters: Chinese has no spaces,
+# so a non-ASCII run has to count as one word.
+Check-Needle 'select :: scope scanner' "$root\packages\core\src\textFormat.ts" 'export function selectScope(' -Literal
+Check-Needle 'select :: CJK counts as a word char' "$root\packages\core\src\textFormat.ts" 'const isWordChar = (ch: string): boolean => /[\p{L}\p{N}_]/u.test(ch)' -Literal
+Check-Needle 'select :: full-width terminators' "$root\packages\core\src\textFormat.ts" 'const SENTENCE_END = /[.。!！?？;；]/' -Literal
+# A sentence must not run across a blank line; clamping to the block reuses the
+# tested blank-line rule instead of duplicating it.
+Check-Needle 'select :: sentence clamped to the paragraph' "$root\packages\core\src\textFormat.ts" "const block = selectScope(markdown, at, 'block')" -Literal
+Check-Needle 'select :: line range' "$root\packages\core\src\textFormat.ts" 'export function lineRangeAt(' -Literal
+Check-Needle 'select :: jump edges' "$root\packages\core\src\textFormat.ts" "export function documentEdge(markdown: string, edge: 'start' | 'end'): TextRange {" -Literal
+Check-Needle 'select :: command registered' "$root\packages\ui\src\shell.ts" "id: 'edit.selectSentence'," -Literal
+Check-Needle 'select :: cut takes the newline too' "$root\packages\ui\src\shell.ts" 'const hasTrailing = range.to < markdown.length' -Literal
+Check-Needle 'select :: menu exposes them' "$root\packages\host-api\src\menu.json" 'edit.jumpLineEnd' -Literal
+Check-Needle 'select :: core smoke wired' "$root\packages\core\package.json" 'pm-select.mts' -Literal
+
+# --- 编辑器行为 ▸ 保存时规范化 / 默认代码块语言 / 纯文本复制 ---
+# Normalisation happens on the way to disk only: rewriting the buffer would move
+# the selection in every view just because a line-ending preference changed.
+Check-Needle 'save :: normalise on the way out' "$root\packages\core\src\saveText.ts" 'export function normalizeForSave(' -Literal
+Check-Needle 'save :: empty stays empty' "$root\packages\core\src\saveText.ts" "if (markdown.length === 0) return markdown" -Literal
+Check-Needle 'save :: terminator matches the style' "$root\packages\core\src\saveText.ts" 'text += options.lineEnding === ' -Literal
+Check-Needle 'save :: applied by the store' "$root\packages\core\src\docStore.ts" 'text = normalizeForSave(text, {' -Literal
+Check-Needle 'save :: config fields' "$root\packages\host-api\src\types.ts" 'lineEnding?: ' -Literal
+Check-Needle 'save :: final newline field' "$root\packages\host-api\src\types.ts" 'ensureFinalNewline?: boolean' -Literal
+Check-Needle 'save :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'ensure_final_newline: Option<bool>' -Literal
+Check-Needle 'save :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"ensureFinalNewline,omitempty"' -Literal
+Check-Needle 'save :: core smoke wired' "$root\packages\core\package.json" 'pm-save.mts' -Literal
+Check-Needle 'editor :: default code block language' "$root\packages\core\src\textFormat.ts" 'const info = language.trim().split(/\s+/)[0] ?? ' -Literal
+Check-Needle 'editor :: language reaches the native fence' "$root\packages\ui\src\shell.ts" 'editor.setCodeLanguage(appearance.codeBlockLanguage.trim())' -Literal
+Check-Needle 'editor :: copy-as-text can hand over the source' "$root\packages\ui\src\shell.ts" 'appearance.copyTextAsMarkdown === true' -Literal
+
+# --- 智能输入 (智能引号 / 破折号 / 成对的符号) ---
+# Three views, three input hooks, one set of rules. The rules are pure so they
+# can be verified without a browser; the offset arithmetic is shared so a view
+# cannot get `deleteBefore` or the wrap splice subtly wrong.
+Check-Needle 'smartinput :: rules' "$root\packages\core\src\smartInput.ts" 'export function smartInput(' -Literal
+Check-Needle 'smartinput :: shared offset arithmetic' "$root\packages\core\src\smartInput.ts" 'export function smartInputEdit(' -Literal
+# An empty `text` with no rule applied would swallow every keystroke.
+Check-Needle 'smartinput :: off inserts what was typed' "$root\packages\core\src\smartInput.ts" 'return { text, deleteBefore: 0, caretOffset: text.length }' -Literal
+# Pairing a *closing* quote is how `a""` gets produced.
+Check-Needle 'smartinput :: a closing position never pairs' "$root\packages\core\src\smartInput.ts" 'if (!opening) {' -Literal
+Check-Needle 'smartinput :: view contract' "$root\packages\core\src\adapters\types.ts" 'setSmartInput?(options: SmartInputOptions): void' -Literal
+Check-Needle 'smartinput :: codemirror inputHandler' "$root\packages\core\src\adapters\hybrid.ts" 'EditorView.inputHandler.of(' -Literal
+Check-Needle 'smartinput :: overtype beforeinput' "$root\packages\core\src\adapters\source.ts" "addEventListener('beforeinput', onBeforeInput)" -Literal
+Check-Needle 'smartinput :: prose mirror prop' "$root\packages\core\src\adapters\wysiwyg.ts" 'handleTextInput: (proseView, from, to, text) => {' -Literal
+Check-Needle 'smartinput :: survives a view switch' "$root\packages\ui\src\ui\editor.ts" 'active?.setSmartInput?.(smartInputOptions)' -Literal
+Check-Needle 'smartinput :: config fields' "$root\packages\host-api\src\types.ts" 'smartQuotes?: boolean' -Literal
+Check-Needle 'smartinput :: settings section' "$root\packages\ui\src\ui\settings.ts" "'data-section': 'editor-smart-input'" -Literal
+Check-Needle 'smartinput :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'paired_symbols: Option<bool>' -Literal
+Check-Needle 'smartinput :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"pairedSymbols,omitempty"' -Literal
+Check-Needle 'smartinput :: core smoke wired' "$root\packages\core\package.json" 'pm-smartinput.mts' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

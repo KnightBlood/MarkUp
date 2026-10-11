@@ -117,6 +117,21 @@ struct AppConfig {
     export_page_margin: Option<String>,
     #[serde(default)]
     export_page_break_on_h1: Option<bool>,
+    /// 默认换行符 / 文末空行 / 代码块语言 / 纯文本复制.
+    #[serde(default)]
+    line_ending: Option<String>,
+    #[serde(default)]
+    ensure_final_newline: Option<bool>,
+    #[serde(default)]
+    code_block_language: Option<String>,
+    #[serde(default)]
+    copy_text_as_markdown: Option<bool>,
+    #[serde(default)]
+    smart_quotes: Option<bool>,
+    #[serde(default)]
+    smart_dashes: Option<bool>,
+    #[serde(default)]
+    paired_symbols: Option<bool>,
     #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
@@ -204,6 +219,13 @@ impl Default for AppConfig {
             export_page_size: None,
             export_page_margin: None,
             export_page_break_on_h1: None,
+            line_ending: None,
+            ensure_final_newline: None,
+            code_block_language: None,
+            copy_text_as_markdown: None,
+            smart_quotes: None,
+            smart_dashes: None,
+            paired_symbols: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,

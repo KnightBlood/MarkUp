@@ -1,4 +1,5 @@
 import OverType, { type Options, type OverTypeInstance } from 'overtype'
+import { smartInput, smartInputEdit, SMART_INPUT_OFF, type SmartInputOptions } from '../smartInput'
 import {
   plantumlFenceTarget,
   setPlantumlResolver,
@@ -67,6 +68,7 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
   let lineNumbers = false
   let spellcheck = false
   let readOnly = false
+  let smartInputOptions: SmartInputOptions = SMART_INPUT_OFF
   const { onChange } = options
 
   const lineCount = (): number => (value === '' ? 1 : value.split('\n').length)
@@ -100,6 +102,40 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       // copying working.
       instance.textarea.readOnly = readOnly
     }
+  }
+
+  /**
+   * 智能输入 for the OverType view. `beforeinput` is the only place a textarea
+   * lets us see and replace the typed text before it lands; cancelling it and
+   * writing the replacement through the adapter's own setter keeps OverType's
+   * re-render and `onChange` on exactly the same path as a normal keystroke.
+   */
+  const onBeforeInput = (event: InputEvent): void => {
+    if (smartInputOptions === SMART_INPUT_OFF) return
+    const textarea = instance?.textarea
+    if (!textarea || event.inputType !== 'insertText' || !event.data) return
+    const from = textarea.selectionStart ?? 0
+    const to = textarea.selectionEnd ?? from
+    const current = textarea.value
+    const result = smartInput(
+      {
+        // A slice, not one character: the ellipsis rule looks at the two dots
+        // already typed.
+        before: current.slice(Math.max(0, from - 2), from),
+        after: current.slice(to, to + 2),
+        text: event.data,
+        hasSelection: to > from,
+      },
+      smartInputOptions,
+    )
+    if (!result.wrap && result.deleteBefore === 0 && result.text === event.data) return
+    const edit = smartInputEdit(result, { from, to }, current.slice(from, to))
+    event.preventDefault()
+    const next = current.slice(0, edit.from) + edit.insert + current.slice(edit.to)
+    value = next
+    instance?.setValue(next)
+    textarea.setSelectionRange(edit.caret, edit.caret)
+    onChange?.(next)
   }
 
   const lineAt = (clientX: number, clientY: number): LineAt | null => {
@@ -205,6 +241,7 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       ignoreInitNotify = false
       instance = editors[0] ?? null
       instance?.textarea?.addEventListener('scroll', syncGutterScroll, { passive: true })
+      instance?.textarea?.addEventListener('beforeinput', onBeforeInput)
       applyChrome()
       setPlantumlResolver(resolvePlantuml)
     },
@@ -355,6 +392,10 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       readOnly = enabled
       if (rootEl) rootEl.classList.toggle('is-readonly', enabled)
       applyChrome()
+    },
+
+    setSmartInput(next: SmartInputOptions): void {
+      smartInputOptions = next
     },
 
     getLineAt: lineAt,

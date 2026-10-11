@@ -402,12 +402,14 @@ export function blockFormatEdit(
   markdown: string,
   range: TextRange,
   id: BlockFormatId,
+  /** 默认的代码块语言, used only when `id === 'codeBlock'`. */
+  codeLanguage = '',
 ): TextEdit | null {
   const sel = selectLines(markdown, range)
   if (!sel) return null
 
   if (id === 'codeBlock') {
-    return codeBlockEdit(sel.spans, sel.first, sel.last, sel.caret)
+    return codeBlockEdit(sel.spans, sel.first, sel.last, sel.caret, codeLanguage)
   }
 
   return rewriteLines(sel, sel.first, sel.last, (parts, line) => renderLine(parts, id) ?? line)
@@ -423,6 +425,7 @@ function codeBlockEdit(
   first: number,
   last: number,
   caret: number,
+  language = '',
 ): TextEdit | null {
   let openIdx = -1
   for (let i = first - 1; i >= 0; i -= 1) {
@@ -458,11 +461,15 @@ function codeBlockEdit(
   const rangeStart = targets[0]!.start
   const rangeEnd = targets[targets.length - 1]!.end
   const body = targets.map((span) => span.text).join('\n')
-  const text = '```\n' + body + '\n```'
+  // 默认的代码块语言 — the fence's info string. Trimmed to a single token: a
+  // space would end the info string and the rest would become fence metadata.
+  const info = language.trim().split(/\s+/)[0] ?? ''
+  const fence = `\`\`\`${info}\n`
+  const text = fence + body + '\n```'
   return {
     range: { from: rangeStart, to: rangeEnd },
     text,
-    caret: clamp(caret - rangeStart + '```\n'.length, 0, text.length),
+    caret: clamp(caret - rangeStart + fence.length, 0, text.length),
   }
 }
 
@@ -594,3 +601,112 @@ export function taskStatusEdit(
  * headings, which is why the marker lives here rather than in the shell.
  */
 export const TOC_MARKER = '[TOC]'
+
+// ── 选择与跳转 (Typora 编辑 ▸ 跳转到 / 选中) ──────────────────────────────
+
+/** What 选中当前… picks up around the caret. */
+export type SelectScope = 'line' | 'word' | 'sentence' | 'block'
+
+/** A word character: letters, digits and underscore, plus anything non-ASCII
+ * (CJK has no spaces, so treating every non-ASCII rune as a word char is what
+ * makes double-click-selects-a-word behave in Chinese text). */
+const isWordChar = (ch: string): boolean => /[\p{L}\p{N}_]/u.test(ch)
+
+/** Sentence terminators, both ASCII and the full-width forms used in CJK. */
+const SENTENCE_END = /[.。!！?？;；]/
+
+/**
+ * The range of `scope` around `offset`, or null when there is nothing sensible
+ * to select (an empty document).
+ *
+ * Selection is expressed as markdown offsets so every view can apply it through
+ * its own `setSelectionRange` — the editor's offsets and the markdown's agree,
+ * which is the whole reason these live here rather than in a view.
+ */
+export function selectScope(
+  markdown: string,
+  offset: number,
+  scope: SelectScope,
+): TextRange | null {
+  if (markdown.length === 0) return null
+  const at = clamp(offset, 0, markdown.length)
+
+  if (scope === 'line') return lineRangeAt(markdown, at)
+
+  if (scope === 'word') {
+    // Never null for a non-empty document: a "select word" that does nothing
+    // reads as broken. Prefer the word the caret is in or has just left, then
+    // the next one along.
+    const wordAt = (index: number): boolean =>
+      index >= 0 && index < markdown.length && isWordChar(markdown[index]!)
+    let anchor = -1
+    if (wordAt(at)) anchor = at
+    else if (wordAt(at - 1)) anchor = at - 1
+    else {
+      for (let i = at - 1; i >= 0 && anchor < 0; i -= 1) if (wordAt(i)) anchor = i
+      for (let i = at; i < markdown.length && anchor < 0; i += 1) if (wordAt(i)) anchor = i
+    }
+    if (anchor < 0) return null
+    let from = anchor
+    while (from > 0 && isWordChar(markdown[from - 1]!)) from -= 1
+    let to = anchor + 1
+    while (to < markdown.length && isWordChar(markdown[to]!)) to += 1
+    return { from, to }
+  }
+
+  if (scope === 'sentence') {
+    // Clamp to the paragraph: a "sentence" running across a blank line is really
+    // swallowing the next one, and this reuses the block logic instead of
+    // duplicating the blank-line rule.
+    const block = selectScope(markdown, at, 'block')
+    if (!block) return null
+    let from = at
+    while (from > block.from && !SENTENCE_END.test(markdown[from - 1] ?? '')) from -= 1
+    let to = at
+    while (to < block.to && !SENTENCE_END.test(markdown[to] ?? '')) to += 1
+    // The terminator belongs to the sentence it ends.
+    if (to < block.to) to += 1
+    // Trim the whitespace a terminator leaves behind.
+    while (from < to && /\s/.test(markdown[from] ?? '')) from += 1
+    while (to > from && /\s/.test(markdown[to - 1] ?? '')) to -= 1
+    return to > from ? { from, to } : null
+  }
+
+  // block: the paragraph — the run of non-blank lines around the caret.
+  const spans = lineSpans(markdown)
+  let index = spans.findIndex((span) => at <= span.end)
+  if (index < 0) index = spans.length - 1
+  const blank = (line: string): boolean => line.trim().length === 0
+  if (blank(spans[index]!.text)) {
+    // A caret on a blank line selects just that line, so the command still does
+    // something visible instead of silently picking a neighbouring paragraph.
+    return { from: spans[index]!.start, to: spans[index]!.end }
+  }
+  let first = index
+  while (first > 0 && !blank(spans[first - 1]!.text)) first -= 1
+  let last = index
+  while (last + 1 < spans.length && !blank(spans[last + 1]!.text)) last += 1
+  return { from: spans[first]!.start, to: spans[last]!.end }
+}
+
+/** The whole line containing `offset`, without its trailing newline. */
+export function lineRangeAt(markdown: string, offset: number): TextRange | null {
+  if (markdown.length === 0) return null
+  const at = clamp(offset, 0, markdown.length)
+  const spans = lineSpans(markdown)
+  const span = spans.find((candidate) => at <= candidate.end)
+  const line = span ?? spans[spans.length - 1]!
+  return { from: line.start, to: line.end }
+}
+
+/** 跳转到文首 / 文末. */
+export function documentEdge(markdown: string, edge: 'start' | 'end'): TextRange {
+  return edge === 'start' ? { from: 0, to: 0 } : { from: markdown.length, to: markdown.length }
+}
+
+/** 跳转到行首 / 行尾. */
+export function lineEdge(markdown: string, offset: number, edge: 'start' | 'end'): TextRange {
+  const line = lineRangeAt(markdown, offset)
+  if (!line) return { from: 0, to: 0 }
+  return edge === 'start' ? { from: line.from, to: line.from } : { from: line.to, to: line.to }
+}

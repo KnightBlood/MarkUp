@@ -206,6 +206,30 @@ export interface AppConfig {
   /** 按一级标题分页. Print/PDF only. */
   exportPageBreakOnH1?: boolean
   /**
+   * 默认换行符 for what gets written to disk. `preserve` (the default) keeps
+   * whatever the buffer holds, so an existing CRLF file is not silently
+   * rewritten the first time it is saved.
+   */
+  lineEnding?: 'preserve' | 'lf' | 'crlf'
+  /** 保存时在文末添加空行. Default false. */
+  ensureFinalNewline?: boolean
+  /**
+   * 默认的代码块语言 — the fence info string a new code block starts with.
+   * Empty/absent means a bare ``` fence, as before.
+   */
+  codeBlockLanguage?: string
+  /**
+   * 当复制纯文本时复制 Markdown 源码: 复制为纯文本 yields the markdown source
+   * instead of the rendered text. Default false.
+   */
+  copyTextAsMarkdown?: boolean
+  /** 智能引号 (`"` → `“”`). Default false — it rewrites what the user types. */
+  smartQuotes?: boolean
+  /** 智能破折号 (`--` → `—`, `...` → `…`). Default false. */
+  smartDashes?: boolean
+  /** 使用成对的符号 — typing an opener also inserts its closer. Default false. */
+  pairedSymbols?: boolean
+  /**
    * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
    * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
    */

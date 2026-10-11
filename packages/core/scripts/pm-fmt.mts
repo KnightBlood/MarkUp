@@ -187,6 +187,14 @@ const find = (md: string, needle: string, from = 0): number => {
   assert(wrap, 'fence wrap produced')
   const wrapped = apply(md, wrap!)
   assert(wrapped.md === '```\nalpha\nbeta\n```', `fence: ${wrapped.md}`)
+  // 默认的代码块语言 lands in the fence's info string; a space would end the info
+  // string early and turn the rest into fence metadata.
+  const withLang = blockFormatEdit('alpha', { from: 0, to: 5 }, 'codeBlock', 'js')
+  assert(apply('alpha', withLang!).md === '```js\nalpha\n```', 'the default language is used')
+  const messyLang = blockFormatEdit('alpha', { from: 0, to: 5 }, 'codeBlock', '  js  extra ')
+  assert(apply('alpha', messyLang!).md === '```js\nalpha\n```', 'only the first token survives')
+  const noLang = blockFormatEdit('alpha', { from: 0, to: 5 }, 'codeBlock')
+  assert(apply('alpha', noLang!).md === '```\nalpha\n```', 'no language means a bare fence')
   assert(
     wrapped.caret === wrapped.md.indexOf('alpha'),
     `caret stays on its text inside the fence: ${wrapped.caret}`,

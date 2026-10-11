@@ -5,6 +5,10 @@ import {
   TABLE_COMMAND_LABELS,
   blockFormatEdit,
   classifyDroppedFile,
+  documentEdge,
+  lineEdge,
+  lineRangeAt,
+  selectScope,
   exportHtmlDocument,
   exportOptionsFromConfig,
   fileToDataUrl,
@@ -50,9 +54,11 @@ import {
   type ListIndentStep,
   type OpenDoc,
   type PlantumlTarget,
+  type SelectScope,
   type TableCommandId,
   type TaskStatus,
   type TextEdit,
+  type TextRange,
 } from '@markup/core'
 import { el } from './dom'
 import { createStatusbar, type StatusbarItemHandle } from './ui/statusbar'
@@ -1467,6 +1473,38 @@ export function renderShell(): ShellHandle {
     editor.focus()
   }
 
+  // ── 选中当前… / 跳转 / 整行复制剪切 ───────────────────────────────────────
+  // The markdown is the source of truth for where things are, so these read the
+  // offsets from it and hand the result to the active view — each view then
+  // applies the range its own way.
+  const applySelectionRange = (range: TextRange | null): void => {
+    if (!range) return
+    editor.setSelectionRange(range.from, range.to)
+    editor.focus()
+  }
+
+  const selectScopeCommand = (scope: SelectScope): void =>
+    applySelectionRange(selectScope(editor.getMarkdown(), selectionRange().from, scope))
+
+  const jumpTo = (range: TextRange): void => applySelectionRange(range)
+
+  const copyOrCutLine = async (cut: boolean): Promise<void> => {
+    const markdown = editor.getMarkdown()
+    const range = lineRangeAt(markdown, selectionRange().from)
+    if (!range) return
+    const text = markdown.slice(range.from, range.to)
+    if (!text) return
+    await writeClipboard(text)
+    if (!cut) return
+    // Take the newline with the line, or the document gains a blank line where
+    // the text used to be. The last line has no trailing newline to take, so it
+    // gives up the one before it instead.
+    const hasTrailing = range.to < markdown.length
+    const from = hasTrailing ? range.from : Math.max(0, range.from - 1)
+    const to = hasTrailing ? range.to + 1 : range.to
+    applyTextEdit({ range: { from, to }, text: '', caret: from })
+  }
+
   const applyInlineFormat = (id: InlineFormatId): void =>
     applyTextEdit(
       inlineFormatEdit(editor.getMarkdown(), selectionRange(), id, INLINE_PLACEHOLDERS[id]),
@@ -1478,9 +1516,22 @@ export function renderShell(): ShellHandle {
     // (and would corrupt结构-sensitive lines like table rows).
     if (editor.supportsBlockFormat()) {
       editor.setBlockFormat(id)
+      // 默认的代码块语言: the native command creates the fence without an info
+      // string, so it is applied right after — `setCodeLanguage` is a no-op when
+      // the caret is not in a code block, which is exactly the guard wanted.
+      if (id === 'codeBlock' && appearance.codeBlockLanguage?.trim()) {
+        editor.setCodeLanguage(appearance.codeBlockLanguage.trim())
+      }
       return
     }
-    applyTextEdit(blockFormatEdit(editor.getMarkdown(), selectionRange(), id))
+    applyTextEdit(
+      blockFormatEdit(
+        editor.getMarkdown(),
+        selectionRange(),
+        id,
+        appearance.codeBlockLanguage ?? '',
+      ),
+    )
   }
 
   /** BlockFormatId for a heading level; 0 (or out of range) means a paragraph. */
@@ -1582,8 +1633,15 @@ export function renderShell(): ShellHandle {
     const range = selectionRange()
     if (range.to <= range.from) return
     let text = markdown.slice(range.from, range.to)
+    // 当复制纯文本时复制 Markdown 源码: the setting makes 复制为纯文本 hand over
+    // the source rather than the rendered text — which is also the only way to get
+    // the source out of the wysiwyg view, where the DOM has no markers.
+    if (mode === 'text') {
+      text = appearance.copyTextAsMarkdown === true
+        ? markdown.slice(range.from, range.to)
+        : editor.getSelectedText() || text
+    }
     // 源码视图 has no rendered DOM: 纯文本/HTML fall back to the markdown slice.
-    if (mode === 'text') text = editor.getSelectedText() || text
     if (mode === 'html') text = selectionHtml() || `<p>${escapeHtml(text)}</p>`
     await writeClipboard(text)
   }
@@ -1882,6 +1940,11 @@ export function renderShell(): ShellHandle {
     editor.setLineNumbers(next.lineNumbers === true)
     editor.setSpellcheck(next.spellcheck === true)
     editor.setReadOnly(next.readOnly === true)
+    editor.setSmartInput({
+      smartQuotes: next.smartQuotes === true,
+      smartDashes: next.smartDashes === true,
+      pairedSymbols: next.pairedSymbols === true,
+    })
     editor.setImagePasteEnabled(next.imagePaste !== false)
     // 分屏 renders through OverType's own parser, so it needs the syntax
     // extensions installed separately from the remark pipeline.
@@ -2250,6 +2313,63 @@ export function renderShell(): ShellHandle {
     label: '复制为 Markdown',
     shortcut: 'Mod+Shift+C',
     run: () => void copySelectionAs('markdown'),
+  })
+  // 选中当前… / 跳转 / 整行 — Typora 的「编辑」节.
+  registry.register({
+    id: 'edit.selectLine',
+    label: '选中当前行',
+    shortcut: 'Mod+L',
+    run: () => selectScopeCommand('line'),
+  })
+  registry.register({
+    id: 'edit.selectWord',
+    label: '选中当前词',
+    shortcut: 'Mod+D',
+    run: () => selectScopeCommand('word'),
+  })
+  registry.register({
+    id: 'edit.selectSentence',
+    label: '选中当前句',
+    run: () => selectScopeCommand('sentence'),
+  })
+  registry.register({
+    id: 'edit.selectBlock',
+    label: '选中当前块',
+    shortcut: 'Mod+Shift+A',
+    run: () => selectScopeCommand('block'),
+  })
+  registry.register({
+    id: 'edit.copyLine',
+    label: '复制整行',
+    shortcut: 'Mod+Shift+X',
+    run: () => void copyOrCutLine(false),
+  })
+  registry.register({
+    id: 'edit.cutLine',
+    label: '剪切整行',
+    run: () => void copyOrCutLine(true),
+  })
+  registry.register({
+    id: 'edit.jumpStart',
+    label: '跳转到文首',
+    shortcut: 'Mod+Home',
+    run: () => jumpTo(documentEdge(editor.getMarkdown(), 'start')),
+  })
+  registry.register({
+    id: 'edit.jumpEnd',
+    label: '跳转到文末',
+    shortcut: 'Mod+End',
+    run: () => jumpTo(documentEdge(editor.getMarkdown(), 'end')),
+  })
+  registry.register({
+    id: 'edit.jumpLineStart',
+    label: '跳转到行首',
+    run: () => jumpTo(lineEdge(editor.getMarkdown(), selectionRange().from, 'start')),
+  })
+  registry.register({
+    id: 'edit.jumpLineEnd',
+    label: '跳转到行尾',
+    run: () => jumpTo(lineEdge(editor.getMarkdown(), selectionRange().from, 'end')),
   })
   registry.register({
     id: 'edit.copyAsHtml',

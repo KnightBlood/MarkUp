@@ -1,6 +1,7 @@
 export type ViewKind = 'wysiwyg' | 'source' | 'hybrid'
 
 import type { BlockFormatId, ListIndentStep, TaskStatus } from '../textFormat'
+import type { SmartInputOptions } from '../smartInput'
 
 /**
  * Image formats accepted for insert/paste when the blob reports no usable MIME
@@ -140,6 +141,14 @@ export interface ViewAdapter {
    * editable facet, OverType's textarea) rather than the DOM directly.
    */
   setReadOnly?(enabled: boolean): void
+  /**
+   * 智能输入 — 智能引号 / 智能破折号 / 成对的符号.
+   *
+   * Each view installs its own hook (ProseMirror's `handleTextInput`,
+   * CodeMirror's `inputHandler`, the textarea's `beforeinput`) because all three
+   * own their input path; the rules themselves are shared in `smartInput.ts`.
+   */
+  setSmartInput?(options: SmartInputOptions): void
   /**
    * Resolve the source line under a viewport point (or caret as fallback).
    * `offset` is the markdown offset of the line start; `column` is 0-based within the line.

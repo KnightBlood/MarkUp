@@ -23,7 +23,7 @@
 | 4 | 视图、缩放与窗口 | 🔶 缩放/只读/全屏/置顶/工具栏已完成；文档列表待办 |
 | 5 | 导出选项与页面设置 | 🔶 位置/导出后/页面设置/HTML 追加/大纲已完成 |
 | 6 | 文件操作与拖放 | 🔶 保存全部/重开关闭/拖放已完成 |
-| 7 | 编辑器行为（配对/智能标点/换行） | ⬜ |
+| 7 | 编辑器行为（配对/智能标点/换行） | 🔶 选中/跳转/整行已完成 |
 | 8 | 查找、导航与统计 | ⬜ |
 | 9 | 侧边栏增强（文档库/文件树/大纲） | ⬜ |
 | 10 | 系统集成与杂项 | ⬜ |
@@ -295,23 +295,29 @@ editable facet、OverType 的 textarea（OverType 自己的输入处理里就检
 |---|---|
 | 打字机模式保持光标居中 | ✅ |
 | 拼写检查（键入时 / 立即检查 / 自动更正） | 🔶 有开关，无「立即检查」「自动更正」 |
-| 智能引号 | ⬜ |
-| 智能破折号 | ⬜ |
+| 智能引号 | ✅ `smartQuotes`（按语境判断开/闭，中文全角同理） |
+| 智能破折号 | ✅ `smartDashes`（`--` → `—`，`...` → `…`） |
+| 使用成对的符号（括号/引号） | ✅ `pairedSymbols`（含「敲右括号跳过去」；Markdown 标记字符未做） |
 | 输入时转换 / 渲染时转换 | ⬜ |
 | 解析时识别 Unicode 标点 | ⬜ |
-| 使用成对的符号（括号/引号、Markdown 字符） | ⬜ |
 | 默认缩进（引用/列表） | ⬜ |
 | 代码缩进 / 代码块自动换行 | ⬜ |
-| 默认的代码块语言（含应用时机） | ⬜ |
-| 默认换行符（LF / CRLF） | ⬜ |
-| 保存时在文末添加空行 | ⬜ |
+| 默认的代码块语言 | ✅ `codeBlockLanguage`（只取第一个词，空格会提前结束 info string） |
+| 默认换行符（LF / CRLF） | ✅ `lineEnding`（`preserve`/`lf`/`crlf`） |
+| 保存时在文末添加空行 | ✅ `ensureFinalNewline` |
+| 当复制纯文本时复制 Markdown 源码 | ✅ `copyTextAsMarkdown` |
 | 空格与换行（编辑时 / 导出时保留或忽略） | ⬜ |
 | 首行缩进 | ⬜ |
-| 当复制纯文本时复制 Markdown 源码 | ⬜ |
-| 复制或剪切时光标所在整行 | ⬜ |
+| 当复制纯文本时复制 Markdown 源码 | ✅ `copyTextAsMarkdown` |
+| 复制或剪切光标所在整行 | ✅ `edit.copyLine`（Ctrl+Shift+X）/ `edit.cutLine` |
+| 选中当前行 | ✅ `edit.selectLine`（Ctrl+L） |
+| 选中当前词 | ✅ `edit.selectWord`（Ctrl+D） |
+| 选中当前句 | ✅ `edit.selectSentence` |
+| 选中当前块（对应 Typora 的「段落/块」；「当前格式文本」未做） | ✅ `edit.selectBlock`（Ctrl+Shift+A） |
+| 跳转到文首 / 文末 | ✅ `edit.jumpStart`（Ctrl+Home）/ `edit.jumpEnd`（Ctrl+End） |
+| 跳转到行首 / 行尾 | ✅ `edit.jumpLineStart` / `edit.jumpLineEnd` |
+| 跳转到所选内容 | ⬜ |
 | Emoji 自动补全（Esc 触发 / 自动触发） | ⬜ |
-| 选中当前行或句 / 当前词 / 当前格式文本 | ⬜ |
-| 跳转到文首 / 文末 / 行首 / 行尾 / 所选内容 | ⬜ |
 
 ## 8. 查找、导航与统计
 

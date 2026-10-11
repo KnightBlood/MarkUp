@@ -1,5 +1,6 @@
 import {
   DocStore,
+  SMART_INPUT_OFF,
   SyncEngine,
   createHybridAdapter,
   createSourceAdapter,
@@ -13,6 +14,7 @@ import {
   type ImageSourceKind,
   type LineAt,
   type ListIndentStep,
+  type SmartInputOptions,
   type TableCommandId,
   type TaskStatus,
   type ViewKind,
@@ -75,6 +77,8 @@ export interface EditorPaneApi {
   setSpellcheck(enabled: boolean): void
   /** 只读模式 (re-applied on view switch). */
   setReadOnly(enabled: boolean): void
+  /** 智能输入 (re-applied on view switch — each view owns its own input hook). */
+  setSmartInput(options: SmartInputOptions): void
   /** True when pasted clipboard images should become markdown images. */
   getImagePasteEnabled(): boolean
   setImagePasteEnabled(enabled: boolean): void
@@ -110,6 +114,7 @@ export function renderEditorPane(
   let lineNumbers = false
   let spellcheck = false
   let readOnly = false
+  let smartInputOptions: SmartInputOptions = SMART_INPUT_OFF
   let imagePaste = true
   let buttons: HTMLElement[] = []
   // Remount may fire adapter onChange (OverType init, Milkdown serialize).
@@ -131,6 +136,7 @@ export function renderEditorPane(
     // Re-applied on every mount: each adapter builds its own editable surface,
     // which starts editable — 只读模式 would silently drop on a view switch.
     active?.setReadOnly?.(readOnly)
+    active?.setSmartInput?.(smartInputOptions)
   }
 
   const centerNow = (): void => {
@@ -405,6 +411,10 @@ export function renderEditorPane(
     },
     setReadOnly: (enabled: boolean) => {
       readOnly = enabled
+      applyViewChrome()
+    },
+    setSmartInput: (options: SmartInputOptions) => {
+      smartInputOptions = options
       applyViewChrome()
     },
     getImagePasteEnabled: () => imagePaste,

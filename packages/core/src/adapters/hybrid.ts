@@ -1,4 +1,5 @@
 import { EditorState, EditorSelection, RangeSetBuilder, Compartment } from '@codemirror/state'
+import { smartInput, smartInputEdit, SMART_INPUT_OFF, type SmartInputOptions } from '../smartInput'
 import { basicSetup } from 'codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import {
@@ -134,8 +135,39 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
   let lineNumbers = false
   let spellcheck = false
   let readOnly = false
+  let smartInputOptions: SmartInputOptions = SMART_INPUT_OFF
   const readOnlyCompartment = new Compartment()
+  const smartInputCompartment = new Compartment()
   const { onChange } = options
+
+  /**
+   * 智能输入. `inputHandler` is the facet CodeMirror provides for exactly this:
+   * it runs before the text is applied and returning true replaces the edit, so
+   * nothing has to be undone afterwards.
+   */
+  const smartInputHandler = EditorView.inputHandler.of((view, from, to, text) => {
+    if (smartInputOptions === SMART_INPUT_OFF) return false
+    const doc = view.state.doc
+    const result = smartInput(
+      {
+        // A slice, not one character: the ellipsis rule looks at the two dots
+        // already typed.
+        before: doc.sliceString(Math.max(0, from - 2), from),
+        after: doc.sliceString(to, Math.min(doc.length, to + 2)),
+        text,
+        hasSelection: to > from,
+      },
+      smartInputOptions,
+    )
+    if (!result.wrap && result.deleteBefore === 0 && result.text === text) return false
+    const edit = smartInputEdit(result, { from, to }, doc.sliceString(from, to))
+    view.dispatch({
+      changes: { from: edit.from, to: edit.to, insert: edit.insert },
+      selection: EditorSelection.cursor(edit.caret),
+      scrollIntoView: true,
+    })
+    return true
+  })
 
   const applyChrome = (): void => {
     if (rootEl) {
@@ -187,6 +219,7 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
             basicSetup,
             markdown(),
             readOnlyCompartment.of(EditorView.editable.of(!readOnly)),
+            smartInputCompartment.of(smartInputHandler),
             hiddenMarkupPlugin,
             EditorView.lineWrapping,
             EditorView.updateListener.of((update) => {
@@ -345,6 +378,14 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
         effects: readOnlyCompartment.reconfigure(EditorView.editable.of(!enabled)),
       })
       applyChrome()
+    },
+
+    setSmartInput(next: SmartInputOptions): void {
+      smartInputOptions = next
+      // The handler reads the variable, so reconfiguring only matters for
+      // whether the facet is installed at all — but going through the
+      // compartment keeps that honest rather than relying on the early return.
+      view?.dispatch({ effects: smartInputCompartment.reconfigure(smartInputHandler) })
     },
 
     getLineAt(clientX: number, clientY: number): LineAt | null {

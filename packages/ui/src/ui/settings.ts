@@ -204,6 +204,27 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   })
 
   const lineNumbersCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // 编辑器 ▸ 智能输入 / 代码块 / 保存时.
+  const smartQuotesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const smartDashesCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const pairedSymbolsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const codeBlockLanguageInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '留空则为无语言的围栏',
+  })
+  const lineEndingSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'preserve', text: '保持原样' }),
+    el('option', { value: 'lf', text: 'LF（Unix）' }),
+    el('option', { value: 'crlf', text: 'CRLF（Windows）' }),
+  )
+  const finalNewlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const copyTextAsMarkdownCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const showStatsCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const focusModeCheck = el('input', { class: 'settings__check', type: 'checkbox' })
 
@@ -382,6 +403,75 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         lineNumbersCheck,
         el('span', { class: 'settings__label', text: '分屏/源码视图显示行号' }),
       ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'editor-smart-input' },
+      el('h3', { class: 'settings__heading', text: '智能输入' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        smartQuotesCheck,
+        el('span', { class: 'settings__label', text: '智能引号（" 变成 “ ”）' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        smartDashesCheck,
+        el('span', { class: 'settings__label', text: '智能破折号（-- 变成 —，... 变成 …）' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        pairedSymbolsCheck,
+        el('span', { class: 'settings__label', text: '使用成对的符号（打左括号自动补右括号）' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '三项默认全部关闭 —— 它们会改写你敲进去的内容，开与不开应当由你决定。',
+      }),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'editor-code' },
+      el('h3', { class: 'settings__heading', text: '代码块' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '新建代码块的默认语言' }),
+        codeBlockLanguageInput,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '只取第一个词：空格会提前结束围栏的 info string，后面会变成围栏元数据。',
+      }),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'editor-save' },
+      el('h3', { class: 'settings__heading', text: '保存时' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '换行符' }),
+        lineEndingSelect,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        finalNewlineCheck,
+        el('span', { class: 'settings__label', text: '在文末添加空行' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        copyTextAsMarkdownCheck,
+        el('span', { class: 'settings__label', text: '复制为纯文本时复制 Markdown 源码' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '换行符只在写盘时应用，不会改动编辑器里的内容（否则光标会因为你换了个偏好而跳动）。',
+      }),
     ),
   )
 
@@ -649,6 +739,13 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     imageDotPrefixCheck.checked = config.imageDotPrefix === true
     imageEscapeUrlCheck.checked = config.imageEscapeUrl === true
     imageApplyLocalCheck.checked = config.imageApplyLocal !== false
+    smartQuotesCheck.checked = config.smartQuotes === true
+    smartDashesCheck.checked = config.smartDashes === true
+    pairedSymbolsCheck.checked = config.pairedSymbols === true
+    codeBlockLanguageInput.value = config.codeBlockLanguage ?? ''
+    lineEndingSelect.value = config.lineEnding ?? 'preserve'
+    finalNewlineCheck.checked = config.ensureFinalNewline === true
+    copyTextAsMarkdownCheck.checked = config.copyTextAsMarkdown === true
     exportFolderInput.value = config.exportFolder ?? ''
     exportAfterSelect.value = config.exportAfter ?? 'none'
     exportPageSizeInput.value = config.exportPageSize ?? ''
@@ -702,6 +799,17 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       imageDotPrefix: checked(imageDotPrefixCheck),
       imageEscapeUrl: checked(imageEscapeUrlCheck),
       imageApplyLocal: checked(imageApplyLocalCheck),
+      smartQuotes: checked(smartQuotesCheck),
+      smartDashes: checked(smartDashesCheck),
+      pairedSymbols: checked(pairedSymbolsCheck),
+      codeBlockLanguage: codeBlockLanguageInput.value.trim() || undefined,
+      // `preserve` is the default, so it never has to be stored.
+      lineEnding:
+        lineEndingSelect.value === 'preserve'
+          ? undefined
+          : (lineEndingSelect.value as AppConfig['lineEnding']),
+      ensureFinalNewline: checked(finalNewlineCheck),
+      copyTextAsMarkdown: checked(copyTextAsMarkdownCheck),
       exportFolder: exportFolderInput.value.trim() || undefined,
       // Absent means "do nothing", so the default never has to be stored.
       exportAfter:
@@ -760,9 +868,15 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     imageApplyLocalCheck,
     exportPageBreakCheck,
     exportOutlineCheck,
+    smartQuotesCheck,
+    smartDashesCheck,
+    pairedSymbolsCheck,
+    finalNewlineCheck,
+    copyTextAsMarkdownCheck,
   ]) {
     input.addEventListener('change', () => emit({}))
   }
+  lineEndingSelect.addEventListener('change', () => emit({}))
   exportAfterSelect.addEventListener('change', () => emit({}))
   for (const input of [
     exportFolderInput,
@@ -771,6 +885,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     exportCustomCssInput,
     exportHeadHtmlInput,
     exportBodyHtmlInput,
+    codeBlockLanguageInput,
   ]) {
     input.addEventListener('change', () => emit({}))
   }

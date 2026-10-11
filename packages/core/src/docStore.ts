@@ -1,4 +1,5 @@
 import { getHost } from '@markup/host-api'
+import { normalizeForSave } from './saveText'
 
 export interface OpenDoc {
   /** Stable in-memory tab id — never persisted, never a path. */
@@ -252,7 +253,21 @@ export class DocStore {
   private async saveOne(doc: OpenDoc, targetPath?: string): Promise<boolean> {
     const path = targetPath ?? doc.path
     if (!path) return false
-    await getHost().fs.write(path, doc.content)
+    const host = getHost()
+    // 保存时规范化（默认换行符 / 文末空行）。Reading the config here rather than
+    // caching it keeps 保存全部 honest when the setting was just changed, and a
+    // host that cannot report config must still be able to save.
+    let text = doc.content
+    try {
+      const config = await host.app.getConfig()
+      text = normalizeForSave(text, {
+        lineEnding: config.lineEnding ?? 'preserve',
+        finalNewline: config.ensureFinalNewline === true,
+      })
+    } catch {
+      /* keep the raw content */
+    }
+    await host.fs.write(path, text)
     if (targetPath && targetPath !== doc.path) doc.path = targetPath
     doc.modified = false
     this.emit()

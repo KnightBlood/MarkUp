@@ -2272,6 +2272,15 @@ export function renderShell(): ShellHandle {
           label: '复制图片地址',
           run: () => void writeClipboard(img.src),
         },
+        {
+          // 打开图片位置: the same `file:`-URL primitive the document-level
+          // 「打开文件位置」 uses — a folder is just another path.
+          label: '打开图片位置',
+          run: () => {
+            if (onImage) void revealFolder(dirname(onImage.path), '图片')
+          },
+          disabled: !onImage,
+        },
         { separator: true },
         { label: '转换图片语法', run: () => registry.run('image.switchSyntax') },
         {

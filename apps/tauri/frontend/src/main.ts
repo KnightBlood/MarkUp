@@ -13,6 +13,7 @@ import type {
   OpenDialogOptions,
   PathInfo,
   SaveDialogOptions,
+  WindowState,
 } from '@markup/host-api'
 
 interface HostMessage {
@@ -54,6 +55,11 @@ function createTauriHost(): HostAPI {
         document.title = title
         void invoke('set_title', { title })
       },
+      setWindowState: (state: WindowState): Promise<void> =>
+        invoke('set_window_state', {
+          fullscreen: state.fullscreen,
+          alwaysOnTop: state.alwaysOnTop,
+        }),
       openDevTools: (): void => {
         void invoke('open_devtools')
       },

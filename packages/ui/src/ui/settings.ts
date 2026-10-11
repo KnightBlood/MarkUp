@@ -131,6 +131,56 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   const imageDotPrefixCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const imageEscapeUrlCheck = el('input', { class: 'settings__check', type: 'checkbox' })
   const imageApplyLocalCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+
+  // 导出 ▸ 页面设置 / HTML / 导出后.
+  const exportFolderInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '留空则与文档同目录',
+  })
+  const exportAfterSelect = el(
+    'select',
+    { class: 'settings__input' },
+    el('option', { value: 'none', text: '不做任何事' }),
+    el('option', { value: 'openFile', text: '打开导出的文件' }),
+    el('option', { value: 'openFolder', text: '打开文件所在目录' }),
+  )
+  const exportPageSizeInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: 'A4 / Letter（留空用打印机默认）',
+  })
+  const exportPageMarginInput = el('input', {
+    class: 'settings__input',
+    type: 'text',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    placeholder: '20mm / 1in 2cm（留空用打印机默认）',
+  })
+  const exportPageBreakCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const exportOutlineCheck = el('input', { class: 'settings__check', type: 'checkbox' })
+  const exportCustomCssInput = el('textarea', {
+    class: 'settings__input',
+    rows: '3',
+    spellcheck: 'false',
+    placeholder: '追加在导出样式之后，可覆盖它',
+  })
+  const exportHeadHtmlInput = el('textarea', {
+    class: 'settings__input',
+    rows: '2',
+    spellcheck: 'false',
+    placeholder: '插入到 </head> 之前',
+  })
+  const exportBodyHtmlInput = el('textarea', {
+    class: 'settings__input',
+    rows: '2',
+    spellcheck: 'false',
+    placeholder: '插入到 </body> 之前',
+  })
   const spellcheckCheck = el('input', { class: 'settings__check', type: 'checkbox' })
 
   const bodyFontInput = el('input', {
@@ -446,6 +496,79 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         text: '「导入文档」与「导出为 Word/ODT/RTF/EPUB」靠它完成转换。留空则依次查找 PATH 上的 pandoc、carta；Markup 不内置该程序，装好后无需填写。',
       }),
     ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'export-output' },
+      el('h3', { class: 'settings__heading', text: '导出位置与后续动作' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '默认导出文件夹' }),
+        exportFolderInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '导出后' }),
+        exportAfterSelect,
+      ),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'export-page' },
+      el('h3', { class: 'settings__heading', text: '页面设置' }),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '纸张大小' }),
+        exportPageSizeInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '页边距' }),
+        exportPageMarginInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        exportPageBreakCheck,
+        el('span', { class: 'settings__label', text: '按一级标题分页' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '页面设置只作用于导出 PDF 与打印（浏览器忽略屏幕上的 @page 规则）。纸张与页边距会做白名单校验，只允许字母数字与空格 . % / -，避免破坏样式表。',
+      }),
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'export-html' },
+      el('h3', { class: 'settings__heading', text: 'HTML 与打印' }),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        exportOutlineCheck,
+        el('span', { class: 'settings__label', text: '在导出的 HTML 开头加上大纲' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '自定义 CSS（追加在内置样式之后）' }),
+        exportCustomCssInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '追加到 <head>' }),
+        exportHeadHtmlInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '追加到 <body>' }),
+        exportBodyHtmlInput,
+      ),
+    ),
   )
 
   let current: AppConfig = callbacks.getAppearance()
@@ -526,6 +649,15 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     imageDotPrefixCheck.checked = config.imageDotPrefix === true
     imageEscapeUrlCheck.checked = config.imageEscapeUrl === true
     imageApplyLocalCheck.checked = config.imageApplyLocal !== false
+    exportFolderInput.value = config.exportFolder ?? ''
+    exportAfterSelect.value = config.exportAfter ?? 'none'
+    exportPageSizeInput.value = config.exportPageSize ?? ''
+    exportPageMarginInput.value = config.exportPageMargin ?? ''
+    exportPageBreakCheck.checked = config.exportPageBreakOnH1 === true
+    exportOutlineCheck.checked = config.exportOutline === true
+    exportCustomCssInput.value = config.exportCustomCss ?? ''
+    exportHeadHtmlInput.value = config.exportHeadHtml ?? ''
+    exportBodyHtmlInput.value = config.exportBodyHtml ?? ''
     spellcheckCheck.checked = config.spellcheck === true
     restoreSessionCheck.checked = config.restoreSession !== false
     lineNumbersCheck.checked = config.lineNumbers === true
@@ -570,6 +702,19 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       imageDotPrefix: checked(imageDotPrefixCheck),
       imageEscapeUrl: checked(imageEscapeUrlCheck),
       imageApplyLocal: checked(imageApplyLocalCheck),
+      exportFolder: exportFolderInput.value.trim() || undefined,
+      // Absent means "do nothing", so the default never has to be stored.
+      exportAfter:
+        exportAfterSelect.value === 'none'
+          ? undefined
+          : (exportAfterSelect.value as AppConfig['exportAfter']),
+      exportPageSize: exportPageSizeInput.value.trim() || undefined,
+      exportPageMargin: exportPageMarginInput.value.trim() || undefined,
+      exportPageBreakOnH1: checked(exportPageBreakCheck),
+      exportOutline: checked(exportOutlineCheck),
+      exportCustomCss: exportCustomCssInput.value.trim() || undefined,
+      exportHeadHtml: exportHeadHtmlInput.value.trim() || undefined,
+      exportBodyHtml: exportBodyHtmlInput.value.trim() || undefined,
       spellcheck: checked(spellcheckCheck),
       restoreSession: checked(restoreSessionCheck),
       lineNumbers: checked(lineNumbersCheck),
@@ -613,6 +758,19 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     imageDotPrefixCheck,
     imageEscapeUrlCheck,
     imageApplyLocalCheck,
+    exportPageBreakCheck,
+    exportOutlineCheck,
+  ]) {
+    input.addEventListener('change', () => emit({}))
+  }
+  exportAfterSelect.addEventListener('change', () => emit({}))
+  for (const input of [
+    exportFolderInput,
+    exportPageSizeInput,
+    exportPageMarginInput,
+    exportCustomCssInput,
+    exportHeadHtmlInput,
+    exportBodyHtmlInput,
   ]) {
     input.addEventListener('change', () => emit({}))
   }

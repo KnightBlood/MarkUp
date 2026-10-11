@@ -31,6 +31,7 @@ import type {
   OpenDialogOptions,
   PathInfo,
   SaveDialogOptions,
+  WindowState,
 } from '@markup/host-api'
 import { embedMimeForPath } from '@markup/host-api'
 import { convertDocument, resolveConverter } from './converter'
@@ -173,6 +174,12 @@ function registerHandlers(): void {
   })
   ipcMain.handle(IPC_CHANNELS.fsRemove, async (_event, path: string) => {
     await rm(path, { force: true })
+  })
+  ipcMain.handle(IPC_CHANNELS.appSetWindowState, (event, state: WindowState) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    if (state.fullscreen !== undefined) window.setFullScreen(state.fullscreen)
+    if (state.alwaysOnTop !== undefined) window.setAlwaysOnTop(state.alwaysOnTop)
   })
   ipcMain.handle(IPC_CHANNELS.fsWriteBase64, async (_event, path: string, dataUrl: string) => {
     // `data:<mime>;base64,<payload>` — only the payload after the first comma

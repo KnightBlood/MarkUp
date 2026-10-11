@@ -73,6 +73,8 @@ export interface EditorPaneApi {
   setLineNumbers(enabled: boolean): void
   /** Toggle browser spellcheck (re-applied on view switch). */
   setSpellcheck(enabled: boolean): void
+  /** 只读模式 (re-applied on view switch). */
+  setReadOnly(enabled: boolean): void
   /** True when pasted clipboard images should become markdown images. */
   getImagePasteEnabled(): boolean
   setImagePasteEnabled(enabled: boolean): void
@@ -107,6 +109,7 @@ export function renderEditorPane(
   let centerTimer: ReturnType<typeof requestAnimationFrame> | null = null
   let lineNumbers = false
   let spellcheck = false
+  let readOnly = false
   let imagePaste = true
   let buttons: HTMLElement[] = []
   // Remount may fire adapter onChange (OverType init, Milkdown serialize).
@@ -125,6 +128,9 @@ export function renderEditorPane(
     const active = sync.getActive()
     active?.setLineNumbers?.(lineNumbers)
     active?.setSpellcheck?.(spellcheck)
+    // Re-applied on every mount: each adapter builds its own editable surface,
+    // which starts editable — 只读模式 would silently drop on a view switch.
+    active?.setReadOnly?.(readOnly)
   }
 
   const centerNow = (): void => {
@@ -395,6 +401,10 @@ export function renderEditorPane(
     },
     setSpellcheck: (enabled: boolean) => {
       spellcheck = enabled
+      applyViewChrome()
+    },
+    setReadOnly: (enabled: boolean) => {
+      readOnly = enabled
       applyViewChrome()
     },
     getImagePasteEnabled: () => imagePaste,

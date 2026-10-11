@@ -44,6 +44,10 @@ let imagePaste = true
 let imageCopyMode: string | undefined
 let imageCopyCustomPath: string | undefined
 let imagePreferRelative: boolean | undefined
+let exportAfterValue: string | undefined
+let exportPageSizeValue: string | undefined
+let exportOutlineValue: boolean | undefined
+let exportCustomCssValue: string | undefined
 let mdSubscript = true
 let spellcheck = false
 let restoreSession = true
@@ -65,6 +69,10 @@ const settings = createSettings({
     imageCopyMode,
     imageCopyCustomPath,
     imagePreferRelative,
+    exportAfter: exportAfterValue,
+    exportPageSize: exportPageSizeValue,
+    exportOutline: exportOutlineValue,
+    exportCustomCss: exportCustomCssValue,
     mdSubscript,
     spellcheck,
     restoreSession,
@@ -84,6 +92,10 @@ const settings = createSettings({
     imageCopyMode = next.imageCopyMode
     imageCopyCustomPath = next.imageCopyCustomPath
     imagePreferRelative = next.imagePreferRelative
+    exportAfterValue = next.exportAfter
+    exportPageSizeValue = next.exportPageSize
+    exportOutlineValue = next.exportOutline
+    exportCustomCssValue = next.exportCustomCss
     mdSubscript = next.mdSubscript !== false
     spellcheck = next.spellcheck === true
     restoreSession = next.restoreSession !== false
@@ -256,6 +268,49 @@ assert(
 )
 const colorSection = settings.el.querySelector<HTMLElement>('[data-section="custom-theme"]')
 assert(colorSection, 'custom theme section exists')
+
+// ---- 导出：位置 / 页面设置 / HTML 追加 -----------------------------------
+const exportAfterSelect = settings.el.querySelector<HTMLSelectElement>(
+  '[data-section="export-output"] select',
+)
+assert(exportAfterSelect, '导出后 select exists')
+assert(exportAfterSelect.options.length === 3, `导出后 options: ${exportAfterSelect.options.length}`)
+// Default must be the no-op, or an old config would start opening windows.
+assert(exportAfterSelect.value === 'none', '导出后 defaults to 不做任何事')
+exportAfterSelect.value = 'openFolder'
+exportAfterSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(exportAfterValue === 'openFolder', `exportAfter emitted: ${exportAfterValue}`)
+exportAfterSelect.value = 'none'
+exportAfterSelect.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+// Choosing the no-op clears the key rather than storing 'none'.
+assert(exportAfterValue === undefined, `不做任何事 emits undefined, got ${String(exportAfterValue)}`)
+
+const pageSizeInput = settings.el.querySelector<HTMLInputElement>(
+  '[data-section="export-page"] input[type="text"]',
+)
+assert(pageSizeInput, '纸张大小 input exists')
+pageSizeInput.value = 'A4'
+pageSizeInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(exportPageSizeValue === 'A4', `exportPageSize emitted: ${exportPageSizeValue}`)
+pageSizeInput.value = '   '
+pageSizeInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(exportPageSizeValue === undefined, 'a blank page size clears the key')
+
+const exportOutlineCheck = settings.el.querySelector<HTMLInputElement>(
+  '[data-section="export-html"] input[type="checkbox"]',
+)
+assert(exportOutlineCheck, '大纲 checkbox exists')
+exportOutlineCheck.checked = true
+exportOutlineCheck.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(exportOutlineValue === true, 'exportOutline emitted')
+
+const customCssInput = settings.el.querySelector<HTMLTextAreaElement>(
+  '[data-section="export-html"] textarea',
+)
+assert(customCssInput, '自定义 CSS textarea exists')
+customCssInput.value = '.x { color: red }'
+customCssInput.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+assert(exportCustomCssValue === '.x { color: red }', `exportCustomCss emitted: ${exportCustomCssValue}`)
 
 // ---- fonts (外观 → 字体) ------------------------------------------------
 settings.setTab('appearance')

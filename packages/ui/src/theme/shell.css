@@ -1139,8 +1139,73 @@ body {
 /* Conditionally irrelevant rows (e.g. the 目标路径 input until 复制到指定路径 is
    picked). A class, not `hidden`, so the settings search — which writes
    `hidden` on every field — cannot reveal it by accident. */
+/* 工具栏 — floats over a selection. `position: fixed` because the rect comes
+   from `getBoundingClientRect` (viewport coordinates), and the editor scrolls
+   inside its own container. */
+.selection-toolbar {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raise);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+
+.selection-toolbar[hidden] {
+  display: none;
+}
+
+.selection-toolbar__btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.selection-toolbar__btn:hover {
+  background: var(--bg-soft);
+}
+
+.selection-toolbar__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.selection-toolbar__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}
+
 .settings__field--off {
   display: none;
+}
+
+/* 只读模式 (视图 ▸ 只读模式). The caret is gone and typing does nothing, so say
+   so with the cursor rather than leaving the user wondering why nothing happens.
+   A quiet cue on purpose: dimming the document would fight its own purpose. */
+.adapter-source.is-readonly .overtype-preview,
+.adapter-hybrid.is-readonly .cm-content {
+  cursor: default;
+}
+
+/* 拖入文件 — the pane shows it will take the drop. An inset outline rather than
+   a background so the document underneath stays readable while dragging. */
+.editor-pane.is-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
 }
 
 .settings__tab[hidden] {

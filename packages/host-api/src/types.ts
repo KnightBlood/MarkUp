@@ -45,6 +45,12 @@ export interface PathInfo {
   path: string
 }
 
+/** Window-level state only the shell can change. Omitted keys are left alone. */
+export interface WindowState {
+  fullscreen?: boolean
+  alwaysOnTop?: boolean
+}
+
 export interface MessageOptions {
   title?: string
   message: string
@@ -173,6 +179,37 @@ export interface AppConfig {
    * every shell did before zoom existed. Values snap to a fixed ladder.
    */
   viewZoom?: number
+  /**
+   * 视图 ▸ 只读模式. Blocks edits in every view but keeps selection, scrolling
+   * and copying working. Default false.
+   */
+  readOnly?: boolean
+  /**
+   * 导出 ▸ 默认导出文件夹. Empty/absent means "next to the document", which is
+   * what the save dialog defaults to anyway.
+   */
+  exportFolder?: string
+  /** 导出后: `openFile` opens the produced file, `openFolder` reveals it. */
+  exportAfter?: 'none' | 'openFile' | 'openFolder'
+  /** Appended after the built-in export stylesheet, so it can override it. */
+  exportCustomCss?: string
+  /** Injected just before `</head>` in exported HTML. */
+  exportHeadHtml?: string
+  /** Injected just before `</body>` in exported HTML. */
+  exportBodyHtml?: string
+  /** 大纲侧边栏 — start the exported body with the document outline. */
+  exportOutline?: boolean
+  /** `@page` size, e.g. `A4`. Print/PDF only. */
+  exportPageSize?: string
+  /** `@page` margin, e.g. `20mm`. Print/PDF only. */
+  exportPageMargin?: string
+  /** 按一级标题分页. Print/PDF only. */
+  exportPageBreakOnH1?: boolean
+  /**
+   * 视图 ▸ 保持窗口在最前端. Persisted so the window reopens where it was left;
+   * 全屏 deliberately is not — a window that reopens fullscreen is a nuisance.
+   */
+  alwaysOnTop?: boolean
   /** Insert pasted clipboard images as markdown images. Default true. */
   imagePaste?: boolean
   /**
@@ -413,6 +450,15 @@ export interface HostAPI {
     openDevTools?(): void
     getConfig(): Promise<AppConfig>
     setConfig(config: AppConfig): void
+    /**
+     * Set window-level state that only the shell can change: 全屏 and
+     * 保持窗口在最前端. A *set*, not a toggle, so each shell can do whatever its
+     * platform needs (Wails, for one, only offers `ToggleFullscreen`).
+     *
+     * Optional — a shell that cannot control its window (web) omits it, and the
+     * menu items are hidden rather than failing.
+     */
+    setWindowState?(state: WindowState): Promise<void>
     on<E extends HostEvent>(event: E, listener: (payload: HostEventMap[E]) => void): () => void
     /**
      * Open the system print dialog.

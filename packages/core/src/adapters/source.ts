@@ -66,6 +66,7 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
   let gutterEl: HTMLElement | null = null
   let lineNumbers = false
   let spellcheck = false
+  let readOnly = false
   const { onChange } = options
 
   const lineCount = (): number => (value === '' ? 1 : value.split('\n').length)
@@ -94,6 +95,10 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     if (instance?.textarea) {
       instance.textarea.spellcheck = spellcheck
       instance.options.spellcheck = spellcheck
+      // OverType's own input handlers bail out when the textarea is `readOnly`,
+      // so this is the supported lever — and it keeps selection, scrolling and
+      // copying working.
+      instance.textarea.readOnly = readOnly
     }
   }
 
@@ -343,6 +348,12 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
 
     setSpellcheck(enabled: boolean): void {
       spellcheck = enabled
+      applyChrome()
+    },
+
+    setReadOnly(enabled: boolean): void {
+      readOnly = enabled
+      if (rootEl) rootEl.classList.toggle('is-readonly', enabled)
       applyChrome()
     },
 

@@ -135,6 +135,12 @@ export interface ViewAdapter {
   /** Toggle browser spellcheck on the editable surface. */
   setSpellcheck?(enabled: boolean): void
   /**
+   * 只读模式. Blocks edits but keeps selection, scrolling and copying; each view
+   * flips whatever owns its `contenteditable` (ProseMirror props, CodeMirror's
+   * editable facet, OverType's textarea) rather than the DOM directly.
+   */
+  setReadOnly?(enabled: boolean): void
+  /**
    * Resolve the source line under a viewport point (or caret as fallback).
    * `offset` is the markdown offset of the line start; `column` is 0-based within the line.
    */

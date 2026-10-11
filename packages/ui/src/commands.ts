@@ -112,12 +112,15 @@ function isMacPlatform(): boolean {
 export function shortcutFromEvent(event: KeyboardEvent): string | null {
   if (event.isComposing) return null
   const mod = event.ctrlKey || event.metaKey
-  if (!mod) return null
-  const parts = ['Mod']
-  if (event.shiftKey) parts.push('Shift')
-  if (event.altKey) parts.push('Alt')
   let key = event.key
   if (key.length === 1) key = key.toUpperCase()
+  // A function key stands alone (F11 = 全屏, as it does everywhere else).
+  // Every other binding needs a modifier, so plain typing is never swallowed.
+  if (!mod && !/^F\d{1,2}$/.test(key)) return null
+  const parts: string[] = []
+  if (mod) parts.push('Mod')
+  if (event.shiftKey) parts.push('Shift')
+  if (event.altKey) parts.push('Alt')
   parts.push(key)
   return parts.join('+')
 }

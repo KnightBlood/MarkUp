@@ -2,6 +2,7 @@ import { createSharedPipeline, type PipelineOptions } from './pipeline'
 import { splitFrontmatter } from './frontmatter'
 import { hydrateDiagrams } from './diagrams'
 import { hydrateEmbeds } from './embeds'
+import { TOC_MARKER } from './textFormat'
 
 function escapeHtml(input: string): string {
   return input
@@ -141,6 +142,42 @@ export interface ExportHtmlOptions {
    * would only hide it in the editor and still ship it in the file.
    */
   pipeline?: PipelineOptions
+  // ---- 页面设置 (print / PDF only; a browser ignores `@page` on screen) ----
+  /** e.g. `A4`, `Letter`. Absent leaves the printer's default. */
+  pageSize?: string
+  /** e.g. `20mm`, `1in 2cm`. Absent leaves the printer's default. */
+  pageMargin?: string
+  /** 按一级标题分页 — every top-level heading starts a new page. */
+  pageBreakOnH1?: boolean
+  // ---- HTML extras, matching Typora's 导出 ▸ HTML ----
+  /** Appended after the built-in stylesheet, so it can override it. */
+  customCss?: string
+  /** Injected just before `</head>` (meta tags, scripts). */
+  headHtml?: string
+  /** Injected just before `</body>`. */
+  bodyHtml?: string
+  /** 大纲侧边栏 — put the document outline at the top of the exported body. */
+  outline?: boolean
+}
+
+/**
+ * The only characters allowed through into `@page`. These values land inside a
+ * `<style>` element, so a stray `}` would break out of the rule and let the rest
+ * of the value become arbitrary CSS.
+ */
+const PAGE_VALUE = /^[A-Za-z0-9\s.%/-]+$/
+
+function pageCss(options: ExportHtmlOptions): string {
+  const size = options.pageSize?.trim() ?? ''
+  const margin = options.pageMargin?.trim() ?? ''
+  const sizeOk = size && PAGE_VALUE.test(size)
+  const marginOk = margin && PAGE_VALUE.test(margin)
+  const parts: string[] = []
+  if (sizeOk || marginOk) {
+    parts.push(`@page {${sizeOk ? ` size: ${size};` : ''}${marginOk ? ` margin: ${margin};` : ''} }`)
+  }
+  if (options.pageBreakOnH1) parts.push('h1 { break-before: page; }')
+  return parts.join('\n')
 }
 
 export async function renderMarkdownHtml(
@@ -178,7 +215,11 @@ export function buildStandaloneHtml(
   options: ExportHtmlOptions = {},
 ): string {
   const title = escapeHtml(options.title ?? 'Document')
-  const css = options.printStyles === false ? EXPORT_CSS.replace(/@media print[\s\S]*?\n\}/, '') : EXPORT_CSS
+  const base = options.printStyles === false ? EXPORT_CSS.replace(/@media print[\s\S]*?\n\}/, '') : EXPORT_CSS
+  const extra = pageCss(options)
+  const custom = options.customCss?.trim() ?? ''
+  // Order matters: 页面设置 then the user's own stylesheet, so their rules win.
+  const css = [base, extra, custom].filter(Boolean).join('\n')
   // `<model-viewer>` is a custom element: exported pages need the module
   // script (same CDN pin style as KaTeX); dynamic import covers the editor.
   const modelViewerScript = bodyHtml.includes('data-embed="model"')
@@ -191,15 +232,47 @@ export function buildStandaloneHtml(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <link rel="stylesheet" href="${KATEX_CSS}">
-<style>${css}</style>
+<style>${css}</style>${options.headHtml ?? ''}
 </head>
 <body>
 <article class="markdown-body">
 ${bodyHtml}
-</article>${modelViewerScript}
+</article>${modelViewerScript}${options.bodyHtml ?? ''}
 </body>
 </html>
 `
+}
+
+/**
+ * `AppConfig` → the layout half of the export options.
+ *
+ * Typed structurally rather than against `AppConfig` so this stays testable
+ * without a host, and so the pandoc path (which only wants the title) does not
+ * have to pretend to care about page setup.
+ */
+export function exportOptionsFromConfig(config: {
+  exportCustomCss?: string
+  exportHeadHtml?: string
+  exportBodyHtml?: string
+  exportOutline?: boolean
+  exportPageSize?: string
+  exportPageMargin?: string
+  exportPageBreakOnH1?: boolean
+}): Pick<
+  ExportHtmlOptions,
+  'customCss' | 'headHtml' | 'bodyHtml' | 'outline' | 'pageSize' | 'pageMargin' | 'pageBreakOnH1'
+> {
+  return {
+    // Absent keys mean "off"/"unset" — the behaviour before these settings
+    // existed, so an old config file keeps producing the same HTML.
+    customCss: config.exportCustomCss,
+    headHtml: config.exportHeadHtml,
+    bodyHtml: config.exportBodyHtml,
+    outline: config.exportOutline === true,
+    pageSize: config.exportPageSize,
+    pageMargin: config.exportPageMargin,
+    pageBreakOnH1: config.exportPageBreakOnH1 === true,
+  }
 }
 
 export async function exportHtmlDocument(
@@ -210,7 +283,14 @@ export async function exportHtmlDocument(
     options.title ??
     splitFrontmatter(markdown).body.split('\n').find((line) => line.startsWith('# '))?.slice(2).trim() ??
     'Document'
-  const body = await renderMarkdownHtml(markdown, options.pipeline)
+  // 大纲侧边栏: rather than build a second list here (and risk its anchors
+  // disagreeing with the headings'), the document's own `[TOC]` marker is
+  // prepended — same construct, same ids, same stylesheet. Skipped when the
+  // author already wrote one, so the outline never appears twice.
+  const alreadyHasOutline = markdown.split('\n').some((line) => line.trim() === TOC_MARKER)
+  const withOutline =
+    options.outline && !alreadyHasOutline ? `${TOC_MARKER}\n\n${markdown}` : markdown
+  const body = await renderMarkdownHtml(withOutline, options.pipeline)
   const hydrated = await hydrateExportDiagrams(body)
   return buildStandaloneHtml(hydrated, { ...options, title })
 }

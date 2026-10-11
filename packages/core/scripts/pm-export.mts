@@ -74,4 +74,70 @@ assert(
   'export doc diagrams resolved',
 )
 
+// ---- 导出选项：页面设置 / HTML 追加 / 大纲 --------------------------------
+{
+  const { buildStandaloneHtml, exportOptionsFromConfig } = await import('../src/exportHtml')
+
+  const plain = buildStandaloneHtml('<p>x</p>', { title: 'T' })
+  assert(!plain.includes('@page'), 'no page rules unless asked for')
+  assert(plain.includes('<style>') && plain.includes('</style>'), 'stylesheet present')
+
+  const paged = buildStandaloneHtml('<p>x</p>', {
+    title: 'T',
+    pageSize: 'A4',
+    pageMargin: '20mm',
+    pageBreakOnH1: true,
+  })
+  assert(paged.includes('@page { size: A4; margin: 20mm; }'), 'page size and margin emitted')
+  assert(paged.includes('h1 { break-before: page; }'), '按一级标题分页 emitted')
+
+  // The values land inside a <style> element, so a `}` must not get through —
+  // it would end the rule and let the rest of the value become arbitrary CSS.
+  const injected = buildStandaloneHtml('<p>x</p>', {
+    pageSize: 'A4 } body { display: none',
+  })
+  assert(!injected.includes('@page'), 'a value that could break out emits no rule at all')
+  assert(!injected.includes('body { display: none'), 'and none of the injected text survives')
+
+  const extras = buildStandaloneHtml('<p>x</p>', {
+    customCss: '.x { color: red }',
+    headHtml: '<meta name="a" content="b">',
+    bodyHtml: '<script>void 0</script>',
+  })
+  // Custom CSS has to come *after* the built-in sheet or it could not override it.
+  assert(extras.indexOf('.x { color: red }') > extras.indexOf('h1, h2, h3'), 'custom CSS wins')
+  assert(extras.includes('<meta name="a" content="b">'), 'head extra injected')
+  assert(extras.indexOf('<script>void 0</script>') > extras.indexOf('</article>'), 'body extra injected')
+
+  // 大纲: prepending the document's own marker reuses the same construct, so the
+  // outline links and the heading ids cannot disagree.
+  const outlineDoc = await exportHtmlDocument('# 标题\n\n正文', { outline: true })
+  assert(outlineDoc.includes('class="md-toc"'), 'outline emits the document outline')
+  assert(
+    outlineDoc.indexOf('class="md-toc"') < outlineDoc.indexOf('标题</h1>'),
+    'outline sits before the body',
+  )
+  // An author-written [TOC] must not be duplicated by the option.
+  const already = await exportHtmlDocument('[TOC]\n\n# 标题', { outline: true })
+  assert(
+    (already.match(/class="md-toc"/g) ?? []).length === 1,
+    'an existing [TOC] is not doubled up',
+  )
+  const noOutline = await exportHtmlDocument('# 标题\n\n正文', {})
+  assert(!noOutline.includes('class="md-toc"'), 'no outline unless asked for')
+
+  // Config → options: absent keys mean the behaviour before these settings.
+  const opts = exportOptionsFromConfig({})
+  assert(
+    opts.outline === false && opts.pageBreakOnH1 === false,
+    'absent config keys are off, not undefined-vs-false surprises',
+  )
+  assert(
+    opts.customCss === undefined && opts.pageSize === undefined,
+    'absent strings stay absent so the builder can skip them',
+  )
+  const on = exportOptionsFromConfig({ exportOutline: true, exportPageSize: 'Letter' })
+  assert(on.outline === true && on.pageSize === 'Letter', 'config maps through')
+}
+
 console.log('SMOKE CORE EXPORT OK: standalone html / pipeline render / diagram hydrate')

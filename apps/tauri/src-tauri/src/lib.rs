@@ -92,6 +92,31 @@ struct AppConfig {
     /// 视图 ▸ 放大 / 缩小. Absent means 1 (100%).
     #[serde(default)]
     view_zoom: Option<f64>,
+    /// 视图 ▸ 保持窗口在最前端.
+    #[serde(default)]
+    always_on_top: Option<bool>,
+    /// 视图 ▸ 只读模式.
+    #[serde(default)]
+    read_only: Option<bool>,
+    /// 导出 ▸ 默认导出文件夹等（设置字符串原样保留，Rust 侧不解释）。
+    #[serde(default)]
+    export_folder: Option<String>,
+    #[serde(default)]
+    export_after: Option<String>,
+    #[serde(default)]
+    export_custom_css: Option<String>,
+    #[serde(default)]
+    export_head_html: Option<String>,
+    #[serde(default)]
+    export_body_html: Option<String>,
+    #[serde(default)]
+    export_outline: Option<bool>,
+    #[serde(default)]
+    export_page_size: Option<String>,
+    #[serde(default)]
+    export_page_margin: Option<String>,
+    #[serde(default)]
+    export_page_break_on_h1: Option<bool>,
     #[serde(default)]
     image_paste: Option<bool>,
     #[serde(default)]
@@ -168,6 +193,17 @@ impl Default for AppConfig {
             show_stats: None,
             focus_mode: None,
             view_zoom: None,
+            always_on_top: None,
+            read_only: None,
+            export_folder: None,
+            export_after: None,
+            export_custom_css: None,
+            export_head_html: None,
+            export_body_html: None,
+            export_outline: None,
+            export_page_size: None,
+            export_page_margin: None,
+            export_page_break_on_h1: None,
             image_paste: None,
             spellcheck: None,
             disabled_plugins: None,
@@ -231,6 +267,23 @@ async fn remove_file(path: String) -> Result<(), String> {
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(err) => Err(err.to_string()),
     }
+}
+
+/// 视图 ▸ 全屏 / 保持窗口在最前端. Both keys are optional; an absent key leaves
+/// that piece of state alone.
+#[tauri::command]
+async fn set_window_state(
+    window: tauri::Window,
+    fullscreen: Option<bool>,
+    always_on_top: Option<bool>,
+) -> Result<(), String> {
+    if let Some(value) = fullscreen {
+        window.set_fullscreen(value).map_err(|e| e.to_string())?;
+    }
+    if let Some(value) = always_on_top {
+        window.set_always_on_top(value).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Inverse of `read_base64`. Only the payload after the first comma is base64,
@@ -754,6 +807,7 @@ pub fn run() {
             write_base64,
             mkdirp,
             remove_file,
+            set_window_state,
             read_dir,
             fs_watch,
             open_dialog,

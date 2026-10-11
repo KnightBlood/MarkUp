@@ -1731,6 +1731,16 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       spellcheck = enabled
       applySpellcheck()
     },
+
+    setReadOnly(enabled: boolean): void {
+      if (!editor || !ready) return
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        // ProseMirror owns `contenteditable`, so the state has to go through
+        // its own props rather than the DOM; selection and scrolling survive.
+        view.setProps({ editable: () => !enabled })
+      })
+    },
   }
 
   function posForOffset(view: EditorView, serializer: (doc: Node) => string, offset: number): number {

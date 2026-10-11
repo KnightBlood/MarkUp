@@ -12,6 +12,7 @@ import type {
   OpenDialogOptions,
   PathInfo,
   SaveDialogOptions,
+  WindowState,
 } from '@markup/host-api'
 
 // FQN = packagePath.TypeName.MethodName (see wails Bindings.Get / generator templates).
@@ -89,6 +90,14 @@ function createWailsHost(): HostAPI {
       openExternal: (_url: string): Promise<void> => Promise.resolve(),
       setTitle: (title: string): void => {
         void Window.SetTitle(title)
+      },
+      setWindowState: async (state: WindowState): Promise<void> => {
+        // The runtime only offers ToggleFullscreen, so the current state has to
+        // be read back before deciding whether to toggle.
+        if (state.fullscreen !== undefined && (await Window.IsFullscreen()) !== state.fullscreen) {
+          await Window.ToggleFullscreen()
+        }
+        if (state.alwaysOnTop !== undefined) await Window.SetAlwaysOnTop(state.alwaysOnTop)
       },
       openDevTools: (): void => {
         void Call.ByName(`${HOST}.OpenDevTools`).catch(() => {})

@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/pm-cm.mjs && node scripts/pm-md.mjs && tsx scripts/pm-diag.mts && tsx scripts/pm-wy.mts && tsx scripts/pm-export.mts && tsx scripts/flowchart.mts && tsx scripts/pm-img.mts && tsx scripts/pm-embed.mts && tsx scripts/pm-puml.mts && tsx scripts/pm-tabs.mts && tsx scripts/pm-fmt.mts && tsx scripts/pm-syntax.mts && tsx scripts/pm-imgpersist.mts && tsx scripts/pm-imgtools.mts"
+    "smoke": "node scripts/pm-cm.mjs && node scripts/pm-md.mjs && tsx scripts/pm-diag.mts && tsx scripts/pm-wy.mts && tsx scripts/pm-export.mts && tsx scripts/flowchart.mts && tsx scripts/pm-img.mts && tsx scripts/pm-embed.mts && tsx scripts/pm-puml.mts && tsx scripts/pm-tabs.mts && tsx scripts/pm-fmt.mts && tsx scripts/pm-syntax.mts && tsx scripts/pm-imgpersist.mts && tsx scripts/pm-imgtools.mts && tsx scripts/pm-readonly.mts && tsx scripts/pm-drop.mts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "6.5.2",

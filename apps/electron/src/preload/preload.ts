@@ -76,6 +76,7 @@ const api: HostAPI = {
     openExternal: (url) => ipcRenderer.invoke(IPC_CHANNELS.appOpenExternal, url),
     openDevTools: () => void ipcRenderer.invoke(IPC_CHANNELS.appOpenDevTools),
     setTitle: (title) => void ipcRenderer.invoke(IPC_CHANNELS.appSetTitle, title),
+    setWindowState: (state) => ipcRenderer.invoke(IPC_CHANNELS.appSetWindowState, state),
     getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.appGetConfig),
     setConfig: (config: AppConfig) => void ipcRenderer.invoke(IPC_CHANNELS.appSetConfig, config),
       getPath: (name: 'plugins' | 'pluginsLocal' | 'userData') =>

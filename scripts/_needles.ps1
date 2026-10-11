@@ -447,6 +447,86 @@ Check-Needle 'zoom :: wheel listener is non-passive' "$root\packages\ui\src\shel
 Check-Needle 'zoom :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'view_zoom: Option<f64>' -Literal
 Check-Needle 'zoom :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"viewZoom,omitempty"' -Literal
 
+# --- 视图 ▸ 全屏 / 保持窗口在最前端 ---
+# A *set* API, not a toggle: Wails only offers ToggleFullscreen, so the shell
+# needs to be told the desired state rather than "flip it".
+Check-Needle 'windowstate :: host API' "$root\packages\host-api\src\types.ts" 'setWindowState?(state: WindowState): Promise<void>' -Literal
+Check-Needle 'windowstate :: electron' "$root\apps\electron\shared\ipc.ts" 'appSetWindowState' -Literal
+Check-Needle 'windowstate :: tauri command' "$root\apps\tauri\src-tauri\src\lib.rs" 'async fn set_window_state(' -Literal
+Check-Needle 'windowstate :: wails toggles what it has' "$root\apps\wails\frontend\src\main.ts" 'await Window.IsFullscreen()' -Literal
+Check-Needle 'windowstate :: config field' "$root\packages\host-api\src\types.ts" 'alwaysOnTop?: boolean' -Literal
+Check-Needle 'windowstate :: only pushed when it changes' "$root\packages\ui\src\shell.ts" 'if (onTop !== appliedAlwaysOnTop) {' -Literal
+Check-Needle 'windowstate :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'always_on_top: Option<bool>' -Literal
+Check-Needle 'windowstate :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"alwaysOnTop,omitempty"' -Literal
+# Bare F-keys have to be recognised, or F11 can never be a shortcut.
+Check-Needle 'windowstate :: function keys need no modifier' "$root\packages\ui\src\commands.ts" 'if (!mod && !/^F\d{1,2}$/.test(key)) return null' -Literal
+# The toggles are checkboxes so the menu can show state.
+Check-Needle 'windowstate :: menu renders a checkbox' "$root\packages\host-api\src\menu.json" '"id": "view.alwaysOnTop", "label": "保持窗口在最前端", "on": "view.alwaysOnTopOn"' -Literal
+Check-Needle 'windowstate :: checkbox state source' "$root\packages\ui\src\shell.ts" "if (id === 'view.alwaysOnTop') return appearance.alwaysOnTop === true" -Literal
+Check-Needle 'windowstate :: fullscreen command' "$root\packages\ui\src\shell.ts" "id: 'view.fullscreen'," -Literal
+
+# --- 视图 ▸ 只读模式 ---
+# The lever is whatever *owns* `contenteditable` (ProseMirror props, CodeMirror's
+# editable facet, OverType's textarea) — writing the DOM attribute directly gets
+# reverted on the next render. And it has to be re-applied on every view mount,
+# or switching views silently re-enables typing.
+Check-Needle 'readonly :: host API' "$root\packages\host-api\src\types.ts" 'readOnly?: boolean' -Literal
+Check-Needle 'readonly :: adapter contract' "$root\packages\core\src\adapters\types.ts" 'setReadOnly?(enabled: boolean): void' -Literal
+Check-Needle 'readonly :: prose mirror props' "$root\packages\core\src\adapters\wysiwyg.ts" 'view.setProps({ editable: () => !enabled })' -Literal
+Check-Needle 'readonly :: codemirror editable facet' "$root\packages\core\src\adapters\hybrid.ts" 'readOnlyCompartment.reconfigure(EditorView.editable.of(!enabled))' -Literal
+Check-Needle 'readonly :: overtype textarea' "$root\packages\core\src\adapters\source.ts" 'instance.textarea.readOnly = readOnly' -Literal
+Check-Needle 'readonly :: survives a view switch' "$root\packages\ui\src\ui\editor.ts" 'active?.setReadOnly?.(readOnly)' -Literal
+Check-Needle 'readonly :: menu checkbox' "$root\packages\host-api\src\menu.json" '"id": "view.readOnly"' -Literal
+Check-Needle 'readonly :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'read_only: Option<bool>' -Literal
+Check-Needle 'readonly :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"readOnly,omitempty"' -Literal
+Check-Needle 'readonly :: core smoke wired' "$root\packages\core\package.json" 'pm-readonly.mts' -Literal
+
+# --- 工具栏 (floating format bar over a selection) ---
+Check-Needle 'toolbar :: module' "$root\packages\ui\src\ui\selectionToolbar.ts" 'export function createSelectionToolbar(' -Literal
+# Without cancelling mousedown the editor collapses the selection and every
+# command acts on a bare caret.
+Check-Needle 'toolbar :: mousedown is cancelled' "$root\packages\ui\src\ui\selectionToolbar.ts" 'event.preventDefault()' -Literal
+Check-Needle 'toolbar :: shell wires it' "$root\packages\ui\src\shell.ts" 'createSelectionToolbar((command) => registry.run(command))' -Literal
+Check-Needle 'toolbar :: hidden in 只读模式' "$root\packages\ui\src\shell.ts" 'if (appearance.readOnly === true) {' -Literal
+Check-Needle 'toolbar :: styles' "$root\packages\ui\src\theme\shell.css" '.selection-toolbar {' -Literal
+Check-Needle 'toolbar :: ui smoke wired' "$root\packages\ui\package.json" 'pm-t-toolbar.mts' -Literal
+
+# --- 导出选项与页面设置 ---
+# The page values land inside a <style> element, so a `}` has to be rejected or
+# the rest of the value becomes arbitrary CSS.
+Check-Needle 'export :: page values are whitelisted' "$root\packages\core\src\exportHtml.ts" 'const PAGE_VALUE = /^[A-Za-z0-9\s.%/-]+$/' -Literal
+Check-Needle 'export :: @page emitted' "$root\packages\core\src\exportHtml.ts" 'parts.push(`@page {' -Literal
+Check-Needle 'export :: 按一级标题分页' "$root\packages\core\src\exportHtml.ts" "parts.push('h1 { break-before: page; }')" -Literal
+Check-Needle 'export :: custom css wins by order' "$root\packages\core\src\exportHtml.ts" 'const css = [base, extra, custom].filter(Boolean).join' -Literal
+Check-Needle 'export :: head/body extras' "$root\packages\core\src\exportHtml.ts" 'options.headHtml ??' -Literal
+# 大纲 reuses the document's own [TOC] marker so its links cannot disagree with
+# the heading anchors.
+Check-Needle 'export :: outline reuses the toc marker' "$root\packages\core\src\exportHtml.ts" 'options.outline && !alreadyHasOutline' -Literal
+Check-Needle 'export :: config maps onto options' "$root\packages\core\src\exportHtml.ts" 'export function exportOptionsFromConfig(' -Literal
+Check-Needle 'export :: default folder honoured' "$root\packages\ui\src\shell.ts" 'const exportDefaultPath = (ext: string): string' -Literal
+Check-Needle 'export :: 导出后 runs' "$root\packages\ui\src\shell.ts" 'const afterExport = async (path: string): Promise<void>' -Literal
+Check-Needle 'export :: file url helper' "$root\packages\ui\src\shell.ts" 'const fileUrl = (path: string): string' -Literal
+Check-Needle 'export :: config field (folder)' "$root\packages\host-api\src\types.ts" 'exportFolder?: string' -Literal
+Check-Needle 'export :: config field (page size)' "$root\packages\host-api\src\types.ts" 'exportPageSize?: string' -Literal
+Check-Needle 'export :: settings sections' "$root\packages\ui\src\ui\settings.ts" "'data-section': 'export-page'" -Literal
+Check-Needle 'export :: config survives Tauri write-back' "$root\apps\tauri\src-tauri\src\lib.rs" 'export_page_size: Option<String>' -Literal
+Check-Needle 'export :: config survives Wails write-back' "$root\apps\wails\services\host.go" 'json:"exportPageSize,omitempty"' -Literal
+
+# --- 文件操作与拖放 ---
+# The ordering of the classification is the decision: document beats image beats
+# link. A `diagram.png.md` has an image MIME type and must still open.
+Check-Needle 'drop :: classification lives in core' "$root\packages\core\src\dropTargets.ts" 'export function classifyDroppedFile(' -Literal
+Check-Needle 'drop :: document test first' "$root\packages\core\src\dropTargets.ts" "if (isDocumentName(file.name ?? '')) return 'document'" -Literal
+Check-Needle 'drop :: shell uses it' "$root\packages\ui\src\shell.ts" 'classifyDroppedFile(file)' -Literal
+Check-Needle 'drop :: only file drags are claimed' "$root\packages\ui\src\shell.ts" "types.includes('Files')" -Literal
+Check-Needle 'drop :: target cue' "$root\packages\ui\src\theme\shell.css" '.editor-pane.is-drop-target {' -Literal
+Check-Needle 'drop :: core smoke wired' "$root\packages\core\package.json" 'pm-drop.mts' -Literal
+Check-Needle 'file :: 保存全部' "$root\packages\ui\src\shell.ts" "id: 'file.saveAll'," -Literal
+Check-Needle 'file :: 重新打开关闭的文件' "$root\packages\ui\src\shell.ts" "id: 'file.reopenClosed'," -Literal
+# Only saved documents can be reopened — an untitled tab has nothing to read.
+Check-Needle 'file :: only saved tabs are remembered' "$root\packages\ui\src\shell.ts" 'const rememberClosed = (path: string | undefined): void => {' -Literal
+Check-Needle 'file :: menu exposes them' "$root\packages\host-api\src\menu.json" 'file.reopenClosed' -Literal
+
 # --- document conversion (导入文档 / 导出为…: pandoc primary, carta fallback) ---
 # Markup never bundles a converter: it resolves `pandoc` then `carta` from PATH,
 # or uses an explicit path from 设置 ▸ 导出 ▸ 文档转换. These needles pin the seams that

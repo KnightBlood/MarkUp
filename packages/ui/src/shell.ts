@@ -4,7 +4,9 @@ import {
   FLOW_TEMPLATE,
   TABLE_COMMAND_LABELS,
   blockFormatEdit,
+  classifyDroppedFile,
   exportHtmlDocument,
+  exportOptionsFromConfig,
   fileToDataUrl,
   headingLevelAt,
   headingLevelEdit,
@@ -64,6 +66,7 @@ import { createQuickOpen } from './ui/quickOpen'
 import { createSettings, type SettingsApi, type SettingsTabSpec } from './ui/settings'
 import { createKeybindingsPanel } from './ui/keybindings'
 import { createContextMenu, type ContextMenuItem } from './ui/contextMenu'
+import { createSelectionToolbar } from './ui/selectionToolbar'
 import { showPrompt } from './ui/promptDialog'
 import { createTabBar, type TabSpec } from './ui/tabBar'
 import { createMenuBar } from './ui/menuBar'
@@ -528,6 +531,66 @@ export function renderShell(): ShellHandle {
   const toastHost = createToastHost()
   root.appendChild(toastHost.el)
 
+  // 工具栏 — shown over a selection. It lives outside the editor pane so it can
+  // overlap the mode bar / status bar when a selection sits near an edge.
+  const selectionToolbar = createSelectionToolbar((command) => registry.run(command))
+  root.appendChild(selectionToolbar.el)
+
+  /**
+   * 工具栏 visibility.
+   *
+   * Position comes from the DOM selection, which only ProseMirror and
+   * CodeMirror expose — 分屏 overlays a transparent textarea whose selection no
+   * browser reports through `window.getSelection()`, so the bar stays hidden
+   * there rather than appearing in the wrong place.
+   */
+  const updateSelectionToolbar = (): void => {
+    if (appearance.readOnly === true) {
+      selectionToolbar.hide()
+      return
+    }
+    const selection = window.getSelection()
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      selectionToolbar.hide()
+      return
+    }
+    const range = selection.getRangeAt(0)
+    // Only for a selection the editor owns — dragging over the sidebar or the
+    // status bar must not pop a format bar.
+    if (!editor.el.contains(range.commonAncestorContainer)) {
+      selectionToolbar.hide()
+      return
+    }
+    const rect = range.getBoundingClientRect()
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      selectionToolbar.hide()
+      return
+    }
+    selectionToolbar.update({
+      top: rect.top,
+      bottom: rect.bottom,
+      left: rect.left,
+      width: rect.width,
+    })
+  }
+
+  editor.el.addEventListener('mouseup', () => window.setTimeout(updateSelectionToolbar, 0))
+  editor.el.addEventListener('keyup', (event) => {
+    // Escape dismisses it; anything else re-evaluates after the editor has
+    // settled its own selection.
+    if (event.key === 'Escape') {
+      selectionToolbar.hide()
+      return
+    }
+    window.setTimeout(updateSelectionToolbar, 0)
+  })
+  // A scroll or a click elsewhere invalidates the rect, so hide rather than
+  // leaving the bar floating over unrelated text.
+  document.addEventListener('scroll', () => selectionToolbar.hide(), true)
+  document.addEventListener('mousedown', (event) => {
+    if (!selectionToolbar.el.contains(event.target as Node)) selectionToolbar.hide()
+  })
+
   const keybindingsPanel = createKeybindingsPanel({
     registry,
     onChange: (overrides) => applyAppearanceConfig({ ...appearance, shortcuts: overrides }),
@@ -650,6 +713,58 @@ export function renderShell(): ShellHandle {
     }
   }
 
+  /**
+   * 拖入文件.
+   *
+   * A dropped markdown file opens; an image goes through exactly the same
+   * 插入图片时 rules as a pasted one; anything else becomes a link to the file.
+   * The web build has no path for a dropped file, so markdown opens untitled
+   * (its text is what we have) and other files link by name only — better than
+   * a path that does not exist.
+   */
+  const handleDroppedFiles = async (files: File[]): Promise<void> => {
+    for (const file of files) {
+      const path = (file as File & { path?: string }).path
+      const name = file.name || 'file'
+      // The ordering (document beats image beats link) lives in core so it can be
+      // pinned without a drag event — see `classifyDroppedFile`.
+      switch (classifyDroppedFile(file)) {
+        case 'document':
+          if (path) await openPath(path)
+          else openDocument('', await file.text())
+          break
+        case 'image':
+          await editor.insertImage(file)
+          break
+        default:
+          editor.insertMarkdown(`[${name}](${path ?? name})`)
+      }
+    }
+  }
+
+  editor.el.addEventListener('dragover', (event: DragEvent) => {
+    // Only for files: the tab strip reorders with its own drag payload, and
+    // claiming every drag would break it when a tab passes over the editor.
+    if (!event.dataTransfer?.types.includes('Files')) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    editor.el.classList.add('is-drop-target')
+  })
+  editor.el.addEventListener('dragleave', (event: DragEvent) => {
+    // `dragleave` also fires when moving between children; only clear when the
+    // pointer genuinely left the pane.
+    const next = event.relatedTarget
+    if (next instanceof Node && editor.el.contains(next)) return
+    editor.el.classList.remove('is-drop-target')
+  })
+  editor.el.addEventListener('drop', (event: DragEvent) => {
+    const files = [...(event.dataTransfer?.files ?? [])]
+    if (files.length === 0) return
+    event.preventDefault()
+    editor.el.classList.remove('is-drop-target')
+    void handleDroppedFiles(files)
+  })
+
   const getRecents = async (): Promise<string[]> => {
     try {
       const config = await host.app.getConfig()
@@ -741,10 +856,25 @@ export function renderShell(): ShellHandle {
     return res.button === '关闭'
   }
 
+  /**
+   * 重新打开关闭的文件. Only saved documents are remembered — an untitled tab has
+   * nothing to read back from disk, so "reopen" could not honestly restore it.
+   */
+  const recentlyClosed: string[] = []
+  const RECENT_CLOSED_MAX = 20
+  const rememberClosed = (path: string | undefined): void => {
+    if (!path) return
+    const at = recentlyClosed.indexOf(path)
+    if (at >= 0) recentlyClosed.splice(at, 1)
+    recentlyClosed.push(path)
+    if (recentlyClosed.length > RECENT_CLOSED_MAX) recentlyClosed.shift()
+  }
+
   const closeTab = async (id: string): Promise<void> => {
     const tab = doc.getTab(id)
     if (!tab) return
     if (!(await confirmDiscard([tab]))) return
+    rememberClosed(tab.path || undefined)
     doc.closeTab(id)
     // The shell never sits on zero documents — reopen a blank one.
     if (!doc.isOpen()) doc.newTab()
@@ -852,6 +982,27 @@ export function renderShell(): ShellHandle {
     await saveAs()
   }
 
+  /** 保存全部 — every modified tab that has a path, in one pass. */
+  const saveAll = async (): Promise<void> => {
+    try {
+      const count = await doc.saveModified()
+      statusbar.refresh()
+      sidebar.refreshRecents()
+      toastHost.show(count > 0 ? `已保存 ${count} 个文件` : '没有需要保存的文件')
+    } catch (error) {
+      await showError(`保存失败：${String(error)}`)
+    }
+  }
+
+  const reopenClosed = async (): Promise<void> => {
+    const path = recentlyClosed.pop()
+    if (!path) {
+      toastHost.show('没有可重新打开的文件')
+      return
+    }
+    await openPath(path)
+  }
+
   const saveAs = async (): Promise<void> => {
     const current = doc.getDocument()
     if (!current) return
@@ -882,6 +1033,45 @@ export function renderShell(): ShellHandle {
     return '未命名文档'
   }
 
+  /** Files a drop opens as documents rather than linking to. */
+
+  /** `file://` URL for a local path, for handing to `app.openExternal`. */
+  const fileUrl = (path: string): string =>
+    `file:///${path
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/')}`
+
+  /**
+   * 导出 ▸ 默认导出文件夹. Empty means "next to the document", which is what the
+   * save dialog already defaults to — so an unset folder keeps the old
+   * behaviour rather than guessing one.
+   */
+  const exportDefaultPath = (ext: string): string => {
+    const name = `${exportBaseName()}.${ext}`
+    const folder = appearance.exportFolder?.trim()
+    if (!folder) return name
+    return joinPath(folder, name, pathStyleFor(folder).sep)
+  }
+
+  /**
+   * 导出后. Both actions go through `openExternal` with a `file:` URL — that is
+   * the one primitive every shell already has for "let the OS deal with this".
+   * A failure is logged, not surfaced: the export itself already succeeded, and
+   * telling the user it failed would be a lie.
+   */
+  const afterExport = async (path: string): Promise<void> => {
+    const action = appearance.exportAfter ?? 'none'
+    if (action === 'none') return
+    try {
+      await host.app.openExternal(fileUrl(action === 'openFolder' ? dirname(path) : path))
+    } catch (error) {
+      console.error('[markup] 导出后打开失败', error)
+    }
+  }
+
   const downloadText = (filename: string, content: string, mime: string): void => {
     const blob = new Blob([content], { type: mime })
     const url = URL.createObjectURL(blob)
@@ -898,17 +1088,19 @@ export function renderShell(): ShellHandle {
       const html = await exportHtmlDocument(editor.getMarkdown(), {
         title: base,
         pipeline: pipelineOptionsFromConfig(appearance),
+        ...exportOptionsFromConfig(appearance),
       })
       if (host.platform === 'web') {
         downloadText(`${base}.html`, html, 'text/html;charset=utf-8')
         return
       }
       const picked = await host.dialog.save({
-        defaultPath: `${base}.html`,
+        defaultPath: exportDefaultPath('html'),
         filters: [{ name: 'HTML', extensions: ['html'] }],
       })
       if (!picked?.path) return
       await host.fs.write(picked.path, html)
+      await afterExport(picked.path)
     } catch (error) {
       await showError(`导出 HTML 失败：${String(error)}`)
     }
@@ -920,15 +1112,17 @@ export function renderShell(): ShellHandle {
       const html = await exportHtmlDocument(editor.getMarkdown(), {
         title: base,
         pipeline: pipelineOptionsFromConfig(appearance),
+        ...exportOptionsFromConfig(appearance),
       })
       if (host.app.exportPdf) {
         const picked = await host.dialog.save({
-          defaultPath: `${base}.pdf`,
+          defaultPath: exportDefaultPath('pdf'),
           filters: [{ name: 'PDF', extensions: ['pdf'] }],
         })
         if (!picked?.path) return
         const ok = await host.app.exportPdf(picked.path, html)
         if (!ok) throw new Error('exportPdf 返回失败')
+        await afterExport(picked.path)
         return
       }
       await printDocumentHtml(html)
@@ -1063,7 +1257,7 @@ export function renderShell(): ShellHandle {
     if (!convert) return
     try {
       const picked = await host.dialog.save({
-        defaultPath: `${exportBaseName()}.${target.ext}`,
+        defaultPath: exportDefaultPath(target.ext),
         filters: [{ name: target.filterName, extensions: [target.ext] }],
       })
       if (!picked?.path) return
@@ -1078,6 +1272,7 @@ export function renderShell(): ShellHandle {
         // which is what makes images survive the round trip.
         ...(open?.path ? { cwd: dirname(open.path) } : {}),
       })
+      await afterExport(picked.path)
     } catch (error) {
       await showError(`导出失败：${String(error)}`)
     }
@@ -1090,6 +1285,7 @@ export function renderShell(): ShellHandle {
         (await exportHtmlDocument(editor.getMarkdown(), {
           title: exportBaseName(),
           pipeline: pipelineOptionsFromConfig(appearance),
+          ...exportOptionsFromConfig(appearance),
         }))
       const ok = await host.app.print?.(payload)
       if (!ok) await showError('当前平台不支持打印')
@@ -1673,6 +1869,10 @@ export function renderShell(): ShellHandle {
     statusbar.refresh()
   }
 
+  // Tracked so 保持窗口在最前端 is only pushed to the shell when it actually
+  // changes — `applyAppearanceConfig` runs on every settings tweak.
+  let appliedAlwaysOnTop: boolean | null = null
+
   const applyAppearanceConfig = (next: AppConfig): void => {
     appearance = next
     autoSaveEnabled = next.autoSave === true
@@ -1681,12 +1881,18 @@ export function renderShell(): ShellHandle {
     editor.setTypewriter(next.typewriter === true)
     editor.setLineNumbers(next.lineNumbers === true)
     editor.setSpellcheck(next.spellcheck === true)
+    editor.setReadOnly(next.readOnly === true)
     editor.setImagePasteEnabled(next.imagePaste !== false)
     // 分屏 renders through OverType's own parser, so it needs the syntax
     // extensions installed separately from the remark pipeline.
     setOvertypeSyntax(mdSyntaxOptionsFromConfig(next))
     statusbar.setShowStats(next.showStats !== false)
     shellEl?.classList.toggle('shell--focus', next.focusMode === true)
+    const onTop = next.alwaysOnTop === true
+    if (onTop !== appliedAlwaysOnTop) {
+      appliedAlwaysOnTop = onTop
+      void host.app.setWindowState?.({ alwaysOnTop: onTop })
+    }
     host.app.setConfig(next)
     statusbar.refresh()
     sidebar.refreshRecents()
@@ -1797,6 +2003,13 @@ export function renderShell(): ShellHandle {
   registry.register({ id: 'tab.next', label: '下一个标签页', shortcut: 'Mod+Tab', run: () => cycleTab(1) })
   registry.register({ id: 'tab.prev', label: '上一个标签页', shortcut: 'Mod+Shift+Tab', run: () => cycleTab(-1) })
   registry.register({ id: 'file.save', label: '保存', shortcut: 'Mod+S', run: () => void saveActive() })
+  registry.register({ id: 'file.saveAll', label: '保存全部', run: () => void saveAll() })
+  registry.register({
+    id: 'file.reopenClosed',
+    label: '重新打开关闭的文件',
+    shortcut: 'Mod+Shift+T',
+    run: () => void reopenClosed(),
+  })
   registry.register({ id: 'file.saveAs', label: '另存为…', shortcut: 'Mod+Shift+S', run: () => void saveAs() })
   registry.register({ id: 'file.quickOpen', label: '快速打开文件', shortcut: 'Mod+P', run: toggleQuickOpen })
   registry.register({
@@ -2365,6 +2578,48 @@ export function renderShell(): ShellHandle {
     shortcut: 'Mod+Shift+0',
     run: () => setViewZoom(ZOOM_DEFAULT, true),
   })
+  // Set-style twins of the toggles above, so menu.json can render them as
+  // checkboxes (a toggle command cannot report state). The toggles stay for the
+  // context menu and the command palette. Written out one by one rather than
+  // generated: pm-l-menu matches literal `registry.register({ id: '…' })`, and
+  // that check is exactly what should catch a menu id with no command behind it.
+  const setViewFlag = (
+    key: 'typewriter' | 'focusMode' | 'lineNumbers' | 'showStats' | 'alwaysOnTop' | 'readOnly',
+    value: boolean,
+  ): void => applyAppearanceConfig({ ...appearance, [key]: value })
+  registry.register({ id: 'view.readOnlyOn', label: '只读模式：开', run: () => setViewFlag('readOnly', true) })
+  registry.register({ id: 'view.readOnlyOff', label: '只读模式：关', run: () => setViewFlag('readOnly', false) })
+  registry.register({ id: 'view.typewriterOn', label: '打字机模式：开', run: () => setViewFlag('typewriter', true) })
+  registry.register({ id: 'view.typewriterOff', label: '打字机模式：关', run: () => setViewFlag('typewriter', false) })
+  registry.register({ id: 'view.focusModeOn', label: '专注模式：开', run: () => setViewFlag('focusMode', true) })
+  registry.register({ id: 'view.focusModeOff', label: '专注模式：关', run: () => setViewFlag('focusMode', false) })
+  registry.register({ id: 'view.lineNumbersOn', label: '行号：开', run: () => setViewFlag('lineNumbers', true) })
+  registry.register({ id: 'view.lineNumbersOff', label: '行号：关', run: () => setViewFlag('lineNumbers', false) })
+  registry.register({ id: 'view.showStatsOn', label: '字数统计：开', run: () => setViewFlag('showStats', true) })
+  registry.register({ id: 'view.showStatsOff', label: '字数统计：关', run: () => setViewFlag('showStats', false) })
+  registry.register({
+    id: 'view.alwaysOnTopOn',
+    label: '保持窗口在最前端：开',
+    run: () => setViewFlag('alwaysOnTop', true),
+  })
+  registry.register({
+    id: 'view.alwaysOnTopOff',
+    label: '保持窗口在最前端：关',
+    run: () => setViewFlag('alwaysOnTop', false),
+  })
+  // Fullscreen is window state, not document state — it is deliberately not
+  // persisted (a window that reopens fullscreen is a nuisance) and tracked here
+  // so the menu can be a plain toggle.
+  let fullscreen = false
+  registry.register({
+    id: 'view.fullscreen',
+    label: '切换全屏',
+    shortcut: 'F11',
+    run: () => {
+      fullscreen = !fullscreen
+      void host.app.setWindowState?.({ fullscreen })
+    },
+  })
   registry.register({
     id: 'settings.open',
     label: '打开设置…',
@@ -2572,7 +2827,16 @@ export function renderShell(): ShellHandle {
   const menuBar = createMenuBar({
     registry,
     menu: contextMenu,
-    isChecked: (id) => (id === 'file.autoSave' ? autoSaveEnabled : false),
+    isChecked: (id) => {
+      if (id === 'file.autoSave') return autoSaveEnabled
+      if (id === 'view.typewriter') return appearance.typewriter === true
+      if (id === 'view.focusMode') return appearance.focusMode === true
+      if (id === 'view.lineNumbers') return appearance.lineNumbers === true
+      if (id === 'view.showStats') return appearance.showStats !== false
+      if (id === 'view.alwaysOnTop') return appearance.alwaysOnTop === true
+      if (id === 'view.readOnly') return appearance.readOnly === true
+      return false
+    },
     actions: {
       // `quit` needs native chrome; without it the item renders disabled.
       quit: host.window ? () => host.window?.close() : undefined,

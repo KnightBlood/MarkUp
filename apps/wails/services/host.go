@@ -54,6 +54,17 @@ type AppConfig struct {
 	ShowStats       *bool             `json:"showStats,omitempty"`
 	FocusMode       *bool             `json:"focusMode,omitempty"`
 	ViewZoom        *float64          `json:"viewZoom,omitempty"`
+	AlwaysOnTop     *bool             `json:"alwaysOnTop,omitempty"`
+	ReadOnly        *bool             `json:"readOnly,omitempty"`
+	ExportFolder          *string `json:"exportFolder,omitempty"`
+	ExportAfter           *string `json:"exportAfter,omitempty"`
+	ExportCustomCss       *string `json:"exportCustomCss,omitempty"`
+	ExportHeadHtml        *string `json:"exportHeadHtml,omitempty"`
+	ExportBodyHtml        *string `json:"exportBodyHtml,omitempty"`
+	ExportOutline         *bool   `json:"exportOutline,omitempty"`
+	ExportPageSize        *string `json:"exportPageSize,omitempty"`
+	ExportPageMargin      *string `json:"exportPageMargin,omitempty"`
+	ExportPageBreakOnH1   *bool   `json:"exportPageBreakOnH1,omitempty"`
 	ImagePaste      *bool             `json:"imagePaste,omitempty"`
 	Spellcheck      *bool             `json:"spellcheck,omitempty"`
 	DisabledPlugins []string          `json:"disabledPlugins,omitempty"`

@@ -1,4 +1,4 @@
-import { EditorState, EditorSelection, RangeSetBuilder } from '@codemirror/state'
+import { EditorState, EditorSelection, RangeSetBuilder, Compartment } from '@codemirror/state'
 import { basicSetup } from 'codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import {
@@ -133,10 +133,15 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
   let suppressChange = false
   let lineNumbers = false
   let spellcheck = false
+  let readOnly = false
+  const readOnlyCompartment = new Compartment()
   const { onChange } = options
 
   const applyChrome = (): void => {
-    if (rootEl) rootEl.classList.toggle('hide-line-numbers', !lineNumbers)
+    if (rootEl) {
+      rootEl.classList.toggle('hide-line-numbers', !lineNumbers)
+      rootEl.classList.toggle('is-readonly', readOnly)
+    }
     if (view) view.contentDOM.spellcheck = spellcheck
   }
 
@@ -181,6 +186,7 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
           extensions: [
             basicSetup,
             markdown(),
+            readOnlyCompartment.of(EditorView.editable.of(!readOnly)),
             hiddenMarkupPlugin,
             EditorView.lineWrapping,
             EditorView.updateListener.of((update) => {
@@ -328,6 +334,16 @@ export function createHybridAdapter(options: HybridAdapterOptions = {}): ViewAda
 
     setSpellcheck(enabled: boolean): void {
       spellcheck = enabled
+      applyChrome()
+    },
+
+    setReadOnly(enabled: boolean): void {
+      readOnly = enabled
+      // `.reconfigure` rather than a DOM attribute: CodeMirror owns
+      // `contenteditable` and would reset anything set behind its back.
+      view?.dispatch({
+        effects: readOnlyCompartment.reconfigure(EditorView.editable.of(!enabled)),
+      })
       applyChrome()
     },
 

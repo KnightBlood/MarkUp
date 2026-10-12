@@ -121,9 +121,17 @@ export function createFindPanel(options: FindReplaceOptions): FindPanelApi {
 
   const goTo = (index: number): void => {
     if (matches.length === 0) return
+    // Locating the match focuses the adapter — `source.ts` calls
+    // textarea.focus() inside restoreAnchor, and editorPane.gotoAnchor calls
+    // active.focus() on top of that — so each keystroke yanked focus back to
+    // the document and cut the query short. Hand it straight back to whatever
+    // in this panel had it; doing it synchronously means the browser never
+    // paints the editor-focused state in between.
+    const hadFocus = document.activeElement
     current = ((index % matches.length) + matches.length) % matches.length
     const match = matches[current]!
     options.gotoAnchor({ offset: match.start, line: match.line, endOffset: match.end })
+    if (hadFocus instanceof HTMLElement && root.contains(hadFocus)) hadFocus.focus()
     updateCount()
   }
 

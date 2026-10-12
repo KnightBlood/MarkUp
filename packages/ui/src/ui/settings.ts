@@ -812,63 +812,64 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         class: 'settings__label',
         text: '把 Unicode 标点的替代形式当作 ASCII 来读：「title」/«title» 当作链接标题，》当作引用，全角 ＃＊－ 当作 Markdown 标记 —— 适合输入法打不出 ASCII 标点的情况。源文件不改写，但渲染结果会是重映射后的形式。',
       }),
+
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'syntax-preference' },
+      el('h3', { class: 'settings__heading', text: '语法偏好' }),
       el(
-        'section',
-        { class: 'settings__section', 'data-section': 'syntax-preference' },
-        el('h3', { class: 'settings__heading', text: '语法偏好' }),
-        el(
-          'label',
-          { class: 'settings__field settings__field--row' },
-          mdStrictCheck,
-          el('span', { class: 'settings__label', text: '严格模式（更贴近 GFM 标准）' }),
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '标题样式' }),
-          mdHeadingStyleSelect,
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '无序列表标记' }),
-          mdBulletCharSelect,
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '有序列表标记' }),
-          mdOrderedCharSelect,
-        ),
-        el(
-          'label',
-          { class: 'settings__field settings__field--row' },
-          mdCodeLineNumbersCheck,
-          el('span', { class: 'settings__label', text: '代码块显示行号' }),
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '代码缩进（空格数）' }),
-          mdCodeIndentInput,
-        ),
-        el(
-          'label',
-          { class: 'settings__field settings__field--row' },
-          mdAutoNumberMathCheck,
-          el('span', { class: 'settings__label', text: '自动添加公式序号' }),
-        ),
-        el(
-          'label',
-          { class: 'settings__field settings__field--row' },
-          mdAmsNumberingCheck,
-          el('span', { class: 'settings__label', text: '根据 AMS 规则编号' }),
-        ),
-        el('p', {
-          class: 'settings__label',
-          text: '以上只影响通过菜单栏或快捷键生成的样式（Typora 原话）；直接敲进去的源码不受影响。',
-        }),
+        'label',
+        { class: 'settings__field settings__field--row' },
+        mdStrictCheck,
+        el('span', { class: 'settings__label', text: '严格模式（更贴近 GFM 标准）' }),
       ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '标题样式' }),
+        mdHeadingStyleSelect,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '无序列表标记' }),
+        mdBulletCharSelect,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '有序列表标记' }),
+        mdOrderedCharSelect,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        mdCodeLineNumbersCheck,
+        el('span', { class: 'settings__label', text: '代码块显示行号' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '代码缩进（空格数）' }),
+        mdCodeIndentInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        mdAutoNumberMathCheck,
+        el('span', { class: 'settings__label', text: '自动添加公式序号' }),
+      ),
+      el(
+        'label',
+        { class: 'settings__field settings__field--row' },
+        mdAmsNumberingCheck,
+        el('span', { class: 'settings__label', text: '根据 AMS 规则编号' }),
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '以上只影响通过菜单栏或快捷键生成的样式（Typora 原话）；直接敲进去的源码不受影响。',
+      }),
     ),
   )
 
@@ -937,33 +938,34 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
         imageApplyLocalCheck,
         el('span', { class: 'settings__label', text: '对本地位置的图片应用上述规则' }),
       ),
+
+    ),
+    el(
+      'section',
+      { class: 'settings__section', 'data-section': 'image-upload' },
+      el('h3', { class: 'settings__heading', text: '上传服务' }),
       el(
-        'section',
-        { class: 'settings__section', 'data-section': 'image-upload' },
-        el('h3', { class: 'settings__heading', text: '上传服务' }),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '图片质量' }),
-          imageQualitySelect,
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: '上传图片命令' }),
-          imageUploadCommandInput,
-        ),
-        el(
-          'label',
-          { class: 'settings__field' },
-          el('span', { class: 'settings__label', text: 'PicGo 可执行文件路径' }),
-          imagePicgoPathInput,
-        ),
-        el('p', {
-          class: 'settings__label',
-          text: '上传命令与导出项列表同一阻塞点：执行外部命令需要新增 app.runCommand 并在五壳实现，本机无法验证，故留空即不上传。',
-        }),
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '图片质量' }),
+        imageQualitySelect,
       ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: '上传图片命令' }),
+        imageUploadCommandInput,
+      ),
+      el(
+        'label',
+        { class: 'settings__field' },
+        el('span', { class: 'settings__label', text: 'PicGo 可执行文件路径' }),
+        imagePicgoPathInput,
+      ),
+      el('p', {
+        class: 'settings__label',
+        text: '上传命令与导出项列表同一阻塞点：执行外部命令需要新增 app.runCommand 并在五壳实现，本机无法验证，故留空即不上传。',
+      }),
     ),
   )
 
@@ -1139,6 +1141,13 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     ['image', imagePanel],
     ['export', exportPanel],
   ])
+  // Typora heads each page with its category name, rendered from CSS via
+  // attr(data-tab-label). Without it the page has no title at all, since the
+  // section headings below are per-option labels rather than page titles.
+  for (const { id, label } of TAB_LABELS) {
+    const panel = panels.get(id)
+    if (panel) panel.dataset.tabLabel = label
+  }
 
   const setTab = (tab: string): void => {
     activeTab = tab
@@ -1540,28 +1549,38 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
   )
   const panel = el(
     'div',
-    // Not a dialog: there is no backdrop, so it is not modal — clicking the editor
-  // is just editing, same as Typora. A region is the honest role.
-  { class: 'settings__panel', role: 'region', 'aria-label': '设置' },
+    // Typora's preferences are a full page, not a drawer that leaves the editor
+    // visible: category list on the left, options on the right, close at the far
+    // end of a title bar. No backdrop, so a `region` is still the honest role.
+    { class: 'settings__panel', role: 'region', 'aria-label': '偏好设置' },
     el(
       'header',
-      { class: 'settings__header' },
-      el('h2', { class: 'settings__title', text: '设置' }),
-      searchInput,
+      { class: 'settings__bar' },
+      el('h2', { class: 'settings__title', text: '偏好设置' }),
+      el('span', { class: 'settings__bar-spacer' }),
       el('button', {
         class: 'settings__close',
         type: 'button',
         text: '×',
-        'aria-label': '关闭',
+        'aria-label': '关闭偏好设置',
         onclick: () => close(),
       }),
     ),
-    searchStatus,
-    tabNav,
-    body,
+    el(
+      'div',
+      { class: 'settings__layout' },
+      el(
+        'div',
+        { class: 'settings__nav' },
+        searchInput,
+        tabNav,
+        searchStatus,
+      ),
+      body,
+    ),
   )
-  // Visibility is the `is-open` class only — width 0 when closed, so the editor
-  // keeps the whole row. No `hidden` attribute: there is no backdrop to hide.
+  // Visibility is the `is-open` class only — the page covers the shell-body
+  // area, so no `hidden` attribute and no backdrop to dismiss.
   const root = el('div', { class: 'settings' }, panel)
 
   const registerTab = (spec: SettingsTabSpec): (() => void) => {
@@ -1577,6 +1596,8 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     })
     const newPanel = spec.render()
     newPanel.hidden = true
+    // Registered panels get the same CSS-rendered page title as the built-ins.
+    newPanel.dataset.tabLabel = spec.label
     tabNav.appendChild(button)
     body.appendChild(newPanel)
     tabButtons.set(spec.id, button)
@@ -1597,7 +1618,9 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
     else setTab(activeTab)
     root.classList.add('is-open')
     root.hidden = false
-    themeSelect.focus()
+    // Typora drops the caret in the search box, since that is how anyone with
+    // 500+ options actually navigates the page.
+    searchInput.focus()
   }
 
   const close = (): void => {

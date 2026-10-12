@@ -82,11 +82,8 @@ body {
   display: flex;
   flex: 1;
   min-height: 0;
-}
-
-/* 右侧滑入面板的展开宽度。收起时为 0，所以编辑器在面板关闭时占满剩余空间。 */
-:root {
-  --settings-width: min(420px, 26vw);
+  /* The preferences page covers this area, so it needs a containing block. */
+  position: relative;
 }
 
 /* Editor column: the document tab strip lives here so it sits on the exact
@@ -1052,70 +1049,103 @@ body {
   filter: brightness(1.08);
 }
 
-/* 右侧滑入面板，不是居中弹窗：打开设置时编辑器仍然可点，可以边改边看效果 ——
- * 这正是偏好设置这个界面存在的意义。收起时宽度 0，展开时滑入。
- * 纯 DOM + CSS，不调用任何宿主 API，四个壳零差异。 */
+/* 偏好设置是整页接管，不是右侧抽屉 —— 打开后编辑器不可见，跟 Typora 一样。
+ * 覆盖 .shell-body 区域（菜单栏和状态栏仍露出），纯 DOM + CSS，四壳零差异。
+ * 关掉用 visibility 而非 display:none，好让面板自己做一次滑入。 */
 .settings {
-  flex: none;
-  width: 0;
-  overflow: hidden;
+  position: absolute;
+  inset: 0;
   z-index: 120;
-  transition: width 0.22s ease;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .settings.is-open {
-  flex: none;
-  width: var(--settings-width, min(420px, 26vw));
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .settings__panel {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow: auto;
-  border-left: 1px solid var(--border);
   background: var(--bg-raise);
+  transform: translateX(18px);
+  opacity: 0;
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-.settings__header {
+.settings.is-open .settings__panel {
+  transform: none;
+  opacity: 1;
+}
+
+/* 页顶标题栏：标题靠左，关闭按钮贴最右并自带一条竖分隔线。 */
+.settings__bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
+  flex: none;
+  height: 46px;
+  padding-left: 24px;
   border-bottom: 1px solid var(--border);
+}
+
+.settings__bar-spacer {
+  flex: 1;
 }
 
 .settings__title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--fg);
 }
 
 .settings__close {
+  width: 46px;
+  height: 100%;
   border: none;
+  border-left: 1px solid var(--border);
   background: transparent;
   color: var(--fg-muted);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  padding: 2px 6px;
 }
 
 .settings__close:hover {
   color: var(--fg);
+  background: var(--hover, rgba(127, 127, 127, 0.12));
 }
 
-/* Header search: filters every tab's fields generically (see applyFilter). */
-.settings__search {
+/* 左导航栏 + 右内容区。内容区自己滚动，导航栏固定。 */
+.settings__layout {
+  display: flex;
   flex: 1;
-  min-width: 0;
-  max-width: 320px;
-  margin-left: 16px;
+  min-height: 0;
+}
+
+.settings__nav {
+  flex: none;
+  width: 260px;
+  padding: 24px 16px 24px 48px;
+  overflow: auto;
+}
+
+/* 左栏搜索框：过滤所有分类的字段（见 applyFilter）。 */
+.settings__search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 18px;
   font: inherit;
   font-size: 13px;
   color: var(--fg);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 6px 10px;
 }
 
@@ -1125,8 +1155,8 @@ body {
 }
 
 .settings__search-status {
-  margin: 0;
-  padding: 8px 16px 0;
+  margin: 10px 0 0;
+  padding-left: 10px;
   color: var(--fg-muted);
 }
 
@@ -1439,12 +1469,43 @@ body {
 }
 
 .settings__body {
-  padding: 8px 16px 16px;
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 30px 48px 80px 76px;
 }
 
+/* 内容块不随窗口无限拉宽：标签列和控件列的间距才该是固定的。 */
+.settings__panel-body {
+  max-width: 880px;
+}
+
+.settings__panel-body::before {
+  content: attr(data-tab-label);
+  display: block;
+  margin: 0 0 28px;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* 标签左、控件右两栏。分组标题（启动 / 保存与恢复 …）占左栏并纵跨该组所有
+ * 行，右栏依次排下这一组的复选框和输入框 —— 这正是 Typora 的排法。 */
 .settings__section {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  column-gap: 32px;
+  padding: 13px 0;
+}
+
+.settings__section > * {
+  grid-column: 2;
+}
+
+.settings__section > .settings__heading {
+  grid-column: 1;
+  grid-row: 1 / 100;
+  align-self: start;
 }
 
 .settings__section:last-child {
@@ -1456,12 +1517,12 @@ body {
 }
 
 .settings__heading {
-  margin: 0 0 10px;
-  font-size: 12px;
+  margin: 0;
+  padding-top: 1px;
+  font-size: 13.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--fg);
+  line-height: 1.5;
 }
 
 .settings__field {
@@ -1530,11 +1591,12 @@ body {
   gap: 8px 12px;
 }
 
+/* 分类导航：竖排列表，不是横排 tab —— 横排在 8 个分类下会把「编辑器」这类
+ * 三字标签挤成竖排换行。 */
 .settings__tabs {
   display: flex;
-  gap: 4px;
-  padding: 8px 16px 0;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* ---- 快捷键 tab ------------------------------------------------------ */
@@ -1662,22 +1724,24 @@ body {
 
 .settings__tab {
   font: inherit;
-  font-size: 13px;
-  padding: 8px 12px;
+  font-size: 13.5px;
+  white-space: nowrap;
+  text-align: left;
+  padding: 7px 12px;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 4px;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--fg);
   cursor: pointer;
 }
 
 .settings__tab:hover {
-  color: var(--fg);
+  background: var(--hover, rgba(127, 127, 127, 0.12));
 }
 
 .settings__tab.is-active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  background: var(--active, rgba(127, 127, 127, 0.2));
+  font-weight: 600;
 }
 
 .settings__panel-body[hidden] {

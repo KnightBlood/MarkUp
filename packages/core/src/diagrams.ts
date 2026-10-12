@@ -1,3 +1,5 @@
+import { shellThemeMode } from './themeMode'
+
 export type DiagramLang = 'mermaid' | 'flow'
 
 const DIAGRAM_ALIASES: Record<string, DiagramLang> = {
@@ -22,13 +24,21 @@ interface FlowchartApi {
 
 type FlowchartNamespace = Partial<FlowchartApi> & { default?: Partial<FlowchartApi> }
 
-let mermaidReady = false
+/**
+ * mermaid bakes its palette into `initialize()`, so the config is re-applied
+ * only when the shell flips — a one-shot "already initialized" flag froze the
+ * diagrams on the light theme no matter what the user picked.
+ */
+let mermaidTheme = ''
 
 async function renderMermaid(code: string, container: HTMLElement): Promise<void> {
   const { default: mermaid } = await import('mermaid')
-  if (!mermaidReady) {
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' })
-    mermaidReady = true
+  // 'neutral' stays the light default; 'dark' keeps node fills readable on the
+  // shell's dark surface instead of leaving a light card floating in it.
+  const theme = shellThemeMode() === 'dark' ? 'dark' : 'neutral'
+  if (theme !== mermaidTheme) {
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme })
+    mermaidTheme = theme
   }
   const id = `mk-diagram-${Math.random().toString(36).slice(2, 10)}`
   const { svg, bindFunctions } = await mermaid.render(id, code)

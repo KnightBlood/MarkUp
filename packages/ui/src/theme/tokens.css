@@ -10,7 +10,12 @@
   --accent: #0969da;
   --accent-fg: #ffffff;
   --ok: #1a7f37;
+  --warn: #9a6700;
   --bad: #cf222e;
+
+  /* Corner radius scale, in px: {4, 6, 8, 10, 999} — nothing else. Call sites
+     carry the literal value, so a stray 5px is exactly what makes sibling
+     panels look unrelated; widen this set rather than inventing a one-off. */
 
   /* Kept as separate tokens so a user-supplied family list can be prepended
      without losing the fallback stack (see `fontVars` in ui/src/theme.ts). */
@@ -33,6 +38,18 @@
   --mk-mono: var(--font-editor);
   --mk-bad: var(--bad);
 
+  /* Surface colors for the embedded guests — the file/drawio/plantuml
+     preview canvases, the embed buttons, the table toolbar and the fence
+     language badge. core's CSS gives every one of them a literal *light*
+     fallback (`var(--mk-bg, #fff)`), and only `--mk-border` was mapped here,
+     so all of them stayed white-on-dark until the tokens below were added. */
+  --mk-bg: var(--bg);
+  --mk-fg: var(--fg);
+  --mk-fg-muted: var(--fg-muted);
+  --mk-surface: var(--bg-raise);
+  /* shell.css spells this without the `mk-` prefix; keep one source. */
+  --mono: var(--font-editor);
+
   --titlebar-height: 44px;
   --statusbar-height: 26px;
   --sidebar-width: 240px;
@@ -50,6 +67,7 @@
     --border: #30363d;
     --accent: #4493f8;
     --ok: #3fb950;
+    --warn: #d29922;
     --bad: #f85149;
   }
 }
@@ -64,6 +82,7 @@
   --border: #30363d;
   --accent: #4493f8;
   --ok: #3fb950;
+  --warn: #d29922;
   --bad: #f85149;
 }
 
@@ -77,6 +96,7 @@
   --border: #d0d7de;
   --accent: #0969da;
   --ok: #1a7f37;
+  --warn: #9a6700;
   --bad: #cf222e;
 }
 
@@ -93,6 +113,7 @@
   --accent: #0969da;
   --accent-fg: #ffffff;
   --ok: #1a7f37;
+  --warn: #9a6700;
   --bad: #cf222e;
   --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -108,6 +129,7 @@
   --accent: #4493f8;
   --accent-fg: #ffffff;
   --ok: #3fb950;
+  --warn: #d29922;
   --bad: #f85149;
   --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }

@@ -1,4 +1,5 @@
 import type { HydrateResult } from './diagrams'
+import { shellThemeMode } from './themeMode'
 
 export type EmbedKind =
   | 'model'
@@ -672,14 +673,6 @@ function fileViewerNameFor(raw: string): string {
   return base || 'preview.bin'
 }
 
-/** Mirrors the shell theme classes onto the viewer's own theme option. */
-function fileViewerTheme(): 'light' | 'dark' | 'system' {
-  const root = document.documentElement
-  if (root.classList.contains('theme-dark')) return 'dark'
-  if (root.classList.contains('theme-light')) return 'light'
-  return 'system'
-}
-
 /**
  * Mounts one `<flyfish-file-viewer>` for already-resolved bytes. Shared by
  * ```file and by the diagram formats the viewer renders natively
@@ -709,7 +702,9 @@ async function mountFileViewer(
   // `viewer.type` deliberately left unset: the controller derives the
   // routing extension from the filename (`source.type` is extension-shaped
   // there — a MIME makes `getByExtension` miss → unsupported state).
-  viewer.options = { locale: 'zh-CN', theme: fileViewerTheme() }
+  // Theme comes from the shell's computed tokens, not its class — see
+  // shellThemeMode for why the class check was wrong for github themes.
+  viewer.options = { locale: 'zh-CN', theme: shellThemeMode() }
   host.append(viewer)
 }
 

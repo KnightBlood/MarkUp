@@ -1117,7 +1117,7 @@ body {
 
 .settings__close:hover {
   color: var(--fg);
-  background: var(--hover, rgba(127, 127, 127, 0.12));
+  background: var(--bg-soft);
 }
 
 /* 左导航栏 + 右内容区。内容区自己滚动，导航栏固定。 */
@@ -1197,7 +1197,7 @@ body {
   height: 26px;
   padding: 0 5px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg);
   font: inherit;
@@ -1736,11 +1736,12 @@ body {
 }
 
 .settings__tab:hover {
-  background: var(--hover, rgba(127, 127, 127, 0.12));
+  background: var(--bg-soft);
 }
 
 .settings__tab.is-active {
-  background: var(--active, rgba(127, 127, 127, 0.2));
+  background: var(--bg-soft);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -2187,7 +2188,7 @@ body > .ML__keyboard {
 }
 
 .toast--warn {
-  border-left-color: #d29922;
+  border-left-color: var(--warn);
 }
 
 .toast--error {
@@ -2576,5 +2577,5 @@ body > .ML__keyboard {
 }
 
 .plantuml-editor__status--warn {
-  color: var(--warn, #b58a2a);
+  color: var(--warn);
 }

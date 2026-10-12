@@ -1,4 +1,5 @@
 import { el } from '../dom'
+import { shellThemeMode } from '../../../core/src/themeMode'
 import {
   FLOW_TEMPLATE,
   nextFlowNodeId,
@@ -1033,7 +1034,7 @@ export function createDiagramEditor(): DiagramEditorApi {
           editor: visEngine,
           container: canvasHost,
           mermaid: mermaidMod.default,
-          mermaidConfig: { theme: 'neutral' },
+          mermaidConfig: { theme: shellThemeMode() === 'dark' ? 'dark' : 'neutral' },
           panZoom: true,
         })
         visToolOff = visView.on('toolChange', (tool) => {

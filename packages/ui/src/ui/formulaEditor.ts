@@ -427,12 +427,49 @@ export function createFormulaEditor(): FormulaEditorApi {
     }
   }
 
+  /**
+   * mathlive's virtual keyboard ships its own light palette, which drops a
+   * white slab into a dark shell. It resolves `--keyboard-*` off any ancestor,
+   * so painting them from the shell's tokens keeps it on-theme — and keeps the
+   * tokens the single source of the palette.
+   */
+  const KEYBOARD_TOKEN_FOR: Record<string, string> = {
+    '--keyboard-background': '--bg-raise',
+    '--keyboard-text': '--fg',
+    '--keyboard-border': '--border',
+    '--keyboard-accent-color': '--accent',
+    '--keyboard-toolbar-background': '--bg-soft',
+    '--keyboard-toolbar-text': '--fg-muted',
+  }
+
+  function rootStyle(): CSSStyleDeclaration | undefined {
+    return (document.documentElement as HTMLElement & { style?: CSSStyleDeclaration }).style
+  }
+
+  /** Read once per open: the keyboard is torn down with the editor. */
+  function applyKeyboardTheme(): void {
+    const style = rootStyle()
+    if (!style) return
+    const computed = getComputedStyle(document.documentElement)
+    for (const [target, token] of Object.entries(KEYBOARD_TOKEN_FOR)) {
+      const value = computed.getPropertyValue(token).trim()
+      if (value) style.setProperty(target, value)
+    }
+  }
+
+  function clearKeyboardTheme(): void {
+    const style = rootStyle()
+    if (!style) return
+    for (const target of Object.keys(KEYBOARD_TOKEN_FOR)) style.removeProperty(target)
+  }
+
   function close(): void {
     if (root.hidden) return
     const opts = openState
     openState = null
     root.hidden = true
     hideVirtualKeyboard()
+    clearKeyboardTheme()
     try {
       ;(document.documentElement as HTMLElement & { style?: CSSStyleDeclaration }).style?.removeProperty?.(
         '--keyboard-zindex',
@@ -472,6 +509,7 @@ export function createFormulaEditor(): FormulaEditorApi {
     } catch {
       /* ignore */
     }
+    applyKeyboardTheme()
     refreshPreview()
     void mountMathlive()
     sourceArea.focus()

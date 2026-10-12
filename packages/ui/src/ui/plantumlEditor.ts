@@ -203,6 +203,8 @@ export function createPlantumlEditor(): PlantumlEditorApi {
     const opts = openState
     openState = null
     teardown()
+    // .settings 显示靠 is-open；hidden 另负责把它彻底移出布局（见 shell.css 模态段）
+    root.classList.remove('is-open')
     root.hidden = true
     opts?.onCancel?.()
   }
@@ -213,6 +215,7 @@ export function createPlantumlEditor(): PlantumlEditorApi {
     const code = latest
     openState = null
     teardown()
+    root.classList.remove('is-open')
     root.hidden = true
     opts.onConfirm(code)
   }
@@ -356,6 +359,7 @@ export function createPlantumlEditor(): PlantumlEditorApi {
     visualPane.replaceChildren(notice('正在加载可视化编辑器…', 'plantuml-editor__hint'))
     rightPane.replaceChildren()
     setTab('visual')
+    root.classList.add('is-open')
     root.hidden = false
     panel.focus()
     schedulePreview(options.code)

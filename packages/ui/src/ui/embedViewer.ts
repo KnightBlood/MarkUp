@@ -176,8 +176,10 @@ export function createEmbedViewer(): EmbedViewerApi {
   function close(): void {
     if (root.hidden) return
     renderToken += 1
+    root.classList.remove('is-open')
     root.hidden = true
-    // Drop the media element so playback stops with the dialog.
+    // Drop the media element so playback stops with the dialog — and so an
+    // embedded <model-viewer> leaves the shared renderer (see open()).
     stage.replaceChildren()
     stage.classList.remove('embed-viewer__stage--zoomed', 'embed-viewer__stage--clip')
     panel.style.width = ''
@@ -266,6 +268,12 @@ export function createEmbedViewer(): EmbedViewerApi {
     stage.classList.remove('embed-viewer__stage--zoomed', 'embed-viewer__stage--clip')
     panel.style.width = ''
     panel.style.height = ''
+    // `.settings` is visible on `.is-open` alone, but keep `hidden` too: it is
+    // what takes the dialog out of layout. A merely `visibility: hidden` dialog
+    // still lays out, so its <model-viewer> stays a scene of the shared
+    // renderer — and that renderer sizes every canvas to max() across scenes,
+    // which would hand the 360px inline embed a 480px canvas to clip against.
+    root.classList.add('is-open')
     root.hidden = false
     panel.focus()
     void (async () => {

@@ -467,6 +467,8 @@ export function createFormulaEditor(): FormulaEditorApi {
     if (root.hidden) return
     const opts = openState
     openState = null
+    // .settings 显示靠 is-open；hidden 另负责把它彻底移出布局（见 shell.css 模态段）
+    root.classList.remove('is-open')
     root.hidden = true
     hideVirtualKeyboard()
     clearKeyboardTheme()
@@ -499,6 +501,7 @@ export function createFormulaEditor(): FormulaEditorApi {
       el('div', { class: 'formula__fallback', text: '正在加载可视化编辑器…' }),
     )
     mathField = null
+    root.classList.add('is-open')
     root.hidden = false
     hideVirtualKeyboard()
     try {

@@ -59,10 +59,16 @@
   border-radius: 6px;
 }
 
+/* white-space 是可继承属性，会穿过 shadow 边界。编辑器 .ProseMirror 用的是
+   break-spaces，一旦灌进 <model-viewer> 的影子树，模板里「元素之间的空白文本
+   节点」就不再折叠，而是各自撑出一个行盒（line-height 27.2px）：.container、
+   .userInput、.slot 里的画布于是被逐级顶下去 54 / 54 / 109px，模型偏低、底部
+   溢出宿主、上方留出大片空白。宿主上声明 normal，让这些结构空白重新折叠。 */
 .md-embed model-viewer {
   display: block;
   width: 100%;
   height: 360px;
+  white-space: normal;
   background: var(--mk-code-bg, #f6f8fa);
   border: 1px solid var(--mk-border, #d0d7de);
   border-radius: 6px;

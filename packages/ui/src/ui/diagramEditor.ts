@@ -1148,6 +1148,8 @@ export function createDiagramEditor(): DiagramEditorApi {
     if (root.hidden) return
     const opts = openState
     openState = null
+    // .settings 显示靠 is-open；hidden 另负责把它彻底移出布局（见 shell.css 模态段）
+    root.classList.remove('is-open')
     root.hidden = true
     cancelConnectSilently()
     showProps(null)
@@ -1168,6 +1170,7 @@ export function createDiagramEditor(): DiagramEditorApi {
     flowDir = 'TD'
     flowExtras = []
     dirSelect.value = 'TD'
+    root.classList.add('is-open')
     root.hidden = false
     showProps(null)
     cancelConnectSilently()

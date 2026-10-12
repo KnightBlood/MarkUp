@@ -281,8 +281,14 @@ export function createEmbedViewer(): EmbedViewerApi {
         await renderPreview(options, canvas)
         if (token !== renderToken) return
         hint.remove()
-        // Zoom controls only make sense over rendered content.
-        zoomBar.hidden = false
+        // Zoom controls only make sense over rendered content — and only when
+        // the content has none of its own. file / drawio / xmind all mount
+        // `<flyfish-file-viewer>` as `.md-embed__file`, whose own bar already
+        // owns zoom (−/+/%, 1:1, fit, rotation); a second one over it would
+        // disagree (outer 100% vs inner 71%) and scale the inner toolbar
+        // along with the document. Hiding the bar also gates the wheel and
+        // drag handlers below, so the outer zoom goes quiet entirely.
+        zoomBar.hidden = Boolean(canvas.querySelector('.md-embed__file'))
         fitStage()
         // <video> only knows its intrinsic size after metadata — refit once.
         canvas

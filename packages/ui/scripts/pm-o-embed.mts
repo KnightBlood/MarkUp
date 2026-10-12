@@ -239,6 +239,14 @@ if (viewer.el.querySelector('.md-embed__file')) {
     viewer.el.querySelector('flyfish-file-viewer'),
     'flyfish-file-viewer element mounted in viewer stage',
   )
+  // file / drawio / xmind all mount the file viewer, which brings its own
+  // zoom bar — the dialog must yield, otherwise two −/+ sets disagree
+  // (outer 100% vs inner 71%) and the outer scale drags the inner toolbar
+  // along with the document.
+  assert(
+    viewer.el.querySelector<HTMLElement>('.embed-viewer__zoom')?.hidden,
+    'zoom toolbar yields to the file viewer',
+  )
 }
 setEmbedSourceResolver(null)
 viewer.close()

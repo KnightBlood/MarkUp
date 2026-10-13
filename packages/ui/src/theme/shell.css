@@ -1123,9 +1123,12 @@ body {
 }
 
 /* 四个应用内模态仍用旧的 settings__header —— 偏好设置页改成 settings__bar
-   时这条被一并删掉，标题和 × 于是竖着叠成一坨。 */
+   时这条被一并删掉，标题和 × 于是竖着叠成一坨。
+   flex-wrap:nowrap 是硬约束：标题栏只能有一行，下面靠 .settings__title 的
+   省略号和右侧控件的 flex:none 保证任何宽度下都不折行、不被挤压。 */
 .settings__header {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
@@ -1146,14 +1149,22 @@ body {
   flex: 1;
 }
 
+/* 标题独占剩余宽度并单行截断（CJK 可逐字断行，不加 nowrap 的话窄窗体下
+   标题会折成两行，把标题栏顶高）。min-width:0 让它允许被压到 0。 */
 .settings__title {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   font-size: 15px;
   font-weight: 600;
   color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings__close {
+  flex: none;
   width: 46px;
   height: 100%;
   border: none;
@@ -2298,11 +2309,18 @@ body > .ML__keyboard {
 /* 放大预览对话框：尺寸规则由 embedViewer.fitStage() 驱动 ——
    内容低于上限 → 弹窗缩到贴合内容（面板 inline 宽高）；
    内容达到上限 → 弹窗钉在 max 上、内容 scale 适配窗口。
-   下面的宽高即「上限」以及无布局环境（jsdom）的回退值。 */
+   下面的宽高即「上限」以及无布局环境（jsdom）的回退值；最大化态另有一条
+   :has() 规则把两者覆盖成 100%。
+   这里刻意不用自定义属性中转：width: var(x) 代入两个声明值得到的是非法
+   语法，属性会在计算期失效并退回 auto，弹窗就没了上限。
+   min-width 是标题栏的下限：贴合规则把面板缩到内容宽时，标题栏（缩放条 +
+   窗口按钮 + 关闭）本身就要 260px 左右，不给下限的话标题会被挤成 0 宽、
+   右端按钮还会溢出面板。 */
 .embed-viewer__panel {
   display: flex;
   flex-direction: column;
   width: min(920px, calc(100vw - 32px));
+  min-width: min(340px, calc(100vw - 32px));
   height: min(80vh, 720px);
   overflow: hidden;
 }
@@ -2311,9 +2329,12 @@ body > .ML__keyboard {
   outline: none;
 }
 
-/* 缩放工具条：fit 基线之上的用户缩放（−/%/+/适应），滚轮同效 */
+/* 缩放工具条：fit 基线之上的用户缩放（−/%/+/适应），滚轮同效。
+   flex:none —— 这一排连同最大化的图标按钮都不能被标题挤窄，否则百分比
+   会折行、标题栏跟着变高。 */
 .embed-viewer__zoom {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 4px;
   margin-left: auto;
@@ -2348,6 +2369,7 @@ body > .ML__keyboard {
   color: var(--fg-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .embed-viewer__body {
@@ -2416,6 +2438,58 @@ body > .ML__keyboard {
 .embed-viewer__render {
   /* natural (max-content) sizing: fitStage measures this box */
   width: max-content;
+}
+
+/* ── 最大化 / 还原窗口按钮 ───────────────────────────────────────────
+   只画图不写字：标题栏必须单行，「最大化 / 还原」四个字会把标题挤到换行。
+   最大化把面板钉到「上限」，并把舞台撑满覆盖区（.inset），于是内容按整屏适配、
+   而不是按对话框原始矩形居中；再配合 background:transparent 去掉遮罩，读大
+   文档时眼前只有文档。还原回到原来的居中卡片 + 遮罩。 */
+.embed-viewer__win-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.embed-viewer__win-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 最大化态：钉上限 + 舞台撑满覆盖区 + 去遮罩。
+   覆盖区就是 .settings 的 inset:0（含菜单栏与状态栏），所以真正铺满窗口。
+   边框/圆角/投影一并去掉（已是满屏，卡片观感没有意义），内容区 padding 归零
+   才算真的用满 —— fitStage() 按 stage 的 clientWidth/Height 居中画布。 */
+.settings.embed-viewer:has(.embed-viewer__stage--maximized) .settings__panel {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.settings.embed-viewer:has(.embed-viewer__stage--maximized) {
+  padding-top: 0;
+  background: transparent;
+}
+
+.settings.embed-viewer:has(.embed-viewer__stage--maximized) .embed-viewer__body {
+  padding: 0;
+}
+
+.settings.embed-viewer:has(.embed-viewer__stage--maximized) .embed-viewer__stage {
+  align-self: stretch;
+  width: 100%;
 }
 
 /* Viewer-app content has no intrinsic size — give it a default frame that

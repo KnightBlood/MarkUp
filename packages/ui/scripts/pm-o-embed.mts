@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -322,7 +323,62 @@ assert(zoomBar.hidden, 'zoom toolbar hidden on error fallback')
 viewer.close()
 assert(zoomBar.hidden, 'zoom toolbar hidden after close')
 
+// ── 最大化 / 还原：图标而非文字，标题栏必须是单行 ────────────────────
+viewer.open({ math: { latex: 'a^2 + b^2 = c^2' } })
+await waitFor(() => viewer.el.querySelector('.katex'), 'math katex for maximize')
+const maxBtn = viewer.el.querySelector<HTMLButtonElement>('.embed-viewer__win-btn')
+assert(maxBtn, 'maximize button present in the title bar')
+// 文字（最大化 / 还原）会把标题挤到第二行 —— 按钮只能是图形。
+assert((maxBtn.textContent ?? '').trim() === '', 'maximize button carries no wording')
+const glyphs = Array.from(maxBtn.querySelectorAll('svg'))
+assert(glyphs.length === 2, `maximize + restore glyphs both shipped, got ${glyphs.length}`)
+assert(
+  glyphs[0]?.style.display !== 'none' && glyphs[1]?.style.display === 'none',
+  'maximize glyph shown while restored',
+)
+assert(maxBtn.getAttribute('aria-pressed') === 'false', 'aria-pressed=false while restored')
+assert(maxBtn.getAttribute('title') === '最大化', `restored title: ${maxBtn.getAttribute('title')}`)
+const hdr = viewer.el.querySelector<HTMLElement>('.settings__header')
+assert(hdr, 'dialog header present')
+const row = Array.from(hdr.children)
+  .map((c) => c.className)
+  .join(' ')
+assert(
+  row === 'settings__title embed-viewer__zoom embed-viewer__win-btn settings__close',
+  `title bar row: ${row}`,
+)
+
+maxBtn.click()
+const stageMax = viewer.el.querySelector('.embed-viewer__stage')
+assert(stageMax?.classList.contains('embed-viewer__stage--maximized'), 'maximize arms the stage class')
+assert(maxBtn.getAttribute('aria-pressed') === 'true', 'aria-pressed=true while maximized')
+assert(maxBtn.getAttribute('title') === '还原', `maximized title: ${maxBtn.getAttribute('title')}`)
+assert(
+  glyphs[0]?.style.display === 'none' && glyphs[1]?.style.display === '',
+  'restore glyph shown while maximized',
+)
+
+// Esc 逐级退出：最大化 → 还原 → 关闭。直接关掉会让「还原」没有退路。
+hdr.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+assert(viewer.isOpen(), 'escape from maximized only restores')
+assert(!stageMax?.classList.contains('embed-viewer__stage--maximized'), 'stage class cleared on restore')
+assert(maxBtn.getAttribute('aria-pressed') === 'false', 'aria-pressed back to false after restore')
+hdr.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+assert(!viewer.isOpen(), 'second escape closes the dialog')
+assert(
+  maxBtn.getAttribute('aria-pressed') === 'false' && glyphs[1]?.style.display === 'none',
+  'close resets the maximize toggle',
+)
+
+// 标题栏不换行只能由 CSS 保证（jsdom 不做布局），读源码把规则钉住。
+const shellCss = readFileSync(new URL('../src/theme/shell.css', import.meta.url), 'utf8')
+const titleRule = /\.settings__title\s*\{[^}]*\}/.exec(shellCss)?.[0] ?? ''
+assert(/white-space:\s*nowrap/.test(titleRule), '.settings__title must stay nowrap')
+assert(/text-overflow:\s*ellipsis/.test(titleRule), '.settings__title ellipsizes instead of wrapping')
+const headerRule = /\.settings__header\s*\{[^}]*\}/.exec(shellCss)?.[0] ?? ''
+assert(/flex-wrap:\s*nowrap/.test(headerRule), '.settings__header must not flex-wrap')
+
 console.log(
-  'SMOKE UI EMBED OK: viewer open/video render + escape/backdrop close + resolver error copy + model/mindmap tolerance + xmind/drawio/plantuml/file titles + diagram/math variants + zoom toolbar',
+  'SMOKE UI EMBED OK: viewer open/video render + escape/backdrop close + resolver error copy + model/mindmap tolerance + xmind/drawio/plantuml/file titles + diagram/math variants + zoom toolbar + icon-only maximize/restore with single-row title bar',
 )
 process.exit(0)

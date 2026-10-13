@@ -98,6 +98,27 @@ function naturalSize(canvas: HTMLElement): { w: number; h: number } {
   return { w: canvas.offsetWidth, h: canvas.offsetHeight }
 }
 
+/**
+ * Inline SVG glyph for the title-bar window button. The button is icon-only
+ * on purpose: wording (最大化 / 还原) would take horizontal room the header
+ * does not have, and the title bar must stay a single row. `currentColor`
+ * keeps the glyph in step with the button's own foreground.
+ */
+function svgIcon(pathD: string): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('focusable', 'false')
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('d', pathD)
+  path.setAttribute('fill', 'none')
+  path.setAttribute('stroke', 'currentColor')
+  path.setAttribute('stroke-width', '1.4')
+  path.setAttribute('stroke-linejoin', 'round')
+  svg.append(path)
+  return svg
+}
+
 export function createEmbedViewer(): EmbedViewerApi {
   let renderToken = 0
   /** User zoom multiplier over the fit baseline (1 = the plain fit rule). */
@@ -106,6 +127,8 @@ export function createEmbedViewer(): EmbedViewerApi {
   let fitScale = 1
   let panX = 0
   let panY = 0
+  /** Maximised: the panel covers the overlay, overriding fitStage's fit rule. */
+  let maximized = false
 
   const titleEl = el('h2', { class: 'settings__title', text: '嵌入预览' })
   const closeBtn = el('button', {
@@ -149,12 +172,28 @@ export function createEmbedViewer(): EmbedViewerApi {
     zoomInBtn,
     zoomFitBtn,
   )
+  const maxBtnIcon = svgIcon('M3.5 3.5h9v9h-9z')
+  const restoreBtnIcon = svgIcon('M6.5 6.5h6v6h-6z M10 3.5H3.5v6')
+  restoreBtnIcon.style.display = 'none'
+  const maxBtn = el(
+    'button',
+    {
+      class: 'embed-viewer__win-btn',
+      type: 'button',
+      'aria-label': '最大化',
+      'aria-pressed': 'false',
+      title: '最大化',
+      onclick: () => setMaximized(!maximized),
+    },
+    maxBtnIcon,
+    restoreBtnIcon,
+  )
   const stage = el('div', { class: 'embed-viewer__stage' })
 
   const panel = el(
     'div',
     { class: 'settings__panel embed-viewer__panel', role: 'dialog', 'aria-label': '嵌入预览', tabindex: '-1' },
-    el('header', { class: 'settings__header' }, titleEl, zoomBar, closeBtn),
+    el('header', { class: 'settings__header' }, titleEl, zoomBar, maxBtn, closeBtn),
     el('div', { class: 'settings__body embed-viewer__body' }, stage),
   )
   const root = el('div', { class: 'settings embed-viewer', hidden: true }, panel)
@@ -173,6 +212,31 @@ export function createEmbedViewer(): EmbedViewerApi {
     fitStage()
   }
 
+  /**
+   * Swap the glyph and the accessible name together. The visible face stays a
+   * picture either way — only aria/title carry the wording, so nothing in the
+   * header row can widen and wrap the title.
+   */
+  function syncMaxBtn(): void {
+    const label = maximized ? '还原' : '最大化'
+    maxBtnIcon.style.display = maximized ? 'none' : ''
+    restoreBtnIcon.style.display = maximized ? '' : 'none'
+    maxBtn.setAttribute('aria-label', label)
+    maxBtn.setAttribute('title', label)
+    maxBtn.setAttribute('aria-pressed', String(maximized))
+  }
+
+  function setMaximized(next: boolean): void {
+    if (maximized === next) return
+    maximized = next
+    // The class is what CSS keys the maximised layout off
+    // (.settings.embed-viewer:has(.embed-viewer__stage--maximized)); fitStage
+    // only sizes the content inside it.
+    stage.classList.toggle('embed-viewer__stage--maximized', next)
+    syncMaxBtn()
+    fitStage()
+  }
+
   function close(): void {
     if (root.hidden) return
     renderToken += 1
@@ -181,13 +245,19 @@ export function createEmbedViewer(): EmbedViewerApi {
     // Drop the media element so playback stops with the dialog — and so an
     // embedded <model-viewer> leaves the shared renderer (see open()).
     stage.replaceChildren()
-    stage.classList.remove('embed-viewer__stage--zoomed', 'embed-viewer__stage--clip')
+    stage.classList.remove(
+      'embed-viewer__stage--zoomed',
+      'embed-viewer__stage--clip',
+      'embed-viewer__stage--maximized',
+    )
     panel.style.width = ''
     panel.style.height = ''
     userZoom = 1
     fitScale = 1
     panX = 0
     panY = 0
+    maximized = false
+    syncMaxBtn()
     zoomBar.hidden = true
     updateZoomLabel()
   }
@@ -201,14 +271,40 @@ export function createEmbedViewer(): EmbedViewerApi {
    * Zoom: userZoom ≠ 1 pins the panel at the cap and multiplies the fit scale
    * (pan clamps so the content edge never leaves the stage); 适应 resets to
    * the baseline rule above.
+   *
+   * Maximised: the panel pins to the cap and the stage keeps the whole cover
+   * area, so the content is centred on the screen instead of on the dialog's
+   * original rect.
    */
   function fitStage(): void {
     const canvas = stage.querySelector<HTMLElement>('.embed-viewer__render')
-    panel.style.width = ''
-    panel.style.height = ''
     const zoomed = userZoom !== 1 && Boolean(canvas)
     stage.classList.toggle('embed-viewer__stage--zoomed', zoomed)
     stage.classList.toggle('embed-viewer__stage--clip', zoomed)
+    if (maximized) {
+      panel.style.width = ''
+      panel.style.height = ''
+      updateZoomLabel()
+      // No inline sizing while maximised — the panel is covered by the CSS
+      // rule (width/height: 100%), and an inline value would win over it.
+      if (!canvas) return
+      canvas.style.transform = ''
+      canvas.style.transformOrigin = ''
+      const availW = stage.clientWidth
+      const availH = stage.clientHeight
+      if (availW <= 0 || availH <= 0) return
+      const nat = naturalSize(canvas)
+      if (nat.w <= 4 || nat.h <= 4) return
+      fitScale = Math.min(1, availW / nat.w, availH / nat.h)
+      updateZoomLabel()
+      canvas.style.transformOrigin = 'top left'
+      const tx = Math.max(0, (availW - nat.w * fitScale) / 2)
+      const ty = Math.max(0, (availH - nat.h * fitScale) / 2)
+      canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${fitScale})`
+      return
+    }
+    panel.style.width = ''
+    panel.style.height = ''
     updateZoomLabel()
     if (!canvas) return
     canvas.style.transform = ''
@@ -224,9 +320,21 @@ export function createEmbedViewer(): EmbedViewerApi {
     updateZoomLabel()
     if (userZoom === 1) {
       if (fitScale >= 0.999) {
-        // Content fits → the window scales to the content.
-        panel.style.width = `${Math.ceil(nat.w + chromeW)}px`
+        // Content fits → the window scales to the content, but never below the
+        // width the title bar needs (CSS min-width, read back in px).
+        const minW = Number.parseFloat(getComputedStyle(panel).minWidth)
+        panel.style.width = `${Math.max(Math.ceil(nat.w + chromeW), Number.isFinite(minW) ? minW : 0)}px`
         panel.style.height = `${Math.ceil(nat.h + chromeH)}px`
+        // The panel is now possibly wider than the content, so the canvas must
+        // be centred rather than left-pinned. Done with a transform on the
+        // top-left flex position — the maths below assumes exactly that, so a
+        // flex centring here would silently double the offset.
+        const fitW = stage.clientWidth
+        const fitH = stage.clientHeight
+        if (fitW > 0 && fitH > 0) {
+          canvas.style.transformOrigin = 'top left'
+          canvas.style.transform = `translate(${Math.max(0, (fitW - nat.w) / 2)}px, ${Math.max(0, (fitH - nat.h) / 2)}px)`
+        }
         return
       }
       // Content reached the cap → scale it down to the window, centred.
@@ -259,13 +367,19 @@ export function createEmbedViewer(): EmbedViewerApi {
     fitScale = 1
     panX = 0
     panY = 0
+    maximized = false
+    syncMaxBtn()
     zoomBar.hidden = true
     updateZoomLabel()
     const hint = el('div', { class: 'embed-viewer__hint', text: '加载中…' })
     const canvas = el('div', { class: 'embed-viewer__render' })
     canvas.dataset.render = render
     stage.replaceChildren(hint, canvas)
-    stage.classList.remove('embed-viewer__stage--zoomed', 'embed-viewer__stage--clip')
+    stage.classList.remove(
+      'embed-viewer__stage--zoomed',
+      'embed-viewer__stage--clip',
+      'embed-viewer__stage--maximized',
+    )
     panel.style.width = ''
     panel.style.height = ''
     // `.settings` is visible on `.is-open` alone, but keep `hidden` too: it is
@@ -360,6 +474,13 @@ export function createEmbedViewer(): EmbedViewerApi {
   root.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.stopPropagation()
+      // Esc unwinds one step at a time, the way a maximised window does:
+      // maximised → restored → closed. Closing straight from maximised would
+      // swallow the state the user just asked to leave.
+      if (maximized) {
+        setMaximized(false)
+        return
+      }
       close()
     }
   })

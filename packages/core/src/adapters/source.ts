@@ -221,6 +221,115 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     return declared > 0 ? declared : 8
   }
 
+  /** 一次 `paintSelection` 里量好的排版参数，多个矩形共用一套测量值。 */
+  interface PaintMetrics {
+    textarea: HTMLTextAreaElement
+    rows: readonly string[]
+    lineH: number
+    charW: number
+    wide: number
+    tabSize: number
+    padTop: number
+    padLeft: number
+  }
+
+  /**
+   * 把 `[from, to)` 这段源码偏移画成一串矩形（跨行就拆成多段）。
+   *
+   * 列号是字符个数，画矩形却要用**宽度**：全角字占两格、制表符占到下一个制表位，
+   * 直接拿列号乘字符宽，只要行里有中文就会整段左移。
+   */
+  const paintRects = (
+    m: PaintMetrics,
+    from: number,
+    to: number,
+    className: string,
+  ): void => {
+    const layer = selectionLayer
+    if (!layer || to <= from) return
+    let rowStart = 0
+    for (let i = 0; i < m.rows.length && rowStart < to; i++) {
+      const row = m.rows[i] ?? ''
+      const rowEnd = rowStart + row.length
+      const segFrom = Math.max(from, rowStart)
+      const segTo = Math.min(to, rowEnd)
+      if (segTo > segFrom) {
+        const fromX = rowWidth(row, segFrom - rowStart, m.charW, m.wide, m.tabSize)
+        const toX = rowWidth(row, segTo - rowStart, m.charW, m.wide, m.tabSize)
+        const rect = document.createElement('div')
+        rect.className = className
+        rect.style.left = `${m.padLeft + fromX}px`
+        rect.style.top = `${m.padTop + i * m.lineH - m.textarea.scrollTop}px`
+        rect.style.width = `${Math.max(toX - fromX, m.charW)}px`
+        rect.style.height = `${m.lineH}px`
+        layer.appendChild(rect)
+      }
+      rowStart = rowEnd + 1
+    }
+  }
+
+  /**
+   * 分屏 里「当前选中文本的其余出现处」—— 源码视图 CodeMirror `basicSetup` 的
+   * `highlightSelectionMatches` 干的就是这件事，配色也照抄它的 `#99ff7780`，
+   * 免得同一个选中在两个视图里画出两套绿。
+   *
+   * 判据逐条对齐 CM6（`@codemirror/search` 的 `matchHighlighter`），否则一次选中
+   * 会在这边多画或少画几块：
+   * - 大小写敏感（`SearchCursor` 不传 `normalize` 就是逐字节比）
+   * - `minSelectionLength: 1`、选区超过 200 字不画
+   * - `maxMatches: 100`，超出直接一块都不画（CM6 是 `return Decoration.none`）
+   * - 只扫可见区（CM6 遍历 `view.visibleRanges`），文档长了不用白画几千个 div
+   * - 与选区相交的那些排除（`from >= range.to || to <= range.from`）
+   */
+  const paintOtherMatches = (m: PaintMetrics, start: number, end: number): void => {
+    if (end <= start) return
+    const value = m.textarea.value
+    const query = value.slice(start, end)
+    if (query.length === 0 || query.length > 200) return
+
+    // 可见行 = 像素视口折算成行号。CM6 只画 `view.visibleRanges`，等价到这边就是
+    // 只画视口内的行 —— 顺带省掉长文档里几千个白画的 div。
+    const firstVis = Math.max(0, Math.floor(m.textarea.scrollTop / m.lineH))
+    const lastVis = Math.min(
+      m.rows.length - 1,
+      Math.ceil((m.textarea.scrollTop + m.textarea.clientHeight) / m.lineH),
+    )
+    const rowStarts: number[] = []
+    let acc = 0
+    for (const row of m.rows) {
+      rowStarts.push(acc)
+      acc += row.length + 1
+    }
+    const rowOf = (offset: number): number => {
+      let lo = 0
+      let hi = rowStarts.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if ((rowStarts[mid] ?? 0) <= offset) lo = mid
+        else hi = mid - 1
+      }
+      return lo
+    }
+
+    const matches: Array<[number, number]> = []
+    // 在整份 value 上找，不逐行找 —— 选区跨行时逐行 indexOf 永远匹配不到，而
+    // CM6 的 SearchCursor 是可以跨行的。
+    let from = value.indexOf(query)
+    while (from !== -1) {
+      const to = from + query.length
+      // 与选区相交的排除掉（CM6：`from >= range.to || to <= range.from`），
+      // 否则当前这一处会被涂两层。
+      if (from >= end || to <= start) {
+        const row = rowOf(from)
+        if (row >= firstVis && row <= lastVis) matches.push([from, to])
+      }
+      from = value.indexOf(query, from + 1)
+    }
+    // CM6 超过 maxMatches 是 `return Decoration.none`（一块都不画），不是截断。
+    if (matches.length > 100) return
+    for (const [from, to] of matches) paintRects(m, from, to, 'source-selection--match')
+  }
+
   /**
    * 分屏 的选区高亮，画在 OverType 自己的两层之外。
    *
@@ -237,10 +346,8 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     const textarea = instance?.textarea
     if (!textarea || !selectionLayer) return
     selectionLayer.replaceChildren()
-    if (document.activeElement === textarea) return
     const start = textarea.selectionStart ?? 0
     const end = Math.max(textarea.selectionEnd ?? start, start)
-    if (end <= start) return
     const cs = window.getComputedStyle(textarea)
     const padTop = Number.parseFloat(cs.paddingTop) || 0
     const padLeft = Number.parseFloat(cs.paddingLeft) || 0
@@ -248,28 +355,22 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
     const lineH = readLineHeight(textarea)
     const charW = measureCharWidth(textarea)
     if (!(lineH > 0) || !(charW > 0)) return
-    const wide = measureWideCells(textarea)
-    const tabSize = readTabSize(textarea)
-    let rowStart = 0
-    for (let i = 0; i < rows.length && rowStart < end; i++) {
-      const row = rows[i] ?? ''
-      const rowEnd = rowStart + row.length
-      const from = Math.max(start, rowStart)
-      const to = Math.min(end, rowEnd)
-      if (to > from) {
-        // 列号是字符个数，画矩形要用**宽度**：全角字占两格、制表符占到下一个制表位，
-        // 直接拿列号乘字符宽，只要行里有中文就会整段左移。
-        const fromX = rowWidth(row, from - rowStart, charW, wide, tabSize)
-        const toX = rowWidth(row, to - rowStart, charW, wide, tabSize)
-        const rect = document.createElement('div')
-        rect.className = 'source-selection'
-        rect.style.left = `${padLeft + fromX}px`
-        rect.style.top = `${padTop + i * lineH - textarea.scrollTop}px`
-        rect.style.width = `${Math.max(toX - fromX, charW)}px`
-        rect.style.height = `${lineH}px`
-        selectionLayer.appendChild(rect)
-      }
-      rowStart = rowEnd + 1
+    const metrics: PaintMetrics = {
+      textarea,
+      rows,
+      lineH,
+      charW,
+      wide: measureWideCells(textarea),
+      tabSize: readTabSize(textarea),
+      padTop,
+      padLeft,
+    }
+    // 先画其余匹配，选区矩形后画压在上面 —— 两者相交处以选区为准。
+    paintOtherMatches(metrics, start, end)
+    // 焦点还在 textarea 上时不画选区 —— 那时它自己的 ::selection 才是真的，
+    // 两层叠着会比正常选区更深。
+    if (document.activeElement !== textarea && end > start) {
+      paintRects(metrics, start, end, 'source-selection')
     }
   }
 

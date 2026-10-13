@@ -39,6 +39,75 @@
   text-underline-offset: 2px;
 }
 
+/* 分屏 配色 —— 把 OverType 注入样式里写死的 solar 主题改映射到全站 token。
+   OverType 往 <head> 塞一个 `.overtype-container { --text: #0d3b66; ... }` 的
+   规则，不认我们的主题，于是：深色模式下编辑器整块白底（--bg-secondary 钉死
+   #ffffff）、正文深蓝 / H1 橙红不随 --fg，以及 `--code-bg` 与 `--selection`
+   撞成同一个 rgba(244,211,94,0.4)（代码块里的选区和查找高亮看不出边界）。
+
+   实时预览和源码视图都跟主题走，唯独分屏不跟。这里逐条覆盖：特异性
+   (0,2,0) 已经压过 OverType 的 (0,1,0)，加 `!important` 是为了顺带压住
+   `themeToCSSVars` 走 `container.style.cssText +=` 的那条内联路径
+   （overtype.js L288/L385/L1407）—— 内联特异性最高，只有 important 能盖。 */
+.adapter-source .overtype-container {
+  --bg-primary: var(--bg) !important;
+  --bg-secondary: var(--bg) !important;
+  --text: var(--fg) !important;
+  --text-primary: var(--fg) !important;
+  --text-secondary: var(--fg-muted) !important;
+  --h1: var(--fg) !important;
+  --h2: var(--fg) !important;
+  --h3: var(--fg) !important;
+  --strong: var(--fg) !important;
+  --em: var(--fg) !important;
+  --del: var(--fg-muted) !important;
+  --link: var(--accent) !important;
+  --code: var(--fg) !important;
+  /* 关键：与 --selection 分家，选区和匹配才画得出来。 */
+  --code-bg: var(--mk-code-bg, #f6f8fa) !important;
+  --blockquote: var(--fg-muted) !important;
+  --hr: var(--border) !important;
+  /* markdown 标记字本身要压暗但不抢正文 —— OverType 原值是 52% 混白底。 */
+  --syntax-marker: color-mix(in srgb, var(--fg) 52%, transparent) !important;
+  --syntax: var(--fg-muted) !important;
+  --cursor: var(--accent) !important;
+  /* 选区跟全站一致走 accent（浏览器默认 ::selection 也是这个方向），
+     半透明是必须的：.overtype-input::selection 叠在预览层上，不透明会糊字。 */
+  --selection: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+  --list-marker: var(--fg) !important;
+  --raw-line: var(--fg-muted) !important;
+  /* 这里不能写 `var(--border)`：自引用会成环，CSS 变量环的计算值是
+     guaranteed-invalid（实测 getPropertyValue 返回空串，OverType 的
+     `border-color: var(--border)` 就退回 currentColor）。走 `--mk-border`
+     绕开 —— 它声明在 :root 上，继承下来时已解成字面量，不构成环。 */
+  --border: var(--mk-border) !important;
+  --hover-bg: var(--bg-soft) !important;
+  --primary: var(--accent) !important;
+  --placeholder: var(--fg-muted) !important;
+  --toolbar-bg: var(--bg-raise) !important;
+  --toolbar-icon: var(--fg) !important;
+  --toolbar-hover: var(--bg-soft) !important;
+  --toolbar-active: var(--bg-soft) !important;
+  --toolbar-border: var(--border) !important;
+
+  /* 另一套 `data-mode="preview"` 专用变量（themeToCSSVars 的 previewColors →
+     `--preview-* -default`）。我们 `toolbar: false`，没有入口能调到
+     `showPreviewMode()`，所以这组现在是死的；但 solar 的值还摆在那儿，
+     一旦哪天开工具栏就会原样漏出来 —— 一并钉到同一组 token 上。 */
+  --preview-bg-default: transparent !important;
+  --preview-text-default: var(--fg) !important;
+  --preview-h1-default: var(--fg) !important;
+  --preview-h2-default: var(--fg) !important;
+  --preview-h3-default: var(--fg) !important;
+  --preview-strong-default: var(--fg) !important;
+  --preview-em-default: var(--fg) !important;
+  --preview-link-default: var(--accent) !important;
+  --preview-code-default: var(--fg) !important;
+  --preview-code-bg-default: var(--mk-code-bg, #f6f8fa) !important;
+  --preview-blockquote-default: var(--fg-muted) !important;
+  --preview-hr-default: var(--border) !important;
+}
+
 /* 分屏 的选区高亮层（`source.ts` 的 `paintSelection`）。Chrome 只在 textarea
    持有焦点时绘制它自己的 ::selection，而查找面板每定位一次就把焦点抢回去，选区
    会就地消失。这一层按行号 / 列号把同样的矩形画回来，配色沿用 OverType 的
@@ -53,5 +122,13 @@
 .adapter-source .source-selection {
   position: absolute;
   background: var(--selection, rgba(244, 211, 94, 0.4));
+  border-radius: 2px;
+}
+/* 其余匹配（问题 b）：复刻源码视图 CodeMirror `highlightSelectionMatches`
+   的配色 `#99ff7780`。当前那一处仍走 .source-selection（选区色），
+   所以这里排除掉选区自身，只画同一段文本在别处的出现。 */
+.adapter-source .source-selection--match {
+  position: absolute;
+  background: rgba(153, 255, 119, 0.5);
   border-radius: 2px;
 }

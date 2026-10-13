@@ -1059,6 +1059,11 @@ body {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+  /* 弹窗可以铺满窗口（放大预览的最大化态顶到 y=0），正好落进 .titlebar 那条
+     -webkit-app-region:drag 里。拖拽区由原生窗口系统处理，z-index 再高也拦
+     不住它吞鼠标事件 —— 于是最大化后的还原 / 关闭按钮看得见却点不动。浏览器
+     里 app-region 完全不生效，所以这个 bug 只在桌面壳暴露，必须显式声明。 */
+  -webkit-app-region: no-drag;
 }
 
 .settings.is-open {
@@ -2314,13 +2319,14 @@ body > .ML__keyboard {
    这里刻意不用自定义属性中转：width: var(x) 代入两个声明值得到的是非法
    语法，属性会在计算期失效并退回 auto，弹窗就没了上限。
    min-width 是标题栏的下限：贴合规则把面板缩到内容宽时，标题栏（缩放条 +
-   窗口按钮 + 关闭）本身就要 260px 左右，不给下限的话标题会被挤成 0 宽、
-   右端按钮还会溢出面板。 */
+   两个 46px 窗口控件 + padding）本身就要 286px 左右，不给下限的话标题会被
+   挤成 0 宽、右端按钮还会溢出面板。360 让标题仍留得下「图表预览」这类四字
+   标题。 */
 .embed-viewer__panel {
   display: flex;
   flex-direction: column;
   width: min(920px, calc(100vw - 32px));
-  min-width: min(340px, calc(100vw - 32px));
+  min-width: min(360px, calc(100vw - 32px));
   height: min(80vh, 720px);
   overflow: hidden;
 }
@@ -2441,28 +2447,37 @@ body > .ML__keyboard {
 }
 
 /* ── 最大化 / 还原窗口按钮 ───────────────────────────────────────────
-   只画图不写字：标题栏必须单行，「最大化 / 还原」四个字会把标题挤到换行。
-   最大化把面板钉到「上限」，并把舞台撑满覆盖区（.inset），于是内容按整屏适配、
-   而不是按对话框原始矩形居中；再配合 background:transparent 去掉遮罩，读大
-   文档时眼前只有文档。还原回到原来的居中卡片 + 遮罩。 */
+   与 × 同属「标题栏窗口控件」一组，所以走 × 的观感：无边框、透明底、撑满
+   标题栏高度、左侧一条竖分隔线，悬停同款反馈。上一版做成 26px 的实底小方块
+   有两个毛病 —— 和 × 不是一路（边框 + 圆角 + 实底 + accent 描边），以及
+   命中区只有 26x26，铺满窗口后按钮贴在右上角、很难点中。
+   仍只画图不写字：「最大化 / 还原」四个字会把标题挤到第二行，文案只留在
+   aria-label / title。最大化把面板钉到「上限」、舞台撑满覆盖区，内容按整屏
+   适配；还原回到原来的居中卡片 + 遮罩。 */
 .embed-viewer__win-btn {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 46px;
+  height: 100%;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--fg);
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
 .embed-viewer__win-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+
+/* 最大化态常驻高亮（与 × 的悬停同款），表示「现在是铺满的」 */
+.embed-viewer__win-btn[aria-pressed='true'] {
+  color: var(--fg);
+  background: var(--bg-soft);
 }
 
 /* 最大化态：钉上限 + 舞台撑满覆盖区 + 去遮罩。

@@ -378,6 +378,23 @@ assert(/text-overflow:\s*ellipsis/.test(titleRule), '.settings__title ellipsizes
 const headerRule = /\.settings__header\s*\{[^}]*\}/.exec(shellCss)?.[0] ?? ''
 assert(/flex-wrap:\s*nowrap/.test(headerRule), '.settings__header must not flex-wrap')
 
+// 窗口控件同款：和 × 一样无边框、透明底、左侧竖分隔线，而不是实底小方块。
+const winBtnRule = /\.embed-viewer__win-btn\s*\{[^}]*\}/.exec(shellCss)?.[0] ?? ''
+assert(/border-left:\s*1px solid var\(--border\)/.test(winBtnRule), 'maximize button shares the close button frame')
+assert(/background:\s*transparent/.test(winBtnRule), 'maximize button has no filled background, like the close button')
+assert(
+  /\.embed-viewer__win-btn\[aria-pressed='true'\]/.test(shellCss),
+  'maximized state keeps the button highlighted',
+)
+
+// .titlebar 是原生拖拽区；弹窗铺满窗口后按钮正好落进去，没有 no-drag 的话
+// 桌面壳里鼠标事件被 OS 直接吞掉，按钮看得见却点不动。浏览器里 app-region
+// 完全不生效，所以这一层只有读源码钉得住。
+assert(
+  /\.settings\s*\{[^}]*-webkit-app-region:\s*no-drag/.test(shellCss),
+  '.settings must opt out of the titlebar drag region',
+)
+
 console.log(
   'SMOKE UI EMBED OK: viewer open/video render + escape/backdrop close + resolver error copy + model/mindmap tolerance + xmind/drawio/plantuml/file titles + diagram/math variants + zoom toolbar + icon-only maximize/restore with single-row title bar',
 )

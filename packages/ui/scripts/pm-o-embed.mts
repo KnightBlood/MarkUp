@@ -332,6 +332,12 @@ assert(maxBtn, 'maximize button present in the title bar')
 assert((maxBtn.textContent ?? '').trim() === '', 'maximize button carries no wording')
 const glyphs = Array.from(maxBtn.querySelectorAll('svg'))
 assert(glyphs.length === 2, `maximize + restore glyphs both shipped, got ${glyphs.length}`)
+// 没有显式尺寸的 svg 固有尺寸是 300x150，会被 flex 撑满整个按钮，
+// 1.2 的描边于是变成 3.4px 的粗框，和旁边 × 的 1px 笔画完全不是一路。
+assert(
+  glyphs.every((g) => g.getAttribute('width') && g.getAttribute('height')),
+  'glyphs carry explicit sizes',
+)
 assert(
   glyphs[0]?.style.display !== 'none' && glyphs[1]?.style.display === 'none',
   'maximize glyph shown while restored',
@@ -356,6 +362,25 @@ assert(maxBtn.getAttribute('title') === '还原', `maximized title: ${maxBtn.get
 assert(
   glyphs[0]?.style.display === 'none' && glyphs[1]?.style.display === '',
   'restore glyph shown while maximized',
+)
+
+// 最大化分支只该跳过「面板缩到内容」这一步。曾有一条只做 fit 的独立分支把
+// userZoom 整个吞掉 —— 按 +/− 时百分比照变、画面纹丝不动，滚轮和拖拽同样哑掉。
+const zoomBtnMax = (glyph: string): HTMLButtonElement | undefined =>
+  Array.from(viewer.el.querySelectorAll('.embed-viewer__zoom button')).find((b) => b.textContent === glyph)
+zoomBtnMax('+')?.click()
+assert(
+  stageMax?.classList.contains('embed-viewer__stage--zoomed'),
+  'zoom still arms while maximized',
+)
+zoomBtnMax('适应')?.click()
+assert(
+  !stageMax?.classList.contains('embed-viewer__stage--zoomed'),
+  'fit disarms zoom while maximized',
+)
+assert(
+  stageMax?.classList.contains('embed-viewer__stage--maximized'),
+  'fit must not drop the maximized state',
 )
 
 // Esc 逐级退出：最大化 → 还原 → 关闭。直接关掉会让「还原」没有退路。

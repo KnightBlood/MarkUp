@@ -103,17 +103,26 @@ function naturalSize(canvas: HTMLElement): { w: number; h: number } {
  * on purpose: wording (最大化 / 还原) would take horizontal room the header
  * does not have, and the title bar must stay a single row. `currentColor`
  * keeps the glyph in step with the button's own foreground.
+ *
+ * The size attributes are load-bearing. Without them an SVG's intrinsic size
+ * is 300x150, so flex stretches it to the whole 46x45 button and stroke-width
+ * 1.4 maps to a 3.94px slab — three times the ~1px stroke of the × beside it,
+ * and a shape that reads as one of the framed zoom buttons instead of as a
+ * title-bar control. At 16px the same 1.4 would still be heavy, so 1.2 lands
+ * on 1.2px and the glyph's 9-unit box on 9px — what × draws at 20px.
  */
 function svgIcon(pathD: string): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('width', '16')
+  svg.setAttribute('height', '16')
   svg.setAttribute('aria-hidden', 'true')
   svg.setAttribute('focusable', 'false')
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
   path.setAttribute('d', pathD)
   path.setAttribute('fill', 'none')
   path.setAttribute('stroke', 'currentColor')
-  path.setAttribute('stroke-width', '1.4')
+  path.setAttribute('stroke-width', '1.2')
   path.setAttribute('stroke-linejoin', 'round')
   svg.append(path)
   return svg
@@ -272,37 +281,21 @@ export function createEmbedViewer(): EmbedViewerApi {
    * (pan clamps so the content edge never leaves the stage); 适应 resets to
    * the baseline rule above.
    *
-   * Maximised: the panel pins to the cap and the stage keeps the whole cover
+   * Maximised: the panel pins at 100% and the stage keeps the whole cover
    * area, so the content is centred on the screen instead of on the dialog's
-   * original rect.
+   * original rect. Only the "shrink the dialog to the content" step is
+   * skipped there — user zoom, pan and the fit baseline all keep working on
+   * top of the maximised panel, which is why they share the code below
+   * instead of getting a fit-only branch of their own.
    */
   function fitStage(): void {
     const canvas = stage.querySelector<HTMLElement>('.embed-viewer__render')
     const zoomed = userZoom !== 1 && Boolean(canvas)
     stage.classList.toggle('embed-viewer__stage--zoomed', zoomed)
     stage.classList.toggle('embed-viewer__stage--clip', zoomed)
-    if (maximized) {
-      panel.style.width = ''
-      panel.style.height = ''
-      updateZoomLabel()
-      // No inline sizing while maximised — the panel is covered by the CSS
-      // rule (width/height: 100%), and an inline value would win over it.
-      if (!canvas) return
-      canvas.style.transform = ''
-      canvas.style.transformOrigin = ''
-      const availW = stage.clientWidth
-      const availH = stage.clientHeight
-      if (availW <= 0 || availH <= 0) return
-      const nat = naturalSize(canvas)
-      if (nat.w <= 4 || nat.h <= 4) return
-      fitScale = Math.min(1, availW / nat.w, availH / nat.h)
-      updateZoomLabel()
-      canvas.style.transformOrigin = 'top left'
-      const tx = Math.max(0, (availW - nat.w * fitScale) / 2)
-      const ty = Math.max(0, (availH - nat.h * fitScale) / 2)
-      canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${fitScale})`
-      return
-    }
+    // The capped and the maximised layout both size the panel from CSS, so the
+    // inline width/height has to go before measuring — an inline value would
+    // win over the 100% cover rule.
     panel.style.width = ''
     panel.style.height = ''
     updateZoomLabel()
@@ -318,7 +311,7 @@ export function createEmbedViewer(): EmbedViewerApi {
     const chromeH = panel.offsetHeight - availH
     fitScale = Math.min(1, availW / nat.w, availH / nat.h)
     updateZoomLabel()
-    if (userZoom === 1) {
+    if (userZoom === 1 && !maximized) {
       if (fitScale >= 0.999) {
         // Content fits → the window scales to the content, but never below the
         // width the title bar needs (CSS min-width, read back in px).

@@ -8,6 +8,13 @@ import {
 } from '../findText'
 
 export interface FindReplaceOptions {
+  /**
+   * 匹配与替换要作用的文本。
+   *
+   * 必须和 `gotoAnchor` 收到的锚点同一坐标系 —— 实时预览的锚点是按序列化输出算的，
+   * 传 `getValue()`（原始源码）会让高亮整体错位（`- [x]` vs `* \[x]`）。找和换都用
+   * 这一份，`replaceInDocument` 拼出来的自然也在同一坐标系里。
+   */
   getMarkdown: () => string
   gotoAnchor: (anchor: Anchor) => void
   replaceInDocument: (markdown: string) => void

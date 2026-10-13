@@ -38,3 +38,20 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
+
+/* 分屏 的选区高亮层（`source.ts` 的 `paintSelection`）。Chrome 只在 textarea
+   持有焦点时绘制它自己的 ::selection，而查找面板每定位一次就把焦点抢回去，选区
+   会就地消失。这一层按行号 / 列号把同样的矩形画回来，配色沿用 OverType 的
+   --selection，所以失焦前后看不出换了一套。 */
+.adapter-source .source-selection-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.adapter-source .source-selection {
+  position: absolute;
+  background: var(--selection, rgba(244, 211, 94, 0.4));
+  border-radius: 2px;
+}

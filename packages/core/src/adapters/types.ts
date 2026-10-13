@@ -97,6 +97,15 @@ export interface ViewAdapter {
   unmount(): void
   setValue(markdown: string): void
   getValue(): string
+  /**
+   * 查找/替换要用的文本，锚点必须和它同坐标系。
+   *
+   * 默认就是 `getValue()`；只有实时预览需要另给一份 —— 它的 `restoreAnchor` 是拿
+   * **序列化输出**对齐的，而 `getValue()` 在 `setValue` 抢在 `mount` 之前被
+   * `SyncEngine` 调到时还停在原始源码上，两者差在转义与列表符号上（`- [x]` →
+   * `* \[x]`），查找的锚点会整体偏掉几个字符。
+   */
+  getSearchValue?(): string
   focus(): void
   captureAnchor(): Anchor
   restoreAnchor(anchor: Anchor): void

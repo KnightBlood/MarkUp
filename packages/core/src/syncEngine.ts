@@ -39,6 +39,13 @@ export class SyncEngine {
     return this.getActive()?.getValue() ?? ''
   }
 
+  /** 查找/替换用的文本；见 `ViewAdapter.getSearchValue`。 */
+  getSearchValue(): string {
+    const active = this.getActive()
+    if (!active) return ''
+    return active.getSearchValue?.() ?? active.getValue()
+  }
+
   setMarkdown(markdown: string): void {
     this.getActive()?.setValue(markdown)
   }

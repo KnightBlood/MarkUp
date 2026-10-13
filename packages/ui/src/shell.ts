@@ -2440,7 +2440,9 @@ export function renderShell(): ShellHandle {
   )
 
   const findPanel = createFindPanel({
-    getMarkdown: () => editor.getMarkdown(),
+    // 查找/替换的基准文本。别换成 `editor.getMarkdown()` —— 实时预览的
+    // `restoreAnchor` 按序列化输出对齐，两者差在转义上，锚点会整体错位。
+    getMarkdown: () => editor.getSearchValue(),
     gotoAnchor: (anchor) => {
       editor.gotoAnchor(anchor)
       statusbar.refresh()

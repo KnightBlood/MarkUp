@@ -205,7 +205,8 @@ function prefixNode(view: EditorView, pos: number): Node {
       continue
     }
     if (cursor >= pos) break
-    const partial = cutNodeClosed(child, pos - cursor)
+    const rel = pos - cursor
+    const partial = cutNodeClosed(child, rel)
     if (partial) nodes.push(partial)
     break
   }
@@ -252,7 +253,8 @@ function serializePrefix(
 ): string | null {
   if (pos <= 0) return ''
   try {
-    return serializer(prefixNode(view, pos))
+    const s = serializer(prefixNode(view, pos))
+    return s
   } catch {
     return null
   }
@@ -1037,6 +1039,13 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
   let editor: Editor | null = null
   let rootEl: HTMLElement | null = null
   let value = ''
+  /**
+   * `value` 里**已知**是序列化输出的那一份，否则 `null`。
+   *
+   * 查找要现取序列化文本（见 `getSearchValue`），而 ↑/↓ 每点一次都会 recompute，
+   * 整篇序列化一次太贵。它和 `value` 在同一批赋值点一起写，文档一变就跟着变。
+   */
+  let searchValue: string | null = null
   let frontmatter = ''
   let ready = false
   let wantsFocus = false
@@ -1056,6 +1065,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
   const emit = (markdown: string): void => {
     const full = joinFrontmatter({ frontmatter, body: markdown })
     value = full
+    searchValue = full
     if (suppressInitEmit) return
     onChange?.(full)
   }
@@ -1065,6 +1075,8 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     frontmatter = split.frontmatter
     const body = split.body
     value = markdown
+    // 还没解析进文档，手上这份是不是序列化输出无从判断。
+    searchValue = null
     if (!editor || !ready) return
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
@@ -1078,6 +1090,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       })
       view.updateState(state)
       value = joinFrontmatter({ frontmatter, body: serializer(doc) })
+      searchValue = value
     })
   }
 
@@ -1339,6 +1352,7 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     mount(container: HTMLElement): void {
       if (editor) return
       suppressInitEmit = true
+      searchValue = null
       const split = splitFrontmatter(value)
       frontmatter = split.frontmatter
       const initial = split.body
@@ -1429,6 +1443,25 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
 
     getValue(): string {
       return value
+    },
+
+    getSearchValue(): string {
+      // `applyMarkdown` 一进来就 `if (!editor || !ready) return`，而 SyncEngine 是
+      // 先 setValue 后 mount —— 于是首次挂载时 `value` 停在**原始源码**，从没被
+      // 第 1080 行那句重算过。查找面板拿它当锚点基准，`posForOffset` 却对齐序列化
+      // 输出，两者差在 `- [x]` → `* \[x]` 这类转义上，高亮就整体错一个字符。
+      // 这里现取一份与跳转同一坐标系的文本；`getValue()` 不动，保存与视图往返照旧。
+      if (searchValue !== null) return searchValue
+      if (!editor || !ready) return value
+      try {
+        const body = editor.action((ctx) =>
+          ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc),
+        )
+        searchValue = joinFrontmatter({ frontmatter, body })
+        return searchValue
+      } catch {
+        return value
+      }
     },
 
     focus(): void {
@@ -1721,10 +1754,26 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
         const serializer = ctx.get(serializerCtx)
         const fmChars = frontmatter ? frontmatter.length + 2 : 0
         const fmLines = frontmatter ? frontmatter.split('\n').length : 0
+        // 前缀要和整篇对齐之后才算偏移。序列化器会给没写完的块补上尾巴（段落后多
+        // 一个 `\n`、行内节点补 `**`），直接拿 `prefix.length` 会多算 —— 选区往返回来
+        // 就差一个字符。`posForOffset` 已经改成对齐判据，这里是它的反方向，必须一致。
+        let full: string | null = null
+        try {
+          full = serializer(view.state.doc)
+        } catch {
+          full = null
+        }
+        const align = (pos: number, prefix: string): string => {
+          if (full === null) return prefix
+          const len = alignedPrefixLength(view, serializer, pos, full, prefix)
+          return len < 0 ? prefix : prefix.slice(0, len)
+        }
         const anchorAt = (pos: number): { offset: number; line: number } => {
           const prefix = serializePrefix(view, serializer, pos)
           const bodyAnchor =
-            prefix === null ? approximateAnchor(view, pos) : offsetLineFromPrefix(prefix)
+            prefix === null
+              ? approximateAnchor(view, pos)
+              : offsetLineFromPrefix(align(pos, prefix))
           return { offset: bodyAnchor.offset + fmChars, line: bodyAnchor.line + fmLines }
         }
         const selection = view.state.selection
@@ -1780,9 +1829,49 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     },
   }
 
-  function posForOffset(view: EditorView, serializer: (doc: Node) => string, offset: number): number {
+  /**
+   * Markdown 偏移 → ProseMirror 位置。
+   *
+   * 判据不是 `serialize(doc.cut(0, pos))` 的长度，而是**这个切片和整篇序列化对齐之后
+   * 的长度**。差别在这里：把文档从行内节点中间切开，序列化器会替没闭合的节点补上闭合
+   * 定界符，于是每个还没闭合的 `**` / `*` / `` ` `` / 围栏都往「前缀」里多算一段、二分
+   * 提前收口 —— 查找 `**JMeter**` 只点亮了 `JMete`，正是用户截图里那个缺角。补出来的
+   * 闭合定界符在整篇里并不存在，对齐到整篇就停在真实切口上。
+   *
+   * 对齐后仍然只有「行内节点内容中间」是精确的，两端各有一处偏差，所以起点和终点要用
+   * 相反的方向取整：
+   *
+   * - `start` 取「不超过目标的最大位置」。内容起点处前缀少算（节点还没吐出任何内容，开
+   *   定界符也没入账），少算只会让自己更容易被接受，不会把位置顶出去。
+   * - `end` 取「达到目标的最小位置」。内容终点处序列化器把**完整节点连同闭合定界符**
+   *   一起入账、直接越过目标，用「不超过」永远停在目标前一个字 —— `JMeter` 只点亮
+   *   `JMete` 就是这么来的；改用「达到」正好跨过那截多算的闭合定界符。这一步同时也
+   *   定死了终点该落在哪个块：块上边界同样会把目标本身算成「已越过」，所以第 1 步在
+   *   `end` 下改用严格小于。
+   */
+  function posForOffset(
+    view: EditorView,
+    serializer: (doc: Node) => string,
+    offset: number,
+    round: 'start' | 'end' = 'start',
+  ): number {
     const size = view.state.doc.content.size
     const atMost = Math.min(Math.max(offset, 0), size * 64)
+    // 整篇序列化失败时退回「前缀自身长度」，至少块级定位仍然可用。
+    let full: string | null = null
+    try {
+      full = serializer(view.state.doc)
+    } catch {
+      full = null
+    }
+    /** `pos` 处的切点在整篇序列化里真正对应到的偏移。 */
+    const prefixLen = (pos: number): number => {
+      const head = serializePrefix(view, serializer, pos)
+      if (head === null) return -1
+      if (full === null) return head.length
+      return alignedPrefixLength(view, serializer, pos, full, head)
+    }
+    const step1Fits = (len: number): boolean => (round === 'end' ? len < atMost : len <= atMost)
     const cuts = safeCutPositions(view)
     // 1. Largest block boundary whose serialized prefix still fits.
     let lo = 0
@@ -1792,12 +1881,12 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     while (lo <= hi) {
       const mid = (lo + hi) >> 1
       const pos = cuts[mid] ?? 0
-      const text = serializePrefix(view, serializer, pos)
-      if (text === null) {
+      const len = prefixLen(pos)
+      if (len < 0) {
         failed = true
         break
       }
-      if (text.length <= atMost) {
+      if (step1Fits(len)) {
         best = pos
         lo = mid + 1
       } else {
@@ -1807,9 +1896,9 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     if (failed) {
       best = 0
       for (const pos of cuts) {
-        const text = serializePrefix(view, serializer, pos)
-        if (text === null) continue
-        if (text.length <= atMost) best = pos
+        const len = prefixLen(pos)
+        if (len < 0) continue
+        if (step1Fits(len)) best = pos
         else break
       }
     }
@@ -1821,8 +1910,18 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     let high = nextCut
     while (low <= high) {
       const mid = (low + high) >> 1
-      const text = serializePrefix(view, serializer, mid)
-      if (text === null || text.length > atMost) {
+      const len = prefixLen(mid)
+      if (round === 'end') {
+        // 最小的「已经够到目标」的位置。
+        if (len >= 0 && len >= atMost) {
+          best = mid
+          high = mid - 1
+        } else {
+          low = mid + 1
+        }
+        continue
+      }
+      if (len < 0 || len > atMost) {
         high = mid - 1
         continue
       }
@@ -1830,6 +1929,45 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
       low = mid + 1
     }
     return Math.min(Math.max(best, 0), size)
+  }
+
+  /** 两串的最长公共前缀有多长。补出来的闭合定界符在这里会被自然截掉。 */
+  function sharedPrefixLength(a: string, b: string): number {
+    const n = Math.min(a.length, b.length)
+    let i = 0
+    while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i += 1
+    return i
+  }
+
+  /**
+   * 前缀在整篇序列化里对应多少**源码**字符。
+   *
+   * 直接取最长公共前缀会多算一段：内容刚好取满、节点却还没取满时（`alpha beta gamma`
+   * 的内容终点，PM 位置 17），序列化器把整块连同闭合定界符一起吐出来，于是前缀里带着
+   * 那个 `\n`，对齐到整篇照样命中 —— 算出 17，而真正的源码切口是 16。选区往返回来就
+   * 多一个字符，格式菜单会把 `\n` 一起包进 `**` 里。
+   *
+   * 用前一位再量一遍就能把定界符摘出来：两次之差 = 最后一个内容字符的源码长度 + 闭合
+   * 定界符长度，减掉前者剩下的就是定界符。三个常见块实测 —— 段落 `17-15-1 = 1`、粗体
+   * `10-7-1 = 2`、标题 `8-6-1 = 1`，都对得上。
+   *
+   * 只在「整个前缀都对上了」时才多这一次序列化：没对上说明闭合定界符本来就停在了真实
+   * 切口上，没有可摘的东西。整块没内容时（`cutNodeClosed` 直接丢掉那个节点）差值会算成
+   * 负数，那种位置本来也没多算，按 0 处理即可。
+   */
+  function alignedPrefixLength(
+    view: EditorView,
+    serializer: (doc: Node) => string,
+    pos: number,
+    full: string,
+    head: string,
+  ): number {
+    const len = sharedPrefixLength(head, full)
+    if (len === 0 || len < head.length || pos <= 0) return len
+    const prev = serializePrefix(view, serializer, pos - 1)
+    if (prev === null) return len
+    const closer = len - sharedPrefixLength(prev, full) - (head.length - prev.length)
+    return closer > 0 ? len - closer : len
   }
 
   function safeCutPositions(view: EditorView): number[] {
@@ -1848,9 +1986,11 @@ export function createWysiwygAdapter(options: WysiwygAdapterOptions = {}): ViewA
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       const serializer = ctx.get(serializerCtx)
-      const from = posForOffset(view, serializer, anchor.offset)
+      const from = posForOffset(view, serializer, anchor.offset, 'start')
       const to =
-        anchor.endOffset === undefined ? from : posForOffset(view, serializer, anchor.endOffset)
+        anchor.endOffset === undefined
+          ? from
+          : posForOffset(view, serializer, anchor.endOffset, 'end')
       const size = view.state.doc.content.size
       const start = Math.min(Math.max(from, 0), size)
       const end = Math.min(Math.max(Math.max(to, start), 0), size)

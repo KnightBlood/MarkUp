@@ -14,6 +14,32 @@ import {
   type ViewAdapter,
 } from './types'
 
+/**
+ * 这个码点在等宽字体里是不是占两格。
+ *
+ * 只列常用的东亚宽字符区间；判断错一个字不过是高亮偏一格，比整行全错好。代理对
+ * （生僻字、emoji）按高位码元查，落到宽区间即可。
+ */
+function isWideCode(code: number): boolean {
+  return (
+    (code >= 0x1100 && code <= 0x115f) || // 谚文字母
+    (code >= 0x2e80 && code <= 0x303e) || // CJK 部首、康熙部首、CJK 符号
+    (code >= 0x3041 && code <= 0x33ff) || // 假名、注音、兼容、制表、圈号
+    (code >= 0x3400 && code <= 0x4dbf) || // CJK 扩展 A
+    (code >= 0x4e00 && code <= 0x9fff) || // CJK 基本区
+    (code >= 0xa000 && code <= 0xa4cf) || // 彝文
+    (code >= 0xa960 && code <= 0xa97f) || // 谚文扩展 A
+    (code >= 0xac00 && code <= 0xd7a3) || // 谚文音节
+    (code >= 0xf900 && code <= 0xfaff) || // CJK 兼容表意
+    (code >= 0xfe10 && code <= 0xfe19) || // 竖排标点
+    (code >= 0xfe30 && code <= 0xfe6f) || // CJK 兼容形式、小写变体
+    (code >= 0xff00 && code <= 0xff60) || // 全角 ASCII
+    (code >= 0xffe0 && code <= 0xffe6) || // 全角符号
+    (code >= 0xd800 && code <= 0xdbff) || // 代理对高位，随低位走宽区间
+    (code >= 0x17000 && code <= 0x18aff) // 西夏文、契丹文
+  )
+}
+
 const decodeEntities = (text: string): string =>
   text
     .replace(/&lt;/g, '<')
@@ -65,6 +91,9 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
   let instance: OverTypeInstance | null = null
   let rootEl: HTMLElement | null = null
   let gutterEl: HTMLElement | null = null
+  let selectionLayer: HTMLElement | null = null
+  let charWidth = 0
+  let wideCells = 0
   let lineNumbers = false
   let spellcheck = false
   let readOnly = false
@@ -84,6 +113,174 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
   const syncGutterScroll = (): void => {
     if (!gutterEl || !instance?.textarea) return
     gutterEl.scrollTop = instance.textarea.scrollTop
+  }
+
+  const measureAdvance = (textarea: HTMLTextAreaElement, sample: string): number => {
+    const cs = window.getComputedStyle(textarea)
+    const probe = document.createElement('span')
+    probe.setAttribute('aria-hidden', 'true')
+    probe.style.cssText = [
+      'position:absolute',
+      'left:-100000px',
+      'top:0',
+      'visibility:hidden',
+      'white-space:pre',
+      // Same face as the textarea, ligatures off — OverType pins those to keep
+      // its two layers aligned, so the advance width has to come from them.
+      `font-family:${cs.fontFamily}`,
+      `font-size:${cs.fontSize}`,
+      `font-weight:${cs.fontWeight}`,
+      'font-variant:normal',
+      'font-variant-ligatures:none',
+    ].join(';')
+    probe.textContent = sample
+    document.body.appendChild(probe)
+    const measured = probe.getBoundingClientRect().width / sample.length
+    probe.remove()
+    return measured
+  }
+
+  const measureCharWidth = (textarea: HTMLTextAreaElement): number => {
+    if (charWidth > 0) return charWidth
+    const measured = measureAdvance(textarea, '0'.repeat(200))
+    if (measured > 0) charWidth = measured
+    return charWidth
+  }
+
+  /**
+   * 全角字符折合成多少个半角格。
+   *
+   * 等宽字体里 `前缀` 这样的全角字占两格。源码列号是「字符个数」，视觉格数却是
+   * 「宽度」，两者对不上 —— `# 前缀 JMeter` 里 `JMeter` 的列号是 5、格数是 7，
+   * 拿列号直接乘字符宽会把高亮整体左移两格。真去量一遍，不猜是不是正好 2。
+   */
+  const measureWideCells = (textarea: HTMLTextAreaElement): number => {
+    if (wideCells > 0) return wideCells
+    const ascii = measureCharWidth(textarea)
+    // 用一个必然走中文字体的字去量，避免命中 ASCII 回退。
+    const wide = measureAdvance(textarea, '国'.repeat(100))
+    if (ascii > 0 && wide > 0) wideCells = wide / ascii
+    return wideCells
+  }
+
+  /** 源码列号 → 该行左边缘起算的像素宽度。 */
+  const rowWidth = (
+    row: string,
+    col: number,
+    charW: number,
+    wide: number,
+    tabSize: number,
+  ): number => {
+    let cells = 0
+    const limit = Math.min(Math.max(col, 0), row.length)
+    for (let i = 0; i < limit; i++) {
+      const code = row.charCodeAt(i)
+      // 制表符按 tab-size 跳到下一个制表位，不是一格。
+      if (code === 9) cells += tabSize - (cells % tabSize)
+      else cells += isWideCode(code) ? wide : 1
+    }
+    return cells * charW
+  }
+
+  /**
+   * 行距。
+   *
+   * 不能用 `scrollHeight / 行数` —— 文档比视口矮时 `scrollHeight` 就是
+   * `clientHeight`（一整屏），除出来的「行高」是整屏高度，矩形直接画到几十行以外
+   * （实测 71.8px vs 真实 22.4px）。`line-height` 交给浏览器算出来的 px 是准的；
+   * 只有 `normal` 拿不到数值，才探针量两行的差。
+   */
+  const readLineHeight = (textarea: HTMLTextAreaElement): number => {
+    const declared = Number.parseFloat(window.getComputedStyle(textarea).lineHeight)
+    if (declared > 0) return declared
+    const cs = window.getComputedStyle(textarea)
+    const probe = document.createElement('span')
+    probe.setAttribute('aria-hidden', 'true')
+    probe.style.cssText = [
+      'position:absolute',
+      'left:-100000px',
+      'top:0',
+      'visibility:hidden',
+      'white-space:pre',
+      `font-family:${cs.fontFamily}`,
+      `font-size:${cs.fontSize}`,
+      `font-weight:${cs.fontWeight}`,
+      'font-variant:normal',
+      'font-variant-ligatures:none',
+    ].join(';')
+    probe.textContent = 'X\nX'
+    document.body.appendChild(probe)
+    const measured = probe.getBoundingClientRect().height / 2
+    probe.remove()
+    return measured > 0 ? measured : 0
+  }
+
+  /** 制表位间距，`tab-size` 拿不到数值时退回等宽字体的默认 8。 */
+  const readTabSize = (textarea: HTMLTextAreaElement): number => {
+    const declared = Number.parseFloat(window.getComputedStyle(textarea).tabSize)
+    return declared > 0 ? declared : 8
+  }
+
+  /**
+   * 分屏 的选区高亮，画在 OverType 自己的两层之外。
+   *
+   * Chrome 只在 `<textarea>` 持有焦点时绘制它自己的 `::selection`，而查找面板每
+   * 定位一次就把焦点抢回去 —— 选区就地消失，分屏看起来「压根不高亮」。CodeMirror
+   * 和 ProseMirror 都把选区画成自己的装饰、失焦也留着，唯独 OverType 的选区长在
+   * 组件内部。这里补上一层：预览层是「一行源码 = 一行渲染」的同字号等宽排版，所以
+   * 按行号 / 列号算出来的矩形正好压在被渲染的那几个字符上。
+   *
+   * 焦点还在 textarea 上时不画 —— 那时它自己的 `::selection` 才是真的，两层叠着
+   * 会比正常选区更深。
+   */
+  const paintSelection = (): void => {
+    const textarea = instance?.textarea
+    if (!textarea || !selectionLayer) return
+    selectionLayer.replaceChildren()
+    if (document.activeElement === textarea) return
+    const start = textarea.selectionStart ?? 0
+    const end = Math.max(textarea.selectionEnd ?? start, start)
+    if (end <= start) return
+    const cs = window.getComputedStyle(textarea)
+    const padTop = Number.parseFloat(cs.paddingTop) || 0
+    const padLeft = Number.parseFloat(cs.paddingLeft) || 0
+    const rows = textarea.value.split('\n')
+    const lineH = readLineHeight(textarea)
+    const charW = measureCharWidth(textarea)
+    if (!(lineH > 0) || !(charW > 0)) return
+    const wide = measureWideCells(textarea)
+    const tabSize = readTabSize(textarea)
+    let rowStart = 0
+    for (let i = 0; i < rows.length && rowStart < end; i++) {
+      const row = rows[i] ?? ''
+      const rowEnd = rowStart + row.length
+      const from = Math.max(start, rowStart)
+      const to = Math.min(end, rowEnd)
+      if (to > from) {
+        // 列号是字符个数，画矩形要用**宽度**：全角字占两格、制表符占到下一个制表位，
+        // 直接拿列号乘字符宽，只要行里有中文就会整段左移。
+        const fromX = rowWidth(row, from - rowStart, charW, wide, tabSize)
+        const toX = rowWidth(row, to - rowStart, charW, wide, tabSize)
+        const rect = document.createElement('div')
+        rect.className = 'source-selection'
+        rect.style.left = `${padLeft + fromX}px`
+        rect.style.top = `${padTop + i * lineH - textarea.scrollTop}px`
+        rect.style.width = `${Math.max(toX - fromX, charW)}px`
+        rect.style.height = `${lineH}px`
+        selectionLayer.appendChild(rect)
+      }
+      rowStart = rowEnd + 1
+    }
+  }
+
+  const onSelectionChange = (): void => {
+    paintSelection()
+  }
+
+  const onTextareaScroll = (): void => {
+    syncGutterScroll()
+    // The painted rects are in textarea coordinates, so they ride along.
+    paintSelection()
   }
 
   const applyChrome = (): void => {
@@ -240,17 +437,39 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
       } as Options)
       ignoreInitNotify = false
       instance = editors[0] ?? null
-      instance?.textarea?.addEventListener('scroll', syncGutterScroll, { passive: true })
-      instance?.textarea?.addEventListener('beforeinput', onBeforeInput)
+      const textarea = instance?.textarea
+      if (textarea) {
+        // OverType owns the wrapper (`position: relative`, `overflow: hidden`),
+        // so a layer sized to it is clipped and positioned with the textarea.
+        const layer = document.createElement('div')
+        layer.className = 'source-selection-layer'
+        layer.setAttribute('aria-hidden', 'true')
+        textarea.parentElement?.appendChild(layer)
+        selectionLayer = layer
+        textarea.addEventListener('scroll', onTextareaScroll, { passive: true })
+        textarea.addEventListener('beforeinput', onBeforeInput)
+        textarea.addEventListener('focus', paintSelection)
+        textarea.addEventListener('blur', paintSelection)
+      }
+      document.addEventListener('selectionchange', onSelectionChange)
+      charWidth = 0
+      wideCells = 0
       applyChrome()
       setPlantumlResolver(resolvePlantuml)
     },
 
     unmount(): void {
       setPlantumlResolver(null)
-      instance?.textarea?.removeEventListener('scroll', syncGutterScroll)
+      document.removeEventListener('selectionchange', onSelectionChange)
+      const textarea = instance?.textarea
+      textarea?.removeEventListener('scroll', onTextareaScroll)
+      textarea?.removeEventListener('focus', paintSelection)
+      textarea?.removeEventListener('blur', paintSelection)
       instance?.destroy()
       instance = null
+      selectionLayer = null
+      charWidth = 0
+      wideCells = 0
       rootEl?.remove()
       rootEl = null
       gutterEl = null
@@ -368,14 +587,15 @@ export function createSourceAdapter(options: SourceAdapterOptions = {}): ViewAda
           : Math.min(Math.max(anchor.endOffset, pos), value.length)
       textarea.focus()
       textarea.setSelectionRange(pos, end)
-      const scroller = textarea.closest('.editor-viewport') ?? textarea.parentElement
-      if (scroller && typeof scroller.scrollTo === 'function') {
-        const before = textarea.value.slice(0, pos).split('\n').length
-        const lineHeight = textarea.scrollHeight / Math.max(textarea.value.split('\n').length, 1)
-        const targetTop = Math.max(0, (before - 1) * lineHeight - scroller.clientHeight / 3)
-        scroller.scrollTo({ top: targetTop, behavior: 'smooth' })
-      }
-      syncGutterScroll()
+      // The textarea is the scroller. OverType grows its wrapper to the content
+      // and lets the input scroll inside it, so `.editor-viewport` never
+      // overflows — scrolling that instead did nothing, which is why 上一个 /
+      // 下一个 never moved the view in 分屏.
+      const rows = textarea.value.split('\n')
+      const lineIndex = textarea.value.slice(0, pos).split('\n').length - 1
+      const lineHeight = textarea.scrollHeight / Math.max(rows.length, 1)
+      textarea.scrollTop = Math.max(0, lineIndex * lineHeight - textarea.clientHeight / 3)
+      onTextareaScroll()
     },
 
     setLineNumbers(enabled: boolean): void {

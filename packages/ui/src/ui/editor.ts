@@ -32,6 +32,8 @@ const MODE_LABELS: Record<ViewKind, string> = {
 export interface EditorPaneApi {
   el: HTMLElement
   getMarkdown(): string
+  /** 文本查找/替换的基准；见 `ViewAdapter.getSearchValue`。 */
+  getSearchValue(): string
   setValue(markdown: string): void
   gotoAnchor(anchor: Anchor): void
   setView(kind: ViewKind): void
@@ -239,6 +241,7 @@ export function renderEditorPane(
   const editorPane: EditorPaneApi = {
     el: pane,
     getMarkdown: () => sync.getMarkdown(),
+    getSearchValue: () => sync.getSearchValue(),
     setValue: (markdown: string) => {
       const active = sync.getActive()
       if (active) active.setValue(markdown)

@@ -30,9 +30,14 @@ function brightness(color: string): number {
 export function shellThemeMode(): ShellThemeMode {
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
   // No token resolved (stylesheet not applied yet) — the OS preference is the
-  // least surprising guess.
+  // least surprising guess. Guarded the way shell.ts guards it: jsdom ships no
+  // matchMedia, and a bare call there throws out of every guest that only
+  // wanted a `light`/`dark` word.
   if (!bg) {
-    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return 'light'
   }
   return brightness(bg) < 0.5 ? 'dark' : 'light'
 }

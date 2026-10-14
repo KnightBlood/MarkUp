@@ -581,7 +581,7 @@ export function createSettings(callbacks: SettingsCallbacks): SettingsApi {
       el(
         'label',
         { class: 'settings__field' },
-        el('span', { class: 'settings__label', text: '代码字体（源码视图与代码块）' }),
+        el('span', { class: 'settings__label', text: '代码字体（源码/分屏视图与代码块）' }),
         codeFontInput,
       ),
       el(

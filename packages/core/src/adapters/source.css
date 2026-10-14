@@ -39,6 +39,23 @@
   text-underline-offset: 2px;
 }
 
+/* 分屏 的字体 —— 决定对齐，不只是观感。OverType 的 `.overtype-input` /
+   `.overtype-preview` 都读 `--instance-font-family`（styles.js L126），不设就落到
+   它写死的默认等宽栈，于是「代码字体」这个设置根本够不到分屏。
+
+   挂在 wrapper 上而不是 container：`initInstanceVars` 把这四个 `--instance-*`
+   内联写在 wrapper 自己身上（overtype.js L288 起），容器层的声明会被自己那条内联
+   值盖掉；`!important` 才压得住内联（样式 important > 内联普通声明）。
+
+   顺带修掉一个真正的错位：默认等宽栈里没有一个字体带汉字，中文只能落到栈尾的
+   generic `monospace`（Windows 上是 SimSun），而 SimSun 没有粗体字面，浏览器给它
+   合成粗体时每字撑宽 1px（14px 时 14→15px）。透明 textarea 只有正常字重、预览层
+   的标题和加粗是 700，两层就逐个汉字错开 1px —— 选区矩形跟着整段右偏。栈尾那几家
+   CJK 字体（tokens.css）带真粗体，两层取到同一字面后宽度就一致了。 */
+.adapter-source .overtype-wrapper {
+  --instance-font-family: var(--mk-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace) !important;
+}
+
 /* 分屏 配色 —— 把 OverType 注入样式里写死的 solar 主题改映射到全站 token。
    OverType 往 <head> 塞一个 `.overtype-container { --text: #0d3b66; ... }` 的
    规则，不认我们的主题，于是：深色模式下编辑器整块白底（--bg-secondary 钉死

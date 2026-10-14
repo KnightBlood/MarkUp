@@ -20,7 +20,16 @@
   /* Kept as separate tokens so a user-supplied family list can be prepended
      without losing the fallback stack (see `fontVars` in ui/src/theme.ts). */
   --font-ui-default: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-editor-default: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  /* The CJK families are load-bearing, not decoration. Not one of the
+     monospace families above carries Han glyphs, so Chinese falls through to
+     the generic `monospace` at the end of the stack — SimSun on Windows, which
+     has no bold face. The browser then synthesises one and widens every glyph
+     by 1px (14→15px at 14px). 分屏 lays a transparent textarea under the
+     preview: the textarea is always weight 400, the preview renders headings
+     and **bold** at 700, so the two layers drift 1px per Chinese character and
+     the selection rects shift with them. These three ship a real bold face at
+     exactly 1em, so both layers resolve to one face at one width. */
+  --font-editor-default: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", monospace;
   --font-ui: var(--font-ui-default);
   --font-editor: var(--font-editor-default);
   --font-size: 14px;
@@ -115,7 +124,7 @@
   --ok: #1a7f37;
   --warn: #9a6700;
   --bad: #cf222e;
-  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", monospace;
 }
 
 .theme-github-dark {
@@ -131,7 +140,7 @@
   --ok: #3fb950;
   --warn: #d29922;
   --bad: #f85149;
-  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-editor: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", monospace;
 }
 
 .theme-custom {
